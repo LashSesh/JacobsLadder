@@ -1,0 +1,9 @@
+[package]
+name = "manifest-gen"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+psk-types = { path = "../../packages/psk-types" }

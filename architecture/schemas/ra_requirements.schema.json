@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.ra_requirements.yaml/1.0",
+  "title": "ra_requirements.yaml",
+  "description": "Strukturschema von architecture/ra_requirements.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "coverage_required_for_reference_release": {
+      "type": "number"
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "artifact": {
+            "type": "string"
+          },
+          "test": {
+            "type": "string"
+          },
+          "statement": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "severity",
+          "artifact",
+          "test",
+          "statement"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "coverage_required_for_reference_release",
+    "requirements"
+  ]
+}

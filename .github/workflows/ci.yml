@@ -1,0 +1,48 @@
+# CI-Pflichtstufen aus Regel 26.6:
+#   lint -> build -> unit -> property -> schema -> fsm -> negative ->
+#   integration -> golden -> replay -> security -> differential ->
+#   conformance-report.
+#
+# Phase I0 (WP00) enthaelt ausschliesslich die ersten drei Stufen. Die
+# uebrigen pruefen Eigenschaften von Code, der erst ab I1 (property,
+# schema), I2 (fsm), I3+ (negative, integration) usw. existiert; eine
+# Stufe hinzuzufuegen, die nichts zu pruefen hat, waere entweder immer
+# gruen ohne Aussagekraft oder erzwungen rot — beides keine ehrliche
+# Pruefung. Jede Stufe wird ergaenzt, sobald ihre Phase erreicht ist.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lint:
+    name: lint
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: rustfmt --check
+        run: cargo fmt --all -- --check
+      - name: clippy -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+  build:
+    name: build
+    needs: lint
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: cargo build --workspace --locked
+        run: cargo build --workspace --locked
+
+  unit:
+    name: unit
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: cargo test --workspace --locked
+        run: cargo test --workspace --locked

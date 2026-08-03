@@ -1,0 +1,58 @@
+schema_version: psk.constitution/1.0
+contract_version: 1.0.0
+title: Konstitutioneller Maschinenvertrag der post-symbolischen Kausalsprache
+subtitle: RDA-kompilierte und ADAMANT-gebundene ausführbare Verfassung für native Feldkognition
+phase: implementation-constitution
+status: normative
+identity_mode: external_lock
+language: de
+parent_theory:
+  sha256: 829df842e54b9ccb51e2bfa30c6b6af0939828eea26752506e6aa66685861583
+  title: Native Feldkognitions- und Realitätshorizontnormalform
+normative_precedence:
+  - constitution.lock.json
+  - constitution.yaml
+  - target_identity.json
+  - type_registry.yaml
+  - invariants.yaml
+  - state_machines.yaml
+  - operator_registry.yaml
+  - gate_policy.yaml
+  - proof_obligations.yaml
+  - requirement_matrix.yaml
+  - release_gate.yaml
+  - schemas/*.schema.json
+core_axioms:
+  - NON_ANTHROPOMORPHIC_CORE
+  - CORE_FIELD_SEPARATION
+  - ANCHOR_RELATIVITY
+  - REALITY_TYPE_SEPARATION
+  - FACTICITY_NO_IMPLICIT_PROMOTION
+  - NO_SILENT_LOSS
+  - GATE_BEFORE_EFFECT
+  - EXTERNAL_RECONCILIATION
+  - TRACE_MONOTONICITY
+  - REPLAY_BINDING
+  - DEPENDENCY_QUOTIENT
+  - SCOPE_BOUND_CONSENSUS
+  - FIELD_MORPHOGENESIS_BOUNDED
+  - INTRINSIC_EXTRINSIC_IDENTITY_SEPARATION
+  - LOCAL_GLOBAL_CLOSURE
+boot_policy:
+  default: fail_closed
+  undecidable: hold
+  missing_artifact: quarantine
+  digest_mismatch: fail
+amendment_policy:
+  requires_new_constitution_id: true
+  requires_migration_plan: true
+  requires_replay_regression: true
+  requires_negative_test_update: true
+external_effect_policy:
+  simulation_is_not_actuation: true
+  effect_token_required: true
+  receipt_required: true
+  reconciliation_required_for_actualization: true
+implementation_refinement:
+  required: true
+  relation: forward_simulation_plus_invariant_preservation

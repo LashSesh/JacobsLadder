@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.ra_invariants.yaml/1.0",
+  "title": "ra_invariants.yaml",
+  "description": "Strukturschema von architecture/ra_invariants.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "invariants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "predicate": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "severity",
+          "predicate"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "invariants"
+  ]
+}

@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.port_registry.yaml/1.0",
+  "title": "port_registry.yaml",
+  "description": "Strukturschema von architecture/port_registry.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer"
+    },
+    "envelope": {
+      "type": "string"
+    },
+    "delivery": {
+      "type": "string"
+    },
+    "idempotency_key": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "persist_before_process": {
+      "type": "boolean"
+    },
+    "ports": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "payload": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "errors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "from",
+              "to",
+              "payload",
+              "kind",
+              "errors"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "payload": {
+                "type": "string"
+              },
+              "errors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "from",
+              "to",
+              "payload",
+              "errors"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "payload": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "errors": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "sync": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "from",
+              "to",
+              "payload",
+              "kind",
+              "errors",
+              "sync"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "payload": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "readonly": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "from",
+              "to",
+              "payload",
+              "kind",
+              "readonly"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "count",
+    "envelope",
+    "delivery",
+    "idempotency_key",
+    "persist_before_process",
+    "ports"
+  ]
+}

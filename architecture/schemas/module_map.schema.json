@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.module_map.yaml/1.0",
+  "title": "module_map.yaml",
+  "description": "Strukturschema von architecture/module_map.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer"
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "layer": {
+                "type": "string"
+              },
+              "package": {
+                "type": "string"
+              },
+              "caps": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "layer",
+              "package",
+              "caps"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "layer": {
+                "type": "string"
+              },
+              "package": {
+                "type": "string"
+              },
+              "caps": {
+                "type": "array"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "layer",
+              "package",
+              "caps"
+            ]
+          }
+        ]
+      }
+    },
+    "forbidden_edges": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "count",
+    "layers",
+    "modules",
+    "forbidden_edges"
+  ]
+}

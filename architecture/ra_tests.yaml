@@ -1,0 +1,19 @@
+schema: psk.conformance-tests/1.1
+tests:
+  # --- Architekturpflichtzeugen ---
+  - {id: T-ARCH-001, kind: negative, mutation: alter_architecture_register_without_lock_update, expect: boot_fail_PSK_E103}
+  - {id: T-ARCH-002, kind: negative, mutation: introduce_cyclic_module_dependency, expect: build_fail}
+  - {id: T-PORT-001, kind: negative, mutation: add_direct_cross_module_call_without_port, expect: build_fail}
+  - {id: T-OWN-001, kind: negative, mutation: create_owned_object_from_foreign_module, expect: FAIL_PSK_E014}
+  - {id: T-FSM-001, kind: negative, mutation: take_forbidden_transition, expect: FAIL}
+  - {id: T-PASS-001, kind: negative, mutation: reorder_compiler_passes, expect: divergence_report}
+  - {id: T-MEM-001, kind: negative, mutation: promote_residual_to_canonical_directly, expect: FAIL}
+  - {id: T-SEC-001, kind: negative, mutation: adapter_writes_outside_token_scope, expect: blocked_by_substrate_and_FAIL}
+  - {id: T-REF-001, kind: negative, mutation: add_unmapped_concrete_transition, expect: refinement_check_fail}
+  - {id: T-OBS-001, kind: negative, mutation: observability_writes_to_store, expect: capability_violation}
+  - {id: T-REPLAY-002, kind: negative, mutation: replay_triggers_real_effect, expect: FAIL_PSK_E015}
+  - {id: T-CONC-001, kind: property, run: concurrent_stress, expect: canonical_digest_equals_sequential}
+  - {id: T-OBSV-001, kind: property, run: with_and_without_profiling, expect: identical_canonical_digest}
+  - {id: T-CAN-001, kind: property, run: canonicalization_idempotence, expect: Can(Can(x)) == Can(x)}
+  - {id: T-IR-001, kind: property, run: ir_roundtrip, expect: encode(decode(x)) == x}
+  - {id: T-RATCHET-001, kind: property, run: ratchet_monotonicity, expect: allowed_next_non_increasing}

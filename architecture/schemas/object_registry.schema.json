@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.object_registry.yaml/1.0",
+  "title": "object_registry.yaml",
+  "description": "Strukturschema von architecture/object_registry.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "objects": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "owner": {
+                "type": "string"
+              },
+              "lifetime": {
+                "type": "string"
+              },
+              "memory": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "owner",
+              "lifetime",
+              "memory"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "owner": {
+                "type": "string"
+              },
+              "lifetime": {
+                "type": "string"
+              },
+              "memory": {
+                "type": "string"
+              },
+              "canonical": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "owner",
+              "lifetime",
+              "memory",
+              "canonical"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "objects"
+  ]
+}

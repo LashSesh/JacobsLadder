@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.machine-certificate/1.0",
+  "title": "MachineCertificate",
+  "description": "MachineCertificate (OBJ-CRT), Struktur 7.38 (PSK-RA v1.0.2).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "psk.machine-certificate/1.0"
+    },
+    "I_C": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "I_A": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "I_M": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "I_t": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "conformance_class": {
+      "enum": [
+        "C0",
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5"
+      ]
+    },
+    "feature_coverage": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Vokabulartyp FC0..FC8: im Werk referenziert, nicht strukturell definiert."
+      },
+      "description": "abgeleiteter Deckungsvektor"
+    },
+    "replay_class": {
+      "enum": [
+        "R0",
+        "R1",
+        "R2",
+        "R3"
+      ]
+    },
+    "gate_report_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "trace_head": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "replay_manifest_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "residue_report_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "capability_audit_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "negative_test_report_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "scope": {
+      "type": "string",
+      "description": "explizit, nicht universell"
+    },
+    "issued_at": {
+      "type": "object",
+      "description": "Struktur 6.10 (DualTime).",
+      "properties": {
+        "tau_i": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tau_e": {
+          "type": "string",
+          "format": "date-time",
+          "description": "RFC3339Nano, Pflicht \"Z\"-Suffix."
+        },
+        "clock_ref": {
+          "type": "string"
+        },
+        "uncertainty_ns": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "tau_i",
+        "tau_e",
+        "clock_ref",
+        "uncertainty_ns"
+      ]
+    },
+    "signature": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "I_C",
+    "I_A",
+    "I_M",
+    "I_t",
+    "conformance_class",
+    "feature_coverage",
+    "replay_class",
+    "gate_report_digest",
+    "trace_head",
+    "replay_manifest_digest",
+    "residue_report_digest",
+    "capability_audit_digest",
+    "negative_test_report_digest",
+    "scope",
+    "issued_at",
+    "signature"
+  ]
+}

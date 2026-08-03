@@ -1,0 +1,55 @@
+schema: psk.port-registry/1.0
+count: 42
+envelope: psk.message/1.0
+delivery: exactly_once
+idempotency_key: [run_id, port_id, seq]
+persist_before_process: true
+# Die neun mit kind/sync/readonly annotierten Eintraege stammen wortgetreu
+# aus Listing C.2 (Anhang C, "Schema und Ausschnitt"). Die uebrigen 33
+# sind aus Kapitel 4.2 (Portregister-Tabelle) ergaenzt, wo nur
+# id/from/to/payload/errors angegeben sind. "kind" (request/event,
+# Regel 4.7) wird fuer diese 33 NICHT erfunden: die Schedulersemantik,
+# die kind traegt, ist Gegenstand von Kapitel 14 und Phase I5, nicht I0.
+ports:
+  - {id: P00, from: M26, to: M00, payload: BootRequest, kind: request, errors: [PSK-E101]}
+  - {id: P01, from: M00, to: M01, payload: BundleImage, errors: [PSK-E102]}
+  - {id: P02, from: M01, to: M02, payload: "CanonicalBytes, Digest", errors: [PSK-E102]}
+  - {id: P03, from: M02, to: M03, payload: ArtifactRecord, errors: [PSK-E001]}
+  - {id: P04, from: M03, to: M04, payload: SchemaReport, errors: [PSK-E001]}
+  - {id: P05, from: M04, to: M26, payload: IdentityBinding, errors: [PSK-E103]}
+  - {id: P06, from: M17, to: M05, payload: ExternalRecord, errors: [PSK-E002]}
+  - {id: P07, from: M05, to: M06, payload: AnchorSnapshot, kind: request, errors: [PSK-E002]}
+  - {id: P08, from: M06, to: M07, payload: ThoughtBody, errors: [PSK-E001]}
+  - {id: P09, from: M07, to: M23, payload: RealityClassification, errors: [PSK-E004]}
+  - {id: P10, from: M22, to: M23, payload: M13Chart, errors: [PSK-E011]}
+  - {id: P11, from: M23, to: M08, payload: IRBundle, errors: [PSK-E001]}
+  - {id: P12, from: M08, to: M09, payload: FieldIdentity, errors: [PSK-E013]}
+  - {id: P13, from: M09, to: M10, payload: FieldProjection, errors: [PSK-E013]}
+  - {id: P14, from: M10, to: M24, payload: DependencyProfile, errors: [PSK-E006]}
+  - {id: P15, from: M24, to: M11, payload: CandidateCapsule, errors: [PSK-E003]}
+  - {id: P16, from: M11, to: M22, payload: SeamQuery, errors: [PSK-E011]}
+  - {id: P17, from: M22, to: M11, payload: CellReport, errors: [PSK-E011]}
+  - {id: P18, from: M11, to: M12, payload: ClosureReport, errors: [PSK-E011]}
+  - {id: P19, from: M12, to: M13, payload: WitnessReport, errors: [PSK-E005]}
+  - {id: P20, from: M13, to: M14, payload: ValidationPlan, errors: [PSK-E005]}
+  - {id: P21, from: M14, to: M15, payload: GateReportPass, kind: request, errors: [PSK-E007]}
+  - {id: P22, from: M15, to: M16, payload: EffectToken, kind: request, errors: [PSK-E008]}
+  - {id: P23, from: M16, to: M19, payload: EffectAttempt, errors: [PSK-E008]}
+  - {id: P24, from: M17, to: M18, payload: ExternalReceipt, kind: event, errors: [PSK-E009]}
+  - {id: P25, from: M18, to: M12, payload: ReconciliationReport, errors: [PSK-E009]}
+  - {id: P26, from: M18, to: M06, payload: ReanalysisRequest, errors: [PSK-E010]}
+  - {id: P27, from: M18, to: M05, payload: ReanchorRequest, errors: [PSK-E002]}
+  - {id: P28, from: "*", to: M19, payload: "TraceSegment, ResidueRecord", kind: request, errors: [PSK-E014], sync: true}
+  - {id: P29, from: M19, to: M25, payload: ReplayCursor, errors: [PSK-E015]}
+  - {id: P30, from: M25, to: "*", payload: TickGrant, errors: [PSK-E016]}
+  - {id: P31, from: M20, to: M08, payload: MorphogenesisDecision, errors: [PSK-E017]}
+  - {id: P32, from: M08, to: M20, payload: SpawnRequest, errors: [PSK-E017]}
+  - {id: P33, from: M14, to: M19, payload: GateReport, kind: request, errors: [PSK-E014], sync: true}
+  - {id: P34, from: M19, to: M21, payload: ReplayManifest, errors: [PSK-E015]}
+  - {id: P35, from: M21, to: M26, payload: ReleaseReport, errors: [PSK-E018]}
+  - {id: P36, from: M24, to: M21, payload: RevisionProposal, kind: event, errors: [PSK-E012]}
+  - {id: P37, from: M26, to: M16, payload: TokenInvalidate, errors: [PSK-E008]}
+  - {id: P38, from: M19, to: M27, payload: ViewQuery, kind: request, readonly: true}
+  - {id: P39, from: M13, to: M09, payload: ProbeRequest, errors: [PSK-E005]}
+  - {id: P40, from: M20, to: M19, payload: ExcisionCertificate, errors: [PSK-E014]}
+  - {id: P41, from: M26, to: M25, payload: SchedulerControl, errors: [PSK-E016]}

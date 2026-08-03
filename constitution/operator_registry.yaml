@@ -1,0 +1,212 @@
+schema: psk.operator-registry/1.0
+source:
+  document: CPSK_Konstitutioneller_Maschinenvertrag.md
+  state_machine_register: "Kapitel D — State-Machine-Register, Zeilen 1573-1688"
+  lifecycle_chapters: "Kapitel 31 Thought-Lifecycle-Automat / 32 Effekt-Lifecycle-Automat / 33 Facettenmorphogenese, Zeilen 691-719"
+  note: >
+    Jeder Eintrag stammt aus einer tatsaechlichen 'operator:'-Transition in Kapitel D.
+    Kapitel 31-33 nennen keine Operator-Bezeichner woertlich (nur Zustandsnamen, die
+    Draft->...->Actualized-Kette und die Aktivierungsanforderungen); die Zuordnung
+    thought/effect/field <-> Kapitel 31/32/33 ist ueber Zustandsnamen- und
+    Anforderungs-Uebereinstimmung verifiziert (siehe notes unten).
+count: 23
+unique_operator_names: 22
+operators:
+  # --- thought machine (Kapitel D, Zeilen 1588-1620; entspricht Kapitel 31, Zeilen 691-697) ---
+  - id: classify_coherent
+    machine: thought
+    from_state: SPECIFIED
+    to_state: POSSIBLE
+    gate: G-REALITY-COHERENT
+    source_lines: "1589-1592"
+  - id: simulate
+    machine: thought
+    from_state: POSSIBLE
+    to_state: SIMULATED
+    gate: G-SIMULATION
+    source_lines: "1593-1596"
+  - id: select_candidate
+    machine: thought
+    from_state: POSSIBLE
+    to_state: SELECTED
+    gate: G-SELECTION
+    source_lines: "1597-1600"
+  - id: execute_effect
+    machine: thought
+    from_state: SELECTED
+    to_state: ATTEMPTED
+    gate: G-EFFECT
+    source_lines: "1601-1604"
+  - id: bind_external_record
+    machine: thought
+    from_state: ATTEMPTED
+    to_state: OBSERVED
+    gate: G-OBSERVATION
+    source_lines: "1605-1608"
+  - id: reconcile
+    machine: thought
+    from_state: OBSERVED
+    to_state: ACTUALIZED
+    gate: G-ACTUALIZATION
+    source_lines: "1609-1612"
+  - id: route_residue
+    machine: thought
+    from_state: "*"
+    to_state: RESIDUE
+    gate: G-RESIDUE
+    source_lines: "1613-1616"
+  - id: retract
+    machine: thought
+    from_state: "*"
+    to_state: RETRACTED
+    gate: G-RETRACTION
+    source_lines: "1617-1620"
+
+  # --- effect machine (Kapitel D, Zeilen 1626-1656; entspricht Kapitel 32, Zeilen 700-706) ---
+  # Degradierte Tabellenform: jede Transition ist im Quelltext eine flache 3-Element-Liste
+  # [from, to, operator] statt eines from/to/operator/gate-Mappings; kein 'gate:'-Schluessel
+  # vorhanden -> gate bleibt hier null statt erfunden.
+  - id: gate_plan
+    machine: effect
+    from_state: DRAFT
+    to_state: GATED
+    gate: null
+    source_lines: "1629-1631"
+  - id: issue_token
+    machine: effect
+    from_state: GATED
+    to_state: TOKENIZED
+    gate: null
+    source_lines: "1632-1634"
+  - id: execute
+    machine: effect
+    from_state: TOKENIZED
+    to_state: ATTEMPTED
+    gate: null
+    source_lines: "1635-1637"
+  - id: observe
+    machine: effect
+    from_state: ATTEMPTED
+    to_state: RECORDED
+    gate: null
+    source_lines: "1638-1640"
+  - id: reconcile
+    machine: effect
+    from_state: RECORDED
+    to_state: RECONCILED
+    gate: null
+    source_lines: "1641-1643"
+  - id: promote_fact
+    machine: effect
+    from_state: RECONCILED
+    to_state: ACTUALIZED
+    gate: null
+    source_lines: "1644-1646"
+  - id: compensate
+    machine: effect
+    from_state: ATTEMPTED
+    to_state: COMPENSATED
+    gate: null
+    source_lines: "1647-1649"
+  - id: fail
+    machine: effect
+    from_state: "*"
+    to_state: FAILED
+    gate: null
+    source_lines: "1650-1656"  # Transition-Tripel ueber Seitenumbruch [[SEITE 90]] hinweg gerissen
+
+  # --- field machine (Kapitel D, Zeilen 1657-1687; entspricht Kapitel 33, Zeilen 710-719) ---
+  - id: activate
+    machine: field
+    from_state: PROPOSED
+    to_state: ACTIVE
+    gate: null
+    source_lines: "1660-1662"
+  - id: quiesce
+    machine: field
+    from_state: ACTIVE
+    to_state: QUIESCENT
+    gate: null
+    source_lines: "1663-1665"
+  - id: propose_split
+    machine: field
+    from_state: ACTIVE
+    to_state: SPLIT_PENDING
+    gate: null
+    source_lines: "1666-1668"
+  - id: propose_merge
+    machine: field
+    from_state: ACTIVE
+    to_state: MERGE_PENDING
+    gate: null
+    source_lines: "1669-1671"
+  - id: fold
+    machine: field
+    from_state: ACTIVE
+    to_state: FOLDED
+    gate: null
+    source_lines: "1672-1674"
+  - id: retire
+    machine: field
+    from_state: QUIESCENT
+    to_state: RETIRED
+    gate: null
+    source_lines: "1675-1677"
+  - id: excise
+    machine: field
+    from_state: "*"
+    to_state: EXCISED
+    gate: null
+    source_lines: "1678-1680"
+
+contract: every_operator_traces_to_an_actual_operator_transition_in_anhang_d_state_machine_register
+
+notes:
+  - >
+    'reconcile' kommt im Quelltext zweimal als Operator vor: thought.OBSERVED->ACTUALIZED
+    (Zeile 1611, gate G-ACTUALIZATION) und effect.RECORDED->RECONCILED (Zeile 1643,
+    kein Gate). Beide sind als eigene Eintraege belassen, weil beides real vorkommende,
+    verschiedene Transitionen in verschiedenen Automaten sind -> 23 Eintraege bei
+    22 eindeutigen Operator-Namen.
+  - >
+    'gate' ist nur fuer die thought-Maschine gefuellt, weil dort explizite 'gate:'-Schluessel
+    im Text stehen. Fuer effect und field liefert Kapitel D keine Gate-Angabe (degradierte
+    Tripel-Form ohne gate-Feld); Kapitel 46 (Gatefamilie, Zeilen 1061-1074) listet andere,
+    nicht 1:1 zuordenbare Gates (G-BOOT, G-LAWFUL, G-REACHABLE, G-CONSTRUCTIBLE, G-CONSENSUS,
+    G-RELEASE) und wurde deshalb NICHT zum Auffuellen benutzt.
+  - >
+    Das bereits im Projekt vorhandene constitution/state_machines.yaml (schema
+    psk.state-machines/1.1) enthaelt fuer effect/field zusaetzliche Gates (z. B. G-EFFECT
+    fuer gate_plan/issue_token, G-MORPH fuer propose_split/propose_merge/fold/activate)
+    sowie zusaetzliche Transitionen/Maschinen (runtime, object, capsule, token;
+    lose_receipt, independent_observe, reactivate, ...), die im CPSK-Quelltext (schema
+    psk.state-machines/1.0, Kapitel D) nicht vorkommen. Das sind spaetere Verfeinerungen
+    dieses Projekts, keine CPSK-Textbelege - sie wurden bewusst NICHT uebernommen.
+  - >
+    Kapitel 31-33 (Zeilen 691-719) nennen keine Operator-Bezeichner woertlich. Die
+    Zuordnung Automat<->Maschine ist ueber Zustands- und Anforderungslisten verifiziert:
+    Kapitel 31 zaehlt exakt die thought-Zustaende auf (Specified/Possible/Simulated/
+    Selected/Attempted/Observed/Actualized/Residue) und dieselben vier verbotenen
+    Kurzschluesse wie Kapitel D 'forbidden' (Zeilen 1622-1625); Kapitel 32 nennt die
+    effect-Kette Draft->Gated->Tokenized->Attempted->Recorded->Reconciled->Actualized
+    identisch zur Transitionsfolge in Kapitel D und erwaehnt eine "Kompensationsoperation"
+    (Zeile 705), die dem 'compensate'-Operator entspricht; Kapitel 33 nennt "Quieszenz"
+    (Zeile 717, = QUIESCENT/quiesce) und die Vertrag-33.2-Anforderungsliste (Scope, Linse,
+    Operatoren, Evidenzregeln, Dependencyprofil, Budget, Testplan, Rollback, Lineage,
+    Zeilen 715f.), die sich in Kapitel D's field.activation_requirements
+    (Zeilen 1681-1687) wiederfindet.
+  - >
+    Der im Auftrag erwaehnte Hinweis "zu 'state_machines_shared' im selben Dokument"
+    wurde per Volltextsuche (grep -i "shared") im CPSK-Dokument NICHT gefunden - es
+    gibt keinen Abschnitt und keinen Schluessel dieses Namens im Text. Diese Referenz
+    wird hier als nicht verifizierbar gemeldet statt stillschweigend uebernommen.
+  - >
+    Smart-Quote-Artefakt im Quelltext: 'from: '*'' wird an vier Stellen (Zeilen 1613,
+    1617, 1650, 1678) als 'from: '*'' mit typografischem Anfuehrungszeichen gerendert
+    (Konvertierungsartefakt). Hier normalisiert zum literalen String "*" (Wildcard
+    "jeder Zustand"), konsistent mit dessen Verwendung in allen drei Maschinen.
+  - >
+    Die Operator-Hypothese aus dem Auftrag (22 Namen) wurde vollstaendig gegen Kapitel D
+    verifiziert: alle 22 genannten Namen kommen tatsaechlich als 'operator:'-Wert in
+    genau einer (bei reconcile: zwei) Transition(en) vor; es gibt in Kapitel D keine
+    weiteren, in der Hypothese fehlenden Operatoren.

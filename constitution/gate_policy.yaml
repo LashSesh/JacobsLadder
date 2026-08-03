@@ -1,0 +1,22 @@
+# Quelle: CPSK_Konstitutioneller_Maschinenvertrag.md, Teil VII, Kapitel 46 "Gatefamilie"
+# (Tabelle Zeilen 1063-1072: Spalten Gate | Voraussetzungen | Passziel) sowie
+# Axiom 46.1 "Fail closed" (Zeile 1073-1074): "Fehlende oder unentscheidbare blocking
+# Voraussetzungen erzeugen HOLD oder FAIL, niemals implizites PASS."
+#
+# Diese Datei bildet AUSSCHLIESSLICH die 9 Gates der CPSK-Gatefamilie aus Kapitel 46 ab.
+# Sie ist eine andere, kleinere Gatemenge als architecture/gate_registry.yaml (22 PSK-RA-Gates
+# mit order/owner/target) und darf NICHT damit vermengt werden. Felder je Gate stammen exakt
+# aus den beiden Tabellenspalten "Voraussetzungen" (-> prerequisites) und "Passziel" (-> pass_target).
+schema: psk.gate-family/1.0
+default_on_undecidable: HOLD  # Axiom 46.1: unentscheidbare blocking Voraussetzungen -> HOLD
+default_on_missing: FAIL      # Axiom 46.1: fehlende blocking Voraussetzungen -> FAIL (niemals implizites PASS)
+gates:
+  - {id: G-BOOT, prerequisites: [Manifest, Digest, Schemas, Register, "blocking Obligations"], pass_target: "Kernel aktiv"}
+  - {id: G-REALITY-COHERENT, prerequisites: ["Well-formedness", "interne Konsistenz"], pass_target: Possible}
+  - {id: G-LAWFUL, prerequisites: ["Modell deklariert", "Constraints erfüllt"], pass_target: Lawful}
+  - {id: G-REACHABLE, prerequisites: [Kausalpfad, Budget, Zeitfenster], pass_target: Reachable}
+  - {id: G-CONSTRUCTIBLE, prerequisites: ["ausführbarer Plan", Capabilities, Dependencies], pass_target: Constructible}
+  - {id: G-CONSENSUS, prerequisites: [Scope, Quotient, Witnessrang, Obstruktionen], pass_target: "Scoped Pass"}
+  - {id: G-EFFECT, prerequisites: [Risiko, Autorität, Ressourcen, Rollback], pass_target: Tokenize}
+  - {id: G-ACTUALIZATION, prerequisites: [Token, Außenrecord, Reconciliation, Trace], pass_target: Actualized}
+  - {id: G-RELEASE, prerequisites: ["alle blocking Prüfungen", R2, "keine blocking Residuen"], pass_target: Release}

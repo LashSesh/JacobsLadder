@@ -1,0 +1,11 @@
+[package]
+name = "verify-refinement"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+psk-types = { path = "../../packages/psk-types" }
+serde = { workspace = true }
+serde_yaml = { workspace = true }

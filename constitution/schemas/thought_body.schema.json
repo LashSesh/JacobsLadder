@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.thought-body/1.0",
+  "title": "ThoughtBody",
+  "description": "ThoughtBody (OBJ-THB), Struktur 7.7 (PSK-RA v1.0.2).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "psk.thought-body/1.0"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^psk:[A-Za-z0-9_-]+:[0-9a-f]{64}$",
+      "description": "Definition 6.5: psk:<Sorte>:<Digest>."
+    },
+    "anchor_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^psk:[A-Za-z0-9_-]+:[0-9a-f]{64}$",
+        "description": "Definition 6.5: psk:<Sorte>:<Digest>."
+      },
+      "description": ">= 1, oder explizit unanchored:true"
+    },
+    "unanchored": {
+      "type": "boolean"
+    },
+    "claim": {
+      "$ref": "#/$defs/Claim"
+    },
+    "models": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Vokabulartyp ModelRef: im Werk referenziert, nicht strukturell definiert."
+      },
+      "description": "Modellfamilie mit Version und Geltungsbereich"
+    },
+    "trajectories": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Vokabulartyp TrajectoryRef: im Werk referenziert, nicht strukturell definiert."
+      }
+    },
+    "reality_status": {
+      "type": "string",
+      "description": "Vokabulartyp RealityStatus: im Werk referenziert, nicht strukturell definiert."
+    },
+    "facticity": {
+      "type": "string",
+      "description": "Vokabulartyp FactStatus: im Werk referenziert, nicht strukturell definiert."
+    },
+    "witness_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^psk:[A-Za-z0-9_-]+:[0-9a-f]{64}$",
+        "description": "Definition 6.5: psk:<Sorte>:<Digest>."
+      }
+    },
+    "uncertainty": {
+      "type": "string",
+      "description": "Vokabulartyp UncertaintyBlock: im Werk referenziert, nicht strukturell definiert."
+    },
+    "consequences": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Vokabulartyp ConsequenceRef: im Werk referenziert, nicht strukturell definiert."
+      },
+      "description": "Folgenklasse, Reversibilitaet, Reichweite"
+    },
+    "validation_plan_ref": {
+      "type": "string",
+      "pattern": "^psk:[A-Za-z0-9_-]+:[0-9a-f]{64}$",
+      "description": "Definition 6.5: psk:<Sorte>:<Digest>."
+    },
+    "gate_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^psk:[A-Za-z0-9_-]+:[0-9a-f]{64}$",
+        "description": "Definition 6.5: psk:<Sorte>:<Digest>."
+      }
+    },
+    "residue_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^psk:[A-Za-z0-9_-]+:[0-9a-f]{64}$",
+        "description": "Definition 6.5: psk:<Sorte>:<Digest>."
+      }
+    },
+    "lineage": {
+      "type": "string",
+      "description": "Vokabulartyp Lineage: im Werk referenziert, nicht strukturell definiert."
+    },
+    "trace_ref": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "id",
+    "anchor_refs",
+    "unanchored",
+    "claim",
+    "models",
+    "trajectories",
+    "reality_status",
+    "facticity",
+    "witness_refs",
+    "uncertainty",
+    "consequences",
+    "gate_refs",
+    "residue_refs",
+    "lineage",
+    "trace_ref"
+  ],
+  "$defs": {
+    "Claim": {
+      "type": "object",
+      "properties": {
+        "text": {
+          "type": "string",
+          "description": "nur Projektion, nicht normativ; geht nicht in Can ein (Axiom 7.8)"
+        },
+        "formal": {
+          "type": "string",
+          "description": "kanonischer Zustand"
+        },
+        "directionality": {
+          "enum": [
+            "internal",
+            "external"
+          ]
+        }
+      },
+      "required": [
+        "text",
+        "formal",
+        "directionality"
+      ]
+    }
+  }
+}

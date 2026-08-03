@@ -1,0 +1,19 @@
+schema: psk.invariants/1.0
+invariants:
+  - {id: I-ID-001, scope: boot, severity: blocking, predicate: runtime.constitution_id == lock.constitution_id}
+  - {id: I-TYPE-001, scope: global, severity: blocking, predicate: all_committed_objects_validate_against_schema}
+  - {id: I-ANCHOR-001, scope: claim, severity: blocking, predicate: every_external_claim_references_anchor_or_is_marked_unanchored}
+  - {id: I-REAL-001, scope: thought, severity: blocking, predicate: reality_status_monotone_only_via_named_constructor}
+  - {id: I-FACT-001, scope: thought, severity: blocking, predicate: facticity_status_monotone_only_via_named_constructor}
+  - {id: I-FIELD-001, scope: field, severity: blocking, predicate: no_field_identity_equals_system_identity}
+  - {id: I-DEP-001, scope: consensus, severity: blocking, predicate: consensus_uses_effective_witness_rank_not_facet_count}
+  - {id: I-SCOPE-001, scope: consensus, severity: blocking, predicate: consensus_scope_never_widens_without_gate}
+  - {id: I-GATE-001, scope: effect, severity: blocking, predicate: no_external_effect_without_PASS_and_effect_token}
+  - {id: I-RECON-001, scope: effect, severity: blocking, predicate: no_actualization_without_external_record_and_reconciliation}
+  - {id: I-TRACE-001, scope: global, severity: blocking, predicate: trace_is_append_only_and_every_commit_has_trace_head}
+  - {id: I-REPLAY-001, scope: run, severity: blocking, predicate: equal_run_descriptor_and_input_digest_yield_equal_canonical_outcome}
+  - {id: I-RES-001, scope: global, severity: blocking, predicate: every_nonpass_produces_visible_residue_or_hold_reason}
+  - {id: I-GLUE-001, scope: global, severity: blocking, predicate: global_commit_requires_pairwise_overlap_compatibility_and_second_order_gate}
+  - {id: I-MORPH-001, scope: field, severity: blocking, predicate: field_spawn_requires_gain_budget_lineage_test_and_rollback}
+  - {id: I-PERSONA-001, scope: aperture, severity: blocking, predicate: persona_projection_has_no_intrinsic_system_authority}
+  - {id: I-BOUND-001, scope: effect, severity: blocking, predicate: internal_freedom_does_not_create_external_capability}

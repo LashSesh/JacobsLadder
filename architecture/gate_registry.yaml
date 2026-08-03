@@ -1,0 +1,27 @@
+schema: psk.gate-registry/1.0
+default_on_undecidable: HOLD
+default_on_missing: FAIL
+gates:
+  - {id: G-BOOT, order: 2, owner: M14, target: kernel_active}
+  - {id: G-PROFILE, order: 1, owner: M14, target: profile_change}
+  - {id: G-SCHEDULE, order: 1, owner: M25, target: tick_grant}
+  - {id: G-REALITY-COHERENT, order: 1, owner: M07, target: POSSIBLE}
+  - {id: G-LAWFUL, order: 1, owner: M07, target: LAWFUL}
+  - {id: G-REACHABLE, order: 1, owner: M07, target: REACHABLE}
+  - {id: G-CONSTRUCTIBLE, order: 1, owner: M07, target: CONSTRUCTIBLE}
+  - {id: G-SIMULATION, order: 1, owner: M14, target: SIMULATED}
+  - {id: G-SELECTION, order: 1, owner: M14, target: SELECTED}
+  - {id: G-CONSENSUS, order: 2, owner: M14, target: scoped_pass}
+  - {id: G-CLOSURE, order: 2, owner: M11, target: canonical_commit}
+  - {id: G-EFFECT, order: 2, owner: M14, target: tokenize}
+  - {id: G-OBSERVATION, order: 1, owner: M17, target: OBSERVED}
+  - {id: G-ACTUALIZATION, order: 2, owner: M18, target: ACTUALIZED}
+  - {id: G-RESIDUE, order: 1, owner: M19, target: residue_visible}
+  - {id: G-RETRACTION, order: 1, owner: M19, target: RETRACTED}
+  - {id: G-MORPH, order: 1, owner: M20, target: field_transition}
+  - {id: G-EXCISION, order: 2, owner: M20, target: excision_effective}
+  - {id: G-SELF-COMPILE, order: 2, owner: M21, target: activation_proposal}
+  - {id: G-RESUME, order: 1, owner: M26, target: READY}
+  - {id: G-SHUTDOWN, order: 1, owner: M26, target: STOPPED}
+  - {id: G-RELEASE, order: 2, owner: M21, target: release}
+report_required_always: true

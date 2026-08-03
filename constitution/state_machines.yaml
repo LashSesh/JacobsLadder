@@ -1,0 +1,108 @@
+schema: psk.state-machines/1.1
+machines: [runtime, object, thought, effect, field, capsule, token]
+runtime:
+  initial: BOOTING
+  states: [BOOTING, BOUND, SHADOW, READY, EXECUTING, RECONCILING, HOLD, QUARANTINE, FAILED, STOPPED]
+  transitions:
+     - {from: BOOTING, to: BOUND, operator: bind_identity, gate: G-BOOT}
+     - {from: BOUND, to: SHADOW, operator: enter_shadow, gate: G-PROFILE}
+     - {from: BOUND, to: READY, operator: enter_ready, gate: G-PROFILE}
+     - {from: SHADOW, to: READY, operator: promote_profile,gate: G-PROFILE}
+     - {from: READY, to: EXECUTING, operator: dispatch_tick, gate: G-SCHEDULE}
+     - {from: EXECUTING, to: RECONCILING, operator: await_receipt, gate: G-OBSERVATION}
+     - {from: RECONCILING, to: READY, operator: close_cycle, gate: G-ACTUALIZATION}
+     - {from: "*", to: HOLD, operator: hold, gate: G-RESIDUE}
+     - {from: HOLD, to: READY, operator: resume, gate: G-RESUME}
+     - {from: "*", to: QUARANTINE, operator: quarantine, gate: G-RESIDUE}
+     - {from: "*", to: FAILED, operator: fail, gate: null}
+     - {from: "*", to: STOPPED, operator: shutdown, gate: G-SHUTDOWN}
+  forbidden: [BOOTING->EXECUTING, SHADOW->EXECUTING, EXECUTING->READY, QUARANTINE->READY]
+object:
+  initial: CREATED
+  states: [CREATED, TYPED, ANCHORED, PROJECTED, COMPILED, VERIFIED, RUNNABLE, EXECUTING, OBSERVED, RECONCILED, ARCHIVED, HOLD, RESIDUAL, QUARANTINE, REJECTED]
+  transitions:
+     - {from: CREATED, to: TYPED, operator: type, gate: null}
+     - {from: TYPED, to: ANCHORED, operator: anchor, gate: null}
+     - {from: ANCHORED, to: PROJECTED, operator: project, gate: null}
+     - {from: PROJECTED, to: COMPILED, operator: compile, gate: null}
+     - {from: COMPILED, to: VERIFIED, operator: verify, gate: G-CLOSURE}
+     - {from: VERIFIED, to: RUNNABLE, operator: bind_gates, gate: G-EFFECT}
+     - {from: RUNNABLE, to: EXECUTING, operator: execute, gate: null}
+     - {from: EXECUTING, to: OBSERVED, operator: observe, gate: G-OBSERVATION}
+     - {from: OBSERVED, to: RECONCILED, operator: reconcile, gate: G-ACTUALIZATION}
+     - {from: RECONCILED,to: ARCHIVED, operator: archive, gate: null}
+     - {from: "*", to: HOLD, operator: hold, gate: G-RESIDUE}
+     - {from: "*", to: RESIDUAL, operator: residualize,gate: G-RESIDUE}
+     - {from: "*", to: QUARANTINE, operator: quarantine, gate: G-RESIDUE}
+     - {from: "*", to: REJECTED, operator: reject, gate: null}
+  forbidden: [PROJECTED->RECONCILED, COMPILED->RECONCILED, VERIFIED->ARCHIVED]
+thought:
+  initial: SPECIFIED
+  states: [SPECIFIED, POSSIBLE, SIMULATED, SELECTED, ATTEMPTED, OBSERVED, ACTUALIZED, RESIDUE, RETRACTED]
+  transitions:
+     - {from: SPECIFIED, to: POSSIBLE, operator: classify_coherent, gate: G-REALITY-COHERENT}
+     - {from: POSSIBLE, to: SIMULATED, operator: simulate, gate: G-SIMULATION}
+     - {from: POSSIBLE, to: SELECTED, operator: select_candidate, gate: G-SELECTION}
+     - {from: SELECTED, to: ATTEMPTED, operator: execute_effect, gate: G-EFFECT}
+     - {from: ATTEMPTED, to: OBSERVED, operator: bind_external_record, gate: G-OBSERVATION}
+     - {from: OBSERVED, to: ACTUALIZED, operator: reconcile, gate: G-ACTUALIZATION}
+     - {from: "*", to: RESIDUE, operator: route_residue, gate: G-RESIDUE}
+     - {from: "*", to: RETRACTED, operator: retract, gate: G-RETRACTION}
+  forbidden: [SIMULATED->ACTUALIZED, SELECTED->OBSERVED, ATTEMPTED->ACTUALIZED, POSSIBLE->ACTUALIZED]
+effect:
+  initial: DRAFT
+  states: [DRAFT, GATED, TOKENIZED, ATTEMPTED, RECORDED, RECONCILED, ACTUALIZED, COMPENSATED, FAILED, UNKNOWN_EFFECT]
+  transitions:
+     - {from: DRAFT, to: GATED, operator: gate_plan, gate: G-EFFECT}
+     - {from: GATED, to: TOKENIZED, operator: issue_token, gate: G-EFFECT}
+     - {from: TOKENIZED, to: ATTEMPTED, operator: execute, gate: null}
+     - {from: ATTEMPTED, to: RECORDED, operator: observe, gate: G-OBSERVATION}
+     - {from: ATTEMPTED, to: UNKNOWN_EFFECT, operator: lose_receipt, gate: null}
+     - {from: RECORDED, to: RECONCILED, operator: reconcile, gate: G-ACTUALIZATION}
+     - {from: RECONCILED, to: ACTUALIZED, operator: promote_fact, gate: G-ACTUALIZATION}
+     - {from: ATTEMPTED, to: COMPENSATED,operator: compensate, gate: G-EFFECT}
+     - {from: UNKNOWN_EFFECT, to: RECORDED, operator: independent_observe, gate: G-OBSERVATION}
+     - {from: "*", to: FAILED, operator: fail, gate: null}
+  forbidden: [DRAFT->TOKENIZED, TOKENIZED->RECONCILED, ATTEMPTED->ACTUALIZED, UNKNOWN_EFFECT->ACTUALIZED]
+field:
+  initial: PROPOSED
+  states: [PROPOSED, ACTIVE, QUIESCENT, SPLIT_PENDING, MERGE_PENDING, FOLDED, RETIRED, EXCISED]
+  transitions:
+     - {from: PROPOSED, to: ACTIVE, operator: activate, gate: G-MORPH}
+     - {from: ACTIVE, to: QUIESCENT, operator: quiesce, gate: null}
+     - {from: ACTIVE, to: SPLIT_PENDING, operator: propose_split, gate: G-MORPH}
+     - {from: ACTIVE, to: MERGE_PENDING, operator: propose_merge, gate: G-MORPH}
+     - {from: ACTIVE, to: FOLDED, operator: fold, gate: G-MORPH}
+     - {from: QUIESCENT, to: RETIRED, operator: retire, gate: null}
+     - {from: "*", to: EXCISED, operator: excise, gate: G-EXCISION}
+  activation_requirements:
+     [positive_marginal_gain, scope_declared, dependency_profile, budget, rollback, lineage]
+ra_extensions: # Prinzip 4.3 (C_PSK): Peripherie, nicht Kern. Nur aktiv, wenn ein
+               # DomainProfile sie ausdruecklich einschaltet. thought/field oben
+               # spiegeln C_PSK Anhang D wortgetreu (PSK-RA v1.0.2, Vertrag 13.7/13.13).
+  thought:
+     - {id: RA-EXT-THOUGHT-01, from: SIMULATED, to: SELECTED, operator: select_candidate, gate: G-SELECTION}
+  field:
+     - {id: RA-EXT-FIELD-01, from: QUIESCENT, to: ACTIVE, operator: reactivate, gate: G-MORPH}
+capsule:
+  initial: SEALED
+  states: [SEALED, PERTURBED, RATCHETED, SUPPORTED, CRYSTALLIZED, RESIDUAL, QUARANTINED]
+  transitions:
+     - {from: SEALED, to: PERTURBED, operator: perturb, gate: null}
+     - {from: PERTURBED, to: RATCHETED, operator: ratchet, gate: null}
+     - {from: RATCHETED, to: RATCHETED, operator: ratchet, gate: null}
+     - {from: RATCHETED, to: SUPPORTED, operator: check_support, gate: null}
+     - {from: SUPPORTED, to: CRYSTALLIZED, operator: crystallize, gate: G-CLOSURE}
+     - {from: "*", to: RESIDUAL, operator: residualize, gate: G-RESIDUE}
+     - {from: "*", to: QUARANTINED, operator: quarantine, gate: G-RESIDUE}
+  forbidden: [SEALED->CRYSTALLIZED, PERTURBED->CRYSTALLIZED]
+  monotonicity: {field: allowed_next, direction: non_increasing}
+token:
+  initial: ISSUED
+  states: [ISSUED, CONSUMED, EXPIRED, INVALIDATED, REVOKED]
+  transitions:
+     - {from: ISSUED, to: CONSUMED, operator: consume_once, gate: null}
+     - {from: ISSUED, to: EXPIRED, operator: expire, gate: null}
+     - {from: ISSUED, to: INVALIDATED, operator: plan_changed, gate: null}
+     - {from: ISSUED, to: REVOKED, operator: revoke, gate: null}
+  forbidden: [CONSUMED->CONSUMED, EXPIRED->CONSUMED, INVALIDATED->CONSUMED, REVOKED->CONSUMED]

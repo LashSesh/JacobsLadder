@@ -1,0 +1,29 @@
+schema: psk.object-registry/1.0
+objects:
+  - {id: OBJ-RTM, name: RuntimeManifest, owner: M04, lifetime: L-RUN, memory: canonical}
+  - {id: OBJ-IDB, name: IdentityBinding, owner: M04, lifetime: L-RUN, memory: canonical}
+  - {id: OBJ-ANC, name: AnchorSnapshot, owner: M05, lifetime: L-EPOCH, memory: canonical}
+  - {id: OBJ-THB, name: ThoughtBody, owner: M06, lifetime: L-RUN, memory: working}
+  - {id: OBJ-FLD, name: FieldIdentity, owner: M08, lifetime: L-RUN, memory: working}
+  - {id: OBJ-PRJ, name: FieldProjection, owner: M09, lifetime: L-TICK, memory: working}
+  - {id: OBJ-DEP, name: DependencyProfile, owner: M10, lifetime: L-RUN, memory: canonical}
+  - {id: OBJ-IRB, name: IRBundle, owner: M23, lifetime: L-RUN, memory: working}
+  - {id: OBJ-IRN, name: IRNode, owner: M23, lifetime: L-RUN, memory: working}
+  - {id: OBJ-IRE, name: IREdge, owner: M23, lifetime: L-RUN, memory: working}
+  - {id: OBJ-CAP, name: CandidateCapsule, owner: M24, lifetime: L-RUN, memory: working}
+  - {id: OBJ-SEA, name: SeamReport, owner: M11, lifetime: L-TICK, memory: working}
+  - {id: OBJ-OBS, name: ObstructionRecord, owner: M11, lifetime: L-PERSIST, memory: residual}
+  - {id: OBJ-EVD, name: EvidenceObject, owner: M12, lifetime: L-IMMUTABLE, memory: witness}
+  - {id: OBJ-VAL, name: ValidationPlan, owner: M13, lifetime: L-EPOCH, memory: working}
+  - {id: OBJ-GAT, name: GateReport, owner: M14, lifetime: L-IMMUTABLE, memory: canonical}
+  - {id: OBJ-TOK, name: EffectToken, owner: M15, lifetime: L-EPOCH, memory: canonical}
+  - {id: OBJ-ATT, name: EffectAttempt, owner: M16, lifetime: L-IMMUTABLE, memory: canonical}
+  - {id: OBJ-RCP, name: ExternalReceipt, owner: M17, lifetime: L-IMMUTABLE, memory: witness}
+  - {id: OBJ-RCN, name: ReconciliationReport, owner: M18, lifetime: L-IMMUTABLE, memory: canonical}
+  - {id: OBJ-TRC, name: TraceSegment, owner: M19, lifetime: L-PERSIST, memory: replay}
+  - {id: OBJ-RES, name: ResidueRecord, owner: M19, lifetime: L-PERSIST, memory: residual}
+  - {id: OBJ-RUN, name: RunDescriptor, owner: M19, lifetime: L-IMMUTABLE, memory: replay}
+  - {id: OBJ-RPM, name: ReplayManifest, owner: M19, lifetime: L-IMMUTABLE, memory: replay}
+  - {id: OBJ-EXC, name: ExcisionCertificate, owner: M20, lifetime: L-IMMUTABLE, memory: canonical}
+  - {id: OBJ-CRT, name: MachineCertificate, owner: M21, lifetime: L-IMMUTABLE, memory: archive}
+  - {id: OBJ-VIW, name: ViewArtifact, owner: M27, lifetime: L-TICK, memory: none, canonical: false}

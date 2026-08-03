@@ -1,0 +1,144 @@
+schema: psk.obligations/1.0
+# Kapitel 33. OBL-001..007 sind die im kanonischen Korpus logisch nicht
+# entscheidbaren Residuen: fuer die Architektur nicht blocking, fuer den
+# Release der genannten Konformitaetsklasse blocking. Jede Aufloesung
+# erfolgt hier als deklarierte, versionierte Methodenwahl mit Test.
+count: 9
+obligations:
+  - id: OBL-001
+    title: Unabhaengigkeitsrang
+    statement: "Fuer reale Modell- und Datenpipelines ist eine robuste Schaetzung
+      RankEff(W, D) zu waehlen."
+    required_properties:
+      - "RankEff(W, D) <= |F / ~_D|"
+      - monotonie_unter_hinzufuegen_korrelierter_facetten
+    prescribes_algorithm: false
+    declare_as: MethodPlugin
+    test: T-DEP-001
+    blocking_from: C2
+    resolution: null
+    resolution_version: null
+
+  - id: OBL-002
+    title: Reality Typing
+    statement: "Gesetzlichkeit, Erreichbarkeit und Konstruierbarkeit sind modellrelativ
+      und teilweise unentscheidbar."
+    required_properties:
+      - soundnessbereiche_sichtbar
+      - approximationen_sichtbar
+      - unknown_faelle_sichtbar
+    nonconformant: verfahren_das_UNKNOWN_vermeidet
+    declare_as: MethodPlugin
+    test: null
+    blocking_from: C2
+    resolution: null
+    resolution_version: null
+
+  - id: OBL-003
+    title: Gluing-Komplexitaet
+    statement: "Zu bestimmen ist, wann paarweise Seamtests genuegen und wann
+      hoeherordentliche oder globale Pruefungen notwendig sind."
+    architecture_lower_bound: [paarweise_seamtests, gate_zweiter_ordnung]
+    test: T-GLUE-001
+    blocking_from: C3
+    resolution: null
+    resolution_version: null
+
+  - id: OBL-004
+    title: Externe Record-Unabhaengigkeit
+    statement: "Die Referenzdomaene MUSS vermeiden, dass dieselbe Komponente Effekt
+      und Receipt erzeugt."
+    required_properties:
+      - "mindestens beobachtender Adapter ODER Datengrundlage unabhaengig getrennt"
+      - grad_der_unabhaengigkeit_auf_einzelrechner_domaenenabhaengig_deklariert
+    declare_as: DomainProfile
+    test: T-RECEIPT-001
+    blocking_from: C3
+    resolution: null
+    resolution_version: null
+
+  - id: OBL-005
+    title: Security Reduction
+    statement: "Kryptographische Signaturen, Content Addressing und optionale
+      Zero-Knowledge-Profile benoetigen konkrete Primitive, Schluesselverwaltung
+      und eigene Sicherheitsannahmen."
+    fixed_by_architecture: {digest: SHA-256}
+    domain_declared: [signaturverfahren, schluesselhaltung]
+    test: T-SEC-001
+    blocking_from: C4
+    resolution: null
+    resolution_version: null
+
+  - id: OBL-006
+    title: Informationsgewinnmass
+    statement: "Das Mass fuer den erwarteten Informationsgewinn in M13 ist modellrelativ."
+    required_properties: [monotonie, nichtnegativitaet, kostenbezug]
+    prescribes_measure: false
+    declare_as: MethodPlugin
+    test: null
+    blocking_from: C4
+    resolution: null
+    resolution_version: null
+
+  - id: OBL-007
+    title: Marginalgewinnschwelle
+    statement: "Der Schwellenwert theta_G fuer Delta-G ist domaenenabhaengig."
+    required_properties:
+      - im_domaenenprofil_deklariert
+      - im_run_descriptor_gebunden
+    declare_as: DomainProfile
+    test: T-MORPH-001
+    blocking_from: C4
+    resolution: null
+    resolution_version: null
+
+  # --- Nachtrag ausserhalb Kapitel 33 ---
+  - id: OBL-008
+    title: Eingebettete Doppelprojektion des Architekturbuendels
+    statement: "Vertrag 25.4 verlangt, dass das PDF dieses Werkes das vollstaendige
+      Architekturbuendel und dessen Manifest als eingebettete Dateien traegt.
+      PSK_Referenzarchitektur_v1.0.pdf traegt keine."
+    evidence:
+      artifact: PSK_Referenzarchitektur_v1.0.pdf
+      finding: "keine /EmbeddedFile- und keine /Filespec-Objekte; PDF-1.4 ohne
+        Objektstroeme, die Dictionaries liegen unkomprimiert vor"
+      consequence: "Die Register sind ausschliesslich als gesetzte Listings
+        verfuegbar; architecture/ wurde aus Teil XI rekonstruiert."
+    kind: artefaktdefekt_der_elternnorm
+    resolvable_by_implementation: false
+    references: [Vertrag 25.4, Regel 25.1, Regel 1.5]
+    note: "Kein Widerspruch zu Invariante 33.8: diese schliesst weitere offene
+      Architekturentscheidungen aus. OBL-008 ist keine offene Entscheidung,
+      sondern ein festgestellter Artefaktdefekt."
+    blocking_from: null
+    resolution: null
+    resolution_version: null
+
+  - id: OBL-009
+    title: Originales Contract-Bundle zu C_PSK nicht verfuegbar
+    statement: "Originales Contract-Bundle zu C_PSK nicht verfuegbar; Konstitutionsidentitaet
+      neu begruendet."
+    evidence:
+      artifact: CPSK_Konstitutioneller_Maschinenvertrag.md
+      finding: "Kapitel 44.1 (Konstitutions-Lock) und Kapitel F (Manifest der
+        eingebetteten Artefakte) nennen fuer alle 22 gemeinsamen Dateinamen
+        wechselseitig abweichende SHA-256-Digests. Kein eingebettetes Bundle
+        vorhanden (Dokumentkopf: 'Vertrag 41.1 ist im Original unerfuellt')."
+      example:
+        artifact_registry.yaml:
+          ch_44_1: "60713c98185edbc07bf69b7239988488a1f8ef323a008e8f92a317b2b7549703"
+          ch_F: "29edd41be23f3a89ec13ffc22112c149f9bf8b473fecf91e7657f164672915a4"
+      consequence: "declared_ancestor_constitution_id aa10aa5a...c0f56 ist nicht
+        reproduzierbar und wird nicht uebernommen (constitution/constitution.lock.json).
+        Das rekonstruierte constitution/-Buendel erhaelt eine eigene, aus seinem
+        tatsaechlichen Inhalt berechnete constitution_id, sobald Can() (WP01)
+        existiert."
+    kind: artefaktdefekt_der_elternnorm
+    resolvable_by_implementation: false
+    references: [Kapitel 44.1, Kapitel F, Bootfolge 23.1 Schritt 4, boot_policy.digest_mismatch, Axiom 1.2]
+    note: "Kein Widerspruch zu Invariante 33.8 (PSK-RA) oder einer analogen CPSK-Vollstaendigkeitsklausel:
+      OBL-009 ist keine offene Implementierungsentscheidung, sondern ein festgestellter
+      Artefaktdefekt der Elternnorm, analog zu OBL-008."
+    blocking_from: null
+    resolution: "eigene constitution_id statt declared_ancestor_constitution_id; siehe constitution.lock.json"
+    resolution_version: "I0"

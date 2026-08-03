@@ -1,0 +1,27 @@
+schema: psk.isa/1.0
+count: 23
+instructions:
+  - {op: CANON, module: M01, in: [bytes, media], out: [CanonicalBytes, Digest]}
+  - {op: TYPE, module: M03, in: [Candidate], out: [SortedGraph]}
+  - {op: ANCHOR, module: M05, in: [ExternalRecord], out: [AnchorSnapshot]}
+  - {op: PROJECT, module: M09, in: [FieldIdentity, Graph], out: [FieldProjection]}
+  - {op: SPLIT, module: M24, in: [Capsule], out: [Surface, InvariantCore]}
+  - {op: GLUE, module: M11, in: [Sections], out: [GlobalSection | Obstruction]}
+  - {op: QUOTIENT, module: M10, in: [Projections, Sources], out: [DependencyProfile]}
+  - {op: CAPSULE, module: M24, in: [QuotientClass], out: [CandidateCapsule]}
+  - {op: CHALLENGE, module: M24, in: [Capsule, Countermodels], out: [Capsule]}
+  - {op: WITNESS, module: M12, in: [Evidence, Scope], out: [WitnessReport]}
+  - {op: GATE, module: M14, in: [Digests], out: [GateReport]}
+  - {op: COMPILE, module: M23, in: [CheckedGraph], out: [IRBundle]}
+  - {op: EMIT, module: M23, in: [IRBundle, Trace], out: [IRBundle]}
+  - {op: TOKENIZE, module: M15, in: [GateReport, Plan], out: [EffectToken]}
+  - {op: EXECUTE, module: M16, in: [EffectToken], out: [EffectAttempt]}
+  - {op: RECEIPT, module: M17, in: [Scope], out: [ExternalReceipt]}
+  - {op: RECONCILE, module: M18, in: [Plan, Attempt, Receipt], out: [ReconciliationReport]}
+  - {op: RESIDUALIZE,module: M19, in: [NonClosure], out: [ResidueRecord]}
+  - {op: QUARANTINE, module: M19, in: [Object], out: [QuarantineRecord]}
+  - {op: REPLAY, module: M19, in: [RunDescriptor, Trace], out: [ReplayResult]}
+  - {op: ARCHIVE, module: M19, in: [ClosedRun], out: [ArchiveObject]}
+  - {op: EXCISE, module: M20, in: [ExcisionRequest], out: [ExcisionCertificate]}
+  - {op: PROPOSE_REVISION, module: M24, in: [Residues, Evidence], out: [RevisionProposal]}
+contract: every_instruction_has_typed_ports_pre_post_errors_and_trace_duty

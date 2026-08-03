@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.gate_registry.yaml/1.0",
+  "title": "gate_registry.yaml",
+  "description": "Strukturschema von architecture/gate_registry.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "default_on_undecidable": {
+      "type": "string"
+    },
+    "default_on_missing": {
+      "type": "string"
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "order": {
+            "type": "integer"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "order",
+          "owner",
+          "target"
+        ]
+      }
+    },
+    "report_required_always": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema",
+    "default_on_undecidable",
+    "default_on_missing",
+    "gates",
+    "report_required_always"
+  ]
+}

@@ -1,0 +1,53 @@
+[workspace]
+resolver = "2"
+members = [
+    "packages/psk-types",
+    "packages/psk-canon",
+    "packages/psk-contract",
+    "packages/psk-topology",
+    "packages/psk-ir",
+    "packages/psk-anchor",
+    "packages/psk-thought",
+    "packages/psk-fields",
+    "packages/psk-dependency",
+    "packages/psk-adversarial",
+    "packages/psk-closure",
+    "packages/psk-witness",
+    "packages/psk-gate",
+    "packages/psk-effect",
+    "packages/psk-reconciliation",
+    "packages/psk-trace",
+    "packages/psk-scheduler",
+    "packages/psk-lifecycle",
+    "packages/psk-observe",
+    "packages/psk-certify",
+    "packages/psk-conformance",
+    "packages/psk-cli",
+    "adapters/effect-local-fs",
+    "adapters/observer-local-fs",
+    "adapters/observer-git",
+    "tools/psk-codegen",
+    "tools/manifest-gen",
+    "tools/sbom-gen",
+    "tools/verify-bundle",
+    "tools/verify-architecture",
+    "tools/verify-refinement",
+    "tools/lock-gen",
+]
+
+# Regel 26.7: SemVer. Vor C0 (Anhang gate_registry/release_gate,
+# Konformitaetsklasse C0 noch nicht erreicht) startet die Implementierung
+# bei 0.0.0. Eine Aenderung, die I_C oder I_A veraendert, erzwingt eine
+# Major-Version; siehe VERSIONING.md.
+[workspace.package]
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.95.0"
+license = "Apache-2.0"
+publish = false
+
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+sha2 = "0.10"
+hex = "0.4"

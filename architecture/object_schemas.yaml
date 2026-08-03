@@ -1,0 +1,525 @@
+schema: psk.object-schemas/1.0
+# Volle Feldstrukturen der kanonischen Objekte aus PSK-RA v1.0.3, Struktur
+# 7.1-7.41 (Kapitel 7) sowie Struktur 21.5 (ValidationPlan, Kapitel 21) und
+# Struktur 22.5 (ReplayManifest, Kapitel 22) - diese zwei liegen ausserhalb
+# Kapitel 7, definieren aber ebenfalls OBJ-VAL/OBJ-RPM aus object_registry.yaml.
+#
+# Von den 27 Eintraegen in object_registry.yaml haben 26 eine explizite
+# Feldstruktur: die urspruenglichen 25 plus OBJ-PRJ (FieldProjection),
+# das in v1.0.3 nachgetragen wurde (Fehlerkorrektur v1.0.3, Punkt 4;
+# Struktur 7.11, Regel 7.12/7.13). Nur OBJ-VIW (ViewArtifact) bleibt ohne
+# Feldstruktur: es traegt seit v1.0.3 explizit canonical:false in
+# object_registry.yaml und faellt nach I-ARCH-015 aus der Kanonisierung -
+# der Registereintrag dient Ownership und Lebensdauer, nicht der
+# Digestbildung, und braucht deshalb kein Schema.
+#
+# Feldnotation: type ist die im Text genannte Sorte/Referenz (Digest,
+# ObjectId, DualTime, ein Enum als "A | B | C", ein Array als "[T]", ein
+# Objekt als eigener nested_struct-Verweis). optional=true entspricht
+# einem "?" im Quelltext. Kommentare aus dem Quelltext sind als "note"
+# uebernommen, nicht ergaenzt.
+count: 26
+objects:
+  - id: OBJ-RTM
+    name: RuntimeManifest
+    struktur: "7.1"
+    schema_id: psk.runtime-manifest/1.0
+    fields:
+      - {name: schema, type: "psk.runtime-manifest/1.0"}
+      - {name: constitution_id, type: Digest}
+      - {name: architecture_id, type: Digest}
+      - {name: implementation_id, type: Digest}
+      - {name: profile, type: "ProfileId", note: "readonly | shadow | sandbox | reference"}
+      - {name: capability_matrix, type: CapabilityMatrixRef}
+      - {name: build_digest, type: Digest}
+      - {name: operator_versions, type: "map<OpId,SemVer>"}
+      - {name: adapter_versions, type: "map<AdapterId,SemVer>"}
+      - {name: determinism_class, type: "R0 | R1 | R2 | R3"}
+
+  - id: OBJ-IDB
+    name: IdentityBinding
+    struktur: "7.2"
+    schema_id: psk.identity-binding/1.0
+    fields:
+      - {name: schema, type: "psk.identity-binding/1.0"}
+      - {name: I_C, type: Digest}
+      - {name: I_A, type: Digest}
+      - {name: I_M, type: Digest}
+      - {name: I_t, type: Digest}
+      - {name: trace_head, type: Digest}
+      - {name: bound_at, type: DualTime}
+      - {name: intrinsic_section, type: Digest, note: "aus Typ, Provenienz, Konstitutionsbindung, Trace"}
+      - {name: extrinsic_section, type: Digest, note: "aus Verhalten, Claims, Zertifikaten, Aussenrecords"}
+      - {name: equalizer_sector, type: EqualizerId, optional: true, note: "Pflicht fuer Identitaetsclosure"}
+
+  - id: OBJ-ANC
+    name: AnchorSnapshot
+    struktur: "7.4"
+    schema_id: psk.anchor-snapshot/1.0
+    fields:
+      - {name: schema, type: "psk.anchor-snapshot/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: observations, type: "[Observation]", note: "rohe, unvermischte Aussenrecords"}
+      - {name: provenance, type: nested_struct, nested_struct: Provenance}
+      - {name: uncertainty, type: nested_struct, nested_struct: AnchorUncertainty}
+      - {name: context, type: ContextRef}
+      - {name: time, type: DualTime}
+      - {name: validity, type: nested_struct, nested_struct: Validity}
+      - {name: boundary, type: ScopeExpr, note: "was der Anker NICHT erfasst"}
+      - {name: digest, type: Digest}
+      - {name: sealed, type: bool, note: "true nach Versiegelung; danach unveraenderlich"}
+    nested_structs:
+      Provenance:
+        - {name: source_adapter, type: AdapterId}
+        - {name: observer_identity, type: Digest, note: "MUSS != Effekt-Adapteridentitaet"}
+        - {name: method, type: string}
+        - {name: input_digests, type: "[Digest]"}
+      AnchorUncertainty:
+        - {name: model, type: UncertaintyModelId}
+        - {name: parameters, type: "map<string,Scalar>"}
+      Validity:
+        - {name: freshness_predicate, type: PredicateExpr, note: 'z.B. "age_ns < 5e9 and fs_generation == g"'}
+        - {name: expires_at_tau_i, type: uint64}
+
+  - id: OBJ-THB
+    name: ThoughtBody
+    struktur: "7.7"
+    schema_id: psk.thought-body/1.0
+    fields:
+      - {name: schema, type: "psk.thought-body/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: anchor_refs, type: "[ObjectId]", note: ">= 1, oder explizit unanchored:true"}
+      - {name: unanchored, type: bool}
+      - {name: claim, type: nested_struct, nested_struct: Claim}
+      - {name: models, type: "[ModelRef]", note: "Modellfamilie mit Version und Geltungsbereich"}
+      - {name: trajectories, type: "[TrajectoryRef]"}
+      - {name: reality_status, type: RealityStatus}
+      - {name: facticity, type: FactStatus}
+      - {name: witness_refs, type: "[ObjectId]"}
+      - {name: uncertainty, type: UncertaintyBlock}
+      - {name: consequences, type: "[ConsequenceRef]", note: "Folgenklasse, Reversibilitaet, Reichweite"}
+      - {name: validation_plan_ref, type: ObjectId, optional: true}
+      - {name: gate_refs, type: "[ObjectId]"}
+      - {name: residue_refs, type: "[ObjectId]"}
+      - {name: lineage, type: Lineage}
+      - {name: trace_ref, type: TraceRef}
+    nested_structs:
+      Claim:
+        - {name: text, type: string, note: "nur Projektion, nicht normativ; geht nicht in Can ein (Axiom 7.8)"}
+        - {name: formal, type: ClaimExpr, note: "kanonischer Zustand"}
+        - {name: directionality, type: "internal | external"}
+
+  - id: OBJ-FLD
+    name: FieldIdentity
+    struktur: "7.10"
+    schema_id: psk.field-identity/1.0
+    fields:
+      - {name: schema, type: "psk.field-identity/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: domain, type: DomainExpr, note: "D_lambda"}
+      - {name: lens, type: LensSpec, note: "Pi_lambda: typisierter Projektor"}
+      - {name: operators, type: "[OpId]", note: "O_lambda, Teilmenge der ISA"}
+      - {name: questions, type: "[QuestionSpec]", note: "Q_lambda"}
+      - {name: witness_rules, type: WitnessPolicy, note: "W_lambda"}
+      - {name: boundaries, type: BoundarySpec, note: "B_lambda: Ressourcen- und Effektgrenzen"}
+      - {name: gates, type: "[GateId]", note: "G_lambda"}
+      - {name: time_window, type: TimeWindow, note: "Theta_lambda"}
+      - {name: lineage, type: Lineage, note: "Lin_lambda"}
+      - {name: lifecycle, type: "PROPOSED | ACTIVE | QUIESCENT | SPLIT_PENDING | MERGE_PENDING | FOLDED | RETIRED | EXCISED"}
+      - {name: archetype, type: ArchetypeId, note: "explorer|falsifier|constructor|historian|auditor|integrator"}
+      - {name: dependency_profile_ref, type: ObjectId}
+      - {name: budget, type: BudgetSpec}
+      - {name: rollback, type: RollbackSpec}
+      - {name: marginal_gain, type: Decimal, note: "zuletzt gemessener Wert von Delta-G"}
+
+  - id: OBJ-PRJ
+    name: FieldProjection
+    struktur: "7.11"
+    schema_id: psk.field-projection/1.0
+    note: "Nachgetragen in v1.0.3 (Fehlerkorrektur Punkt 4). Kein Randfall:
+      Eingang der Kernproduktionen ((ThoughtBody, FieldIdentity) => FieldProjection,
+      {FieldProjection}_compat => ScopedCognitionGraph), fliesst ueber P13,
+      Eingang von M10 und M11."
+    rules:
+      - {id: "Regel 7.12", title: "Projektion promoviert nicht",
+          statement: "Eine FieldProjection ist eine Sicht, kein Fakt. reality_status
+            und facticity des Urbildes DARF NICHT durch eine Projektion veraendert
+            werden; die Sorten-Port-Matrix verbietet die Relation (S-PRJ, S-RCN)
+            vollstaendig. Ist die Linse auf das Urbild nicht anwendbar, so MUSS
+            undefined_reason gesetzt, visible leer und PSK-E013 emittiert werden;
+            eine leere Projektion ohne Begruendung ist ein Konformitaetsdefekt."}
+      - {id: "Regel 7.13", title: "Occlusion ist explizit",
+          statement: "occluded MUSS vollstaendig gefuehrt werden. Was eine Linse
+            nicht aufloest, ist ein bezeugter Nichtbefund und DARF NICHT als
+            Abwesenheit gewertet werden; andernfalls greift PSK-E005."}
+    fields:
+      - {name: schema, type: "psk.field-projection/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: field_ref, type: ObjectId, note: "FieldIdentity, deren Linse angewandt wurde"}
+      - {name: source_refs, type: "[ObjectId]", note: "ThoughtBody bzw. IR-Knoten des Urbildes"}
+      - {name: lens_ref, type: LensSpec, note: "Pi_lambda, wie zum Zeitpunkt der Anwendung gebunden"}
+      - {name: scope, type: ScopeSpec, note: "Geltungsbereich; erweitert sich nie ohne Gate"}
+      - {name: visible, type: "[IRNodeId]", note: "was die Linse aufloest"}
+      - {name: occluded, type: "[IRNodeId]", note: "was sie nachweislich nicht aufloest"}
+      - {name: distinctions, type: "[DistinctionSpec]", note: "intern erzeugte Unterscheidungen"}
+      - {name: source_provenance, type: "[SourceId]", note: "Grundlage des Abhaengigkeitsquotienten (M10)"}
+      - {name: reality_view, type: RealityStatus, note: "Sicht, nicht Promotion"}
+      - {name: tick, type: TickId, note: "L-TICK: gilt genau fuer diesen Takt"}
+      - {name: undefined_reason, type: string, optional: true, note: "gesetzt gdw. Projektion nicht anwendbar"}
+
+  - id: OBJ-IRB
+    name: IRBundle
+    struktur: "7.16"
+    schema_id: psk.ir/1.0
+    fields:
+      - {name: schema, type: "psk.ir/1.0"}
+      - {name: version, type: SemVer, note: v}
+      - {name: constitution_id, type: Digest, note: N_C}
+      - {name: anchor_refs, type: "[ObjectId]", note: A}
+      - {name: graph, type: nested_struct, nested_struct: Graph, note: G}
+      - {name: field_projections, type: "[ObjectId]", note: F}
+      - {name: dependencies, type: ObjectId, note: "D -> DependencyProfile"}
+      - {name: witnesses, type: "[ObjectId]", note: W}
+      - {name: residues, type: "[ObjectId]", note: R}
+      - {name: gate_reports, type: "[ObjectId]", note: Q}
+      - {name: trace_ref, type: TraceRef, note: T}
+      - {name: capabilities, type: "[CapabilityRef]", note: C}
+      - {name: effect_contracts, type: "[EffectContract]", note: E}
+      - {name: emission_class, type: "EXECUTABLE | RESIDUAL | QUARANTINED | HOLD"}
+      - {name: digest, type: Digest}
+    nested_structs:
+      Graph:
+        - {name: nodes, type: "[IRNode]"}
+        - {name: edges, type: "[IREdge]"}
+
+  - id: OBJ-IRN
+    name: IRNode
+    struktur: "7.17"
+    fields:
+      - {name: id, type: ObjectId}
+      - {name: sort, type: SortId, note: "genau eine Primaersorte"}
+      - {name: context, type: ContextRef}
+      - {name: lineage, type: Lineage}
+      - {name: reality_status, type: RealityStatus}
+      - {name: facticity, type: FactStatus}
+      - {name: anchor_refs, type: "[ObjectId]"}
+      - {name: witness_refs, type: "[ObjectId]"}
+      - {name: residue_refs, type: "[ObjectId]"}
+      - {name: trace_ref, type: TraceRef}
+      - {name: payload_digest, type: Digest}
+      - {name: m13_address, type: M13Address, note: "Pflicht nach Pass C4"}
+
+  - id: OBJ-IRE
+    name: IREdge
+    struktur: "7.17"
+    fields:
+      - {name: id, type: ObjectId}
+      - {name: source, type: ObjectId}
+      - {name: target, type: ObjectId}
+      - {name: relation_sort, type: RelationSortId}
+      - {name: direction, type: "forward | backward | bidirectional_declared"}
+      - {name: preconditions, type: "[PredicateExpr]"}
+      - {name: postconditions, type: "[PredicateExpr]"}
+      - {name: gate_ref, type: ObjectId, optional: true}
+      - {name: dependency_refs, type: "[ObjectId]"}
+      - {name: trace_ref, type: TraceRef}
+
+  - id: OBJ-CAP
+    name: CandidateCapsule
+    struktur: "7.18"
+    schema_id: psk.candidate-capsule/1.0
+    fields:
+      - {name: schema, type: "psk.candidate-capsule/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: surface, type: SurfaceDescriptor, note: "S: beobachtbare Rolle, Name, Behauptung"}
+      - {name: invariant_core, type: "[InvariantId]", note: "I: gepruefte, nicht behauptete Invarianten"}
+      - {name: phase, type: "SEALED | PERTURBED | RATCHETED | SUPPORTED | CRYSTALLIZED | RESIDUAL | QUARANTINED"}
+      - {name: witnesses, type: "[ObjectId]", note: W}
+      - {name: replay, type: ReplayDescriptor, note: R}
+      - {name: boundary, type: ScopeExpr, note: B}
+      - {name: trace_ref, type: TraceRef, note: T}
+      - {name: coupling, type: "[ObjectId]", note: "C: Aussenkopplungen"}
+      - {name: allowed_next, type: "[CapsuleId]", note: "Ratchet-Restmenge, monoton fallend"}
+      - {name: status, type: "OPEN | CLOSED"}
+
+  - id: OBJ-EVD
+    name: EvidenceObject
+    struktur: "7.20"
+    schema_id: psk.evidence/1.0
+    fields:
+      - {name: schema, type: "psk.evidence/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: type, type: "measurement | derivation | attestation | external_record | counterexample"}
+      - {name: scope, type: ScopeExpr}
+      - {name: input, type: "[Digest]"}
+      - {name: output, type: Digest}
+      - {name: method, type: MethodRef}
+      - {name: trace_ref, type: TraceRef}
+      - {name: hash, type: Digest}
+      - {name: signature, type: Signature, optional: true}
+      - {name: status, type: "VALID | INVALID | OCCLUDED | EXPIRED"}
+      - {name: independence_class, type: ClassId, note: "aus DependencyProfile abgeleitet"}
+
+  - id: OBJ-DEP
+    name: DependencyProfile
+    struktur: "7.21"
+    schema_id: psk.dependency-profile/1.0
+    fields:
+      - {name: schema, type: "psk.dependency-profile/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: sources, type: "[SourceRef]", note: "Daten, Modell, Prompt, Sonde, Kalibrierung"}
+      - {name: witness_matrix, type: Matrix, note: W}
+      - {name: dependency_matrix, type: Matrix, note: D}
+      - {name: effective_rank, type: Decimal, note: "r_eff = RankEff(W, D)"}
+      - {name: method, type: RankMethodId, note: "deklarierte Schaetzmethode"}
+      - {name: quotient_classes, type: "[[ObjectId]]", note: "F / ~_D"}
+      - {name: consensus_scope, type: "local | cluster | system | external"}
+
+  - id: OBJ-SEA
+    name: SeamReport
+    struktur: "7.23"
+    fields:
+      - {name: id, type: ObjectId}
+      - {name: overlap, type: "[ObjectId, ObjectId]"}
+      - {name: restriction_digest_a, type: Digest}
+      - {name: restriction_digest_b, type: Digest}
+      - {name: compatible, type: bool}
+      - {name: tolerance_class, type: "exact | declared_equivalence"}
+      - {name: cell_refs, type: "[M13Address]"}
+
+  - id: OBJ-OBS
+    name: ObstructionRecord
+    struktur: "7.23"
+    fields:
+      - {name: id, type: ObjectId}
+      - {name: kind, type: "seam | order | identity | time | resource | capability | calibration"}
+      - {name: located_at, type: "[M13Address]"}
+      - {name: involved, type: "[ObjectId]"}
+      - {name: severity, type: "blocking | non_blocking"}
+      - {name: residue_ref, type: ObjectId}
+      - {name: allowed_recovery, type: "[RecoveryPathId]"}
+
+  - id: OBJ-GAT
+    name: GateReport
+    struktur: "7.25"
+    schema_id: psk.gate-report/1.0
+    fields:
+      - {name: schema, type: "psk.gate-report/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: gate_id, type: GateId}
+      - {name: order, type: "1 | 2", note: "Gate erster oder zweiter Ordnung"}
+      - {name: input_digests, type: "[Digest]"}
+      - {name: decision, type: "PASS | HOLD | FAIL"}
+      - {name: reasons, type: "[ReasonCode]", note: "nicht leer bei HOLD oder FAIL"}
+      - {name: evidence_refs, type: "[ObjectId]"}
+      - {name: residue_refs, type: "[ObjectId]"}
+      - {name: seam_report_refs, type: "[ObjectId]", note: "Pflicht bei order = 2"}
+      - {name: replay_descriptor, type: ReplayDescriptor}
+      - {name: decided_at, type: DualTime}
+      - {name: trace_ref, type: TraceRef}
+
+  - id: OBJ-TOK
+    name: EffectToken
+    struktur: "7.26"
+    schema_id: psk.effect-token/1.0
+    fields:
+      - {name: schema, type: "psk.effect-token/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: subject, type: ModuleId, note: "ausschliesslich M16"}
+      - {name: effect_class, type: EffectClassId}
+      - {name: plan_digest, type: Digest, note: "bindet genau einen EffectPlan"}
+      - {name: scope, type: ScopeExpr, note: "Pfad-, Ressourcen- und Reichweitengrenze"}
+      - {name: capabilities, type: "[CapabilityId]"}
+      - {name: preconditions, type: "[PredicateExpr]"}
+      - {name: budget, type: BudgetSpec}
+      - {name: expires_at_tau_i, type: uint64}
+      - {name: idempotency_key, type: string}
+      - {name: nonce, type: bytes32}
+      - {name: issuer_digest, type: Digest, note: "I_M von M15"}
+      - {name: expected_receipt, type: ReceiptSpec, note: "welcher Record erwartet wird"}
+      - {name: rollback, type: "RollbackSpec | NO_ROLLBACK_JUSTIFIED"}
+      - {name: gate_report_ref, type: ObjectId}
+
+  - id: OBJ-ATT
+    name: EffectAttempt
+    struktur: "7.28"
+    fields:
+      - {name: id, type: ObjectId}
+      - {name: token_ref, type: ObjectId}
+      - {name: adapter, type: AdapterId}
+      - {name: prestate_digest, type: Digest}
+      - {name: plan_digest, type: Digest}
+      - {name: started_at, type: DualTime}
+      - {name: ended_at, type: DualTime, optional: true}
+      - {name: outcome, type: "COMPLETED | PARTIAL | FAILED | UNKNOWN_EFFECT"}
+      - {name: error, type: ErrorCode, optional: true}
+      - {name: compensation_ref, type: ObjectId, optional: true}
+
+  - id: OBJ-RCP
+    name: ExternalReceipt
+    struktur: "7.28"
+    fields:
+      - {name: id, type: ObjectId}
+      - {name: observer_adapter, type: AdapterId, note: "MUSS != EffectAttempt.adapter"}
+      - {name: observer_identity, type: Digest}
+      - {name: observed_at, type: DualTime}
+      - {name: record, type: bytes, note: "unveraendert, unvermischt"}
+      - {name: provenance, type: ProvenanceBlock}
+      - {name: result_digest, type: Digest}
+      - {name: independence_attestation, type: Digest}
+
+  - id: OBJ-RCN
+    name: ReconciliationReport
+    struktur: "7.30"
+    schema_id: psk.reconciliation/1.0
+    fields:
+      - {name: schema, type: "psk.reconciliation/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: plan_ref, type: ObjectId}
+      - {name: attempt_ref, type: ObjectId}
+      - {name: receipt_refs, type: "[ObjectId]", note: ">= 1"}
+      - {name: anchor_ref, type: ObjectId, note: Nachanker}
+      - {name: difference, type: DiffTree, note: "Plan-Ist-Differenz, strukturiert"}
+      - {name: verdict, type: "CLOSED | OPEN | DIVERGENT | UNKNOWN"}
+      - {name: finality, type: "final | provisional | revocable"}
+      - {name: fact_promotion, type: "NONE | OBSERVED | ACTUALIZED"}
+      - {name: residue_refs, type: "[ObjectId]"}
+      - {name: witness_ref, type: ObjectId, note: "ActualizationWitness bei ACTUALIZED"}
+
+  - id: OBJ-TRC
+    name: TraceSegment
+    struktur: "7.33"
+    schema_id: psk.trace-segment/1.0
+    fields:
+      - {name: schema, type: "psk.trace-segment/1.0"}
+      - {name: seq, type: uint64, note: "global monoton je run_id"}
+      - {name: prev_digest, type: Digest, note: 'Hash-Kette; Genesis = 64x"0"'}
+      - {name: event_type, type: EventTypeId}
+      - {name: module, type: ModuleId}
+      - {name: port_id, type: PortId, optional: true}
+      - {name: object_refs, type: "[ObjectId]"}
+      - {name: payload_digest, type: Digest}
+      - {name: time, type: DualTime}
+      - {name: attestation, type: Signature, optional: true}
+      - {name: segment_digest, type: Digest, note: "H(Can(alle vorstehenden Felder))"}
+
+  - id: OBJ-RES
+    name: ResidueRecord
+    struktur: "7.35"
+    schema_id: psk.residue/1.0
+    fields:
+      - {name: schema, type: "psk.residue/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: type, type: "type | anchor | witness | seam | dependency | scope | capability | effect | reconciliation | replay | budget | morphogenesis | horizon"}
+      - {name: origin_module, type: ModuleId}
+      - {name: origin_object, type: ObjectId}
+      - {name: scope, type: ScopeExpr}
+      - {name: severity, type: "blocking | non_blocking"}
+      - {name: open_obligation, type: ObligationExpr}
+      - {name: allowed_followups, type: "[OperationId]"}
+      - {name: opened_at, type: DualTime}
+      - {name: closed_by, type: ObjectId, optional: true, note: "nur durch expliziten Closure-Operator"}
+      - {name: state, type: "OPEN | HELD | QUARANTINED | RECANONICALIZED | CLOSED | EXCISED"}
+
+  - id: OBJ-RUN
+    name: RunDescriptor
+    struktur: "7.37"
+    schema_id: psk.run-descriptor/1.0
+    fields:
+      - {name: schema, type: "psk.run-descriptor/1.0"}
+      - {name: run_id, type: RunId}
+      - {name: I_C, type: Digest}
+      - {name: I_A, type: Digest}
+      - {name: I_M, type: Digest}
+      - {name: seed, type: bytes32, note: "Wurzel aller Pseudozufallsstroeme"}
+      - {name: versions, type: "map<ComponentId,SemVer>"}
+      - {name: input_digests, type: "[Digest]", note: "versiegelte Eingaben"}
+      - {name: operators, type: "[OpId]"}
+      - {name: environment, type: EnvironmentProfile, note: "deklarierte, replayrelevante Umgebung"}
+      - {name: time_window, type: TimeWindow, note: "gebundene Zeitgrenzen fuer Entscheidungen"}
+      - {name: nondeterminism_budget, type: NDBudget, note: "zulaessige, deklarierte Abweichungsquellen"}
+      - {name: canon, type: CanonicalizationProfile}
+      - {name: digest, type: Digest}
+
+  - id: OBJ-EXC
+    name: ExcisionCertificate
+    struktur: "7.39"
+    schema_id: psk.excision/1.0
+    fields:
+      - {name: schema, type: "psk.excision/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: region, type: "[ObjectId]", note: "A: entfernte Pfade oder Typen"}
+      - {name: boundary, type: ScopeExpr, note: dA}
+      - {name: reconnect_projection, type: MapExpr, note: "pi_A: Neuroutung der Anschluesse"}
+      - {name: preservation_witness, type: "[ObjectId]", note: "W_A: erhaltene Invarianten"}
+      - {name: difference, type: DiffTree, note: Delta_A}
+      - {name: residues, type: "[ObjectId]"}
+      - {name: identity_effect, type: "UNCHANGED | DECLARED_SUCCESSOR"}
+      - {name: successor_id, type: Digest, optional: true, note: "Pflicht bei DECLARED_SUCCESSOR"}
+      - {name: trace_ref, type: TraceRef}
+
+  - id: OBJ-CRT
+    name: MachineCertificate
+    struktur: "7.41"
+    schema_id: psk.machine-certificate/1.0
+    fields:
+      - {name: schema, type: "psk.machine-certificate/1.0"}
+      - {name: I_C, type: Digest}
+      - {name: I_A, type: Digest}
+      - {name: I_M, type: Digest}
+      - {name: I_t, type: Digest}
+      - {name: conformance_class, type: "C0 | C1 | C2 | C3 | C4 | C5"}
+      - {name: feature_coverage, type: "[FC0..FC8]", note: "abgeleiteter Deckungsvektor"}
+      - {name: replay_class, type: "R0 | R1 | R2 | R3"}
+      - {name: gate_report_digest, type: Digest}
+      - {name: trace_head, type: Digest}
+      - {name: replay_manifest_digest, type: Digest}
+      - {name: residue_report_digest, type: Digest}
+      - {name: capability_audit_digest, type: Digest}
+      - {name: negative_test_report_digest, type: Digest}
+      - {name: scope, type: ScopeExpr, note: "explizit, nicht universell"}
+      - {name: issued_at, type: DualTime}
+      - {name: signature, type: Signature}
+
+  - id: OBJ-VAL
+    name: ValidationPlan
+    struktur: "21.5"
+    fields:
+      - {name: id, type: ObjectId}
+      - {name: target_refs, type: "[ObjectId]"}
+      - {name: open_obligations, type: "[ObligationExpr]"}
+      - {name: steps, type: "[Step]", nested_struct: Step}
+      - {name: ordering, type: "by_information_gain_per_cost", note: "deterministisch, stabil sortiert"}
+      - {name: stop_condition, type: "obligations_closed | budget_exhausted | no_positive_gain"}
+    nested_structs:
+      Step:
+        - {name: probe, type: ProbeSpec}
+        - {name: expected_information_gain, type: Decimal}
+        - {name: cost, type: BudgetSpec}
+        - {name: capability, type: CapabilityId, optional: true}
+        - {name: read_only, type: bool}
+
+  - id: OBJ-RPM
+    name: ReplayManifest
+    struktur: "22.5"
+    fields:
+      - {name: run_id, type: RunId}
+      - {name: run_descriptor_digest, type: Digest}
+      - {name: input_digests, type: "[Digest]"}
+      - {name: external_records, type: "[ExternalRecordRef]", nested_struct: ExternalRecordRef}
+      - {name: trace_head, type: Digest}
+      - {name: final_canonical_digest, type: Digest}
+      - {name: gate_sequence_digest, type: Digest}
+      - {name: achieved_class, type: "R0 | R1 | R2 | R3"}
+      - {name: divergences, type: "[DivergenceRecord]"}
+    nested_structs:
+      ExternalRecordRef:
+        - {name: receipt_id, type: string}
+        - {name: digest, type: Digest}
+        - {name: observer_identity, type: Digest}
+
+not_field_specified:
+  - {id: OBJ-VIW, name: ViewArtifact, reason: "traegt seit v1.0.3 explizit canonical:false in
+      object_registry.yaml (Fehlerkorrektur v1.0.3, Punkt 5). Speicherklasse none, faellt nach
+      I-ARCH-015 aus der Kanonisierung heraus; der Registereintrag dient Ownership und
+      Lebensdauer, nicht der Digestbildung - deshalb kein Schema, keine Feldstruktur noetig."}

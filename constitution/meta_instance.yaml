@@ -1,0 +1,26 @@
+# Quelle: CPSK_Konstitutioneller_Maschinenvertrag.md, Teil IV
+# ("ADAMANT-gebundene Integritaet"), Kapitel 23 "Bootstrappbare Meta-Instanz"
+# (Zeilen 570-583): Abschnitt 23.1 Bootfolge (Zeilen 572-580, 8 nummerierte
+# Schritte) und Invariante 23.1 "Keine undokumentierten Defaults"
+# (Zeilen 581-583).
+#
+# Kapitel 23 nennt genau diese 8 Bootfolge-Schritte in dieser Reihenfolge
+# und genau diese 5 fuer Invariante 23.1 relevanten Bereiche. Diese Datei
+# fuegt keinen neunten Schritt und keinen sechsten Bereich hinzu.
+schema: psk.meta-instance/1.0
+boot_sequence:  # 23.1: Reihenfolge ist ordnungssemantisch (Bootfolge als Sequenz) - NICHT sortieren
+  - {step: 1, action: "Lade constitution.lock.json."}                             # Zeile 573
+  - {step: 2, action: "Löse das Artefaktregister auf."}                           # Zeile 574
+  - {step: 3, action: "Parse und kanonisiere alle normativen Dateien."}           # Zeile 575
+  - {step: 4, action: "Berechne die Konstitutions-ID neu."}                       # Zeile 576
+  - {step: 5, action: "Prüfe Schemas, Anforderungen, Invarianten und Gates."}     # Zeile 577
+  - {step: 6, action: "Registriere nur versionierte Operatoren und Capabilities."} # Zeile 578
+  - {step: 7, action: "Berechne den initialen Release- und Betriebsstatus."}      # Zeile 579
+  - {step: 8, action: "Aktiviere den Kognitionskern nur bei gültigem Bootgate."}  # Zeile 580
+no_undocumented_defaults:
+  ref: "Invariante 23.1"
+  statement: >-
+    Eine Meta-Instanz ist nur bootstrappbar, wenn alle für Identität, Replay,
+    Sicherheit, Governance und Emission relevanten Werte aus auflösbaren
+    Artefakten stammen. Ein verdeckter Default ist ein Konformitätsdefekt.
+  relevant_domains: [Identität, Replay, Sicherheit, Governance, Emission]

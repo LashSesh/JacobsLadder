@@ -1,0 +1,48 @@
+schema: psk.proof-obligations/1.0
+# Anhang I des PSK-RA v1.0. Der Anhang ist im Dokument als Tabelle ohne
+# Listing gesetzt; diese Datei ist seine maschinenlesbare Fassung.
+# Reihenfolge und Paarung ID / Aussage / Nachweisform unveraendert.
+count: 20
+obligations:
+  - {id: PO-CAN-001, statement: "Kanonisierung deterministisch und idempotent",
+      proof_form: "Property Tests, Golden Vectors"}
+  - {id: PO-REF-001, statement: "Implementierung simuliert die abstrakten Automaten vorwärts",
+      proof_form: "Model Check oder Trace Refinement"}
+  - {id: PO-GATE-001, statement: "Gate-Fail verhindert Effekt",
+      proof_form: "Negativtest, Capability Audit"}
+  - {id: PO-REPLAY-001, statement: "R2 rekonstruiert denselben kanonischen Zustand",
+      proof_form: "Replaytest"}
+  - {id: PO-GLUE-001, statement: "Inkompatible Sektionen committen nicht global",
+      proof_form: "Integrations- und Obstruktionstest"}
+  - {id: PO-DEP-001, statement: "Korrelierte Facetten erhöhen den Witnessrang nicht künstlich",
+      proof_form: "Synthetischer Dependencytest"}
+  - {id: PO-RECON-001, statement: "Aktualisierung benötigt unabhängigen Außenrecord",
+      proof_form: "Fault Injection, Receipt Test"}
+  - {id: PO-MORPH-001, statement: "Morphogenese budgetiert, reversibel, lineagevoll",
+      proof_form: "Automaten- und Rollbacktest"}
+  - {id: PO-SEC-001, statement: "Capabilities erzwingen Least Privilege",
+      proof_form: "Policy- und Sandboxtest"}
+  - {id: PO-EXT-001, statement: "Domänenleistung unterscheidet sich von der Baseline",
+      proof_form: "Benchmark (nicht kernblockierend)"}
+  - {id: PO-TYPE-001, statement: "Alle IR-Knoten und Kanten erfüllen Sorten- und Portverträge",
+      proof_form: "Property Test über Sorten-Port-Matrix"}
+  - {id: PO-ANCH-001, statement: "Jeder extern geltende Claim steigt aus einem Anker ab",
+      proof_form: "Statische Analyse plus Negativtest"}
+  - {id: PO-RT-001, statement: "Can(Reanalyse(Execute(p(M)))) in [M]",
+      proof_form: "Round-Trip-Suite"}
+  - {id: PO-BYP-001,
+      statement: "Kein Pfad überspringt Witness, Gate, Versuch, Receipt, Reconciliation",
+      proof_form: "Pfadüberdeckung aller Automaten"}
+  - {id: PO-M13-001, statement: "Alle 18 Zellen schließen oder emittieren ein Seam-Residuum",
+      proof_form: "Zellüberdeckungstest"}
+  - {id: PO-SELF-001,
+      statement: "Eine erzeugte Spezifikationsbranch kann sich nicht selbst aktivieren",
+      proof_form: "Isolationstest, G-SELF-COMPILE"}
+  - {id: PO-ARCH-001, statement: "Jede Codeeinheit bildet auf genau ein Modul ab",
+      proof_form: "Statische Analyse des Buildgraphen"}
+  - {id: PO-ARCH-002, statement: "Jede modulübergreifende Kante bildet auf genau einen Port ab",
+      proof_form: "Aufrufgraphanalyse plus T-PORT-001"}
+  - {id: PO-ARCH-003, statement: "Nebenläufige Läufe sind serialisierbar",
+      proof_form: "Deterministischer Stresslauf, Digestvergleich"}
+  - {id: PO-ARCH-004, statement: "Beobachtung verändert den kanonischen Digest nicht",
+      proof_form: "Differenzlauf mit und ohne M27"}

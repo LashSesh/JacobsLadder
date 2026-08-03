@@ -1,0 +1,9 @@
+{
+  "schema": "psk.theory-binding/1.0",
+  "parent_theory": {
+    "sha256": "829df842e54b9ccb51e2bfa30c6b6af0939828eea26752506e6aa66685861583",
+    "title": "Native Feldkognitions- und Realitätshorizontnormalform"
+  },
+  "relation": "CPSK kompiliert die Zielidentität des Theorie-Monolithen in maschinenlesbare Typen, Übergänge, Gates, Schnittstellen, Proof Obligations und Abnahmeregeln (CPSK Kanonischer Hauptsatz, Phasenstatus-Tabelle Kapitel Kanonische Zielidentität). Der Theorie-Monolith bleibt semantischer Elternkörper; er wird weder ersetzt noch parallel fortgeschrieben (Vertrag 64.1).",
+  "note": "Wortlaut von 'relation' ist eine Zusammenfassung des Quelltextes (CPSK Kanonische Zielidentität, Kapitel 64), keine wörtliche Registerzeile — im Original als Fließtext, nicht als eigenes Artefakt mit diesem Feldnamen gegeben."
+}

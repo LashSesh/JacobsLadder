@@ -1,0 +1,18 @@
+schema: psk.pass-registry/1.0
+passes:
+  - {id: C1, name: CanonicalParse, modules: [M01, M06], errors: [PSK-E001]}
+  - {id: C2, name: TypeAndSortCheck, modules: [M03, M06], errors: [PSK-E001]}
+  - {id: C3, name: AnchorBinding, modules: [M05, M07], errors: [PSK-E002]}
+  - {id: C4, name: M13SyntaxPlacement, modules: [M22], errors: [PSK-E011]}
+  - {id: C5, name: FieldProjection, modules: [M08, M09], errors: [PSK-E013]}
+  - {id: C6, name: DependencyQuotient, modules: [M10], errors: [PSK-E006]}
+  - {id: C7, name: AdversarialCanonicalization, modules: [M24], errors: [PSK-E003]}
+  - {id: C8, name: SupportAndReachability, modules: [M24, M07], errors: [PSK-E004, PSK-E005]}
+  - {id: C9, name: ClosureAndGluing, modules: [M11, M22], errors: [PSK-E011]}
+  - {id: C10, name: GateAndCapabilityBinding, modules: [M14, M15], errors: [PSK-E007]}
+  - {id: C11, name: TraceReplayEmission, modules: [M19, M23], errors: [PSK-E015]}
+monotonicity: later_pass_may_not_silently_clear_earlier_error_class
+determinism: pure_function_of_declared_inputs_and_run_descriptor
+emission_classes: [EXECUTABLE, RESIDUAL, QUARANTINED, HOLD]
+executable_requires:
+  [fully_typed, anchor_bound_or_declared_unanchored, all_18_cells_closed, close720, unique_global_section, all_blocking_gates_pass, no_blocking_residue]

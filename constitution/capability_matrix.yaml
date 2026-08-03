@@ -1,0 +1,38 @@
+schema: psk.capability-matrix/1.0
+# Quelle: CPSK_Konstitutioneller_Maschinenvertrag.md, Kapitel 35 ("Trust
+# Boundaries und Capabilities"), Zeilen 735-742, Seite 49.
+#
+# Companion zu trust_boundaries.yaml: jene Datei traegt die sechs
+# Referenzdomaenen (Constitution, Kernel, Field Runtime, Effect Boundary,
+# External World, Audit) und die Pruefpflicht pro Uebergang (Zeile 738) und
+# verweist fuer die "konkreten Rollen-/Capability-Zuweisungen" ausdruecklich
+# auf diese Datei (siehe dort: least_privilege_axiom.capability_matrix).
+# Die Domaenenliste wird hier daher nicht dupliziert.
+#
+# Kapitel 35 nennt an dieser Stelle keine einzelnen Capability-Bezeichner
+# (anders als PSK-RA Kapitel 19.2, dort mit eigenen IDs) - nur die
+# Rollentrennung aus Axiom 35.1. Diese Datei erfindet daher keine
+# Capability-IDs; die drei Eintraege unten sind die drei Teilsaetze aus
+# Zeile 739-741, nicht neu hinzugefuegte Regeln.
+
+least_privilege_axiom:
+  ref: "Axiom 35.1"
+  name: "Least Privilege"
+  # Zeilen 739-741, woertlich:
+  text: >-
+    Eine Rolle erhält nur die minimal erforderlichen Fähigkeiten. Insbesondere
+    darf eine Feldidentität keine Fakten aktualisieren, die Effektgrenze kein
+    eigenes Token ausstellen und die Reconciliation Engine keinen Außenrecord
+    umschreiben.
+
+count: 3
+explicit_denials:
+  - role: Feldidentität
+    forbidden_action: Fakten aktualisieren
+    reason: "Axiom 35.1 (Least Privilege): Eine Rolle erhält nur die minimal erforderlichen Fähigkeiten."
+  - role: Effektgrenze
+    forbidden_action: ein eigenes Token ausstellen
+    reason: "Axiom 35.1 (Least Privilege): Eine Rolle erhält nur die minimal erforderlichen Fähigkeiten."
+  - role: Reconciliation Engine
+    forbidden_action: einen Außenrecord umschreiben
+    reason: "Axiom 35.1 (Least Privilege): Eine Rolle erhält nur die minimal erforderlichen Fähigkeiten."

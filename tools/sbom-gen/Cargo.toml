@@ -1,0 +1,12 @@
+[package]
+name = "sbom-gen"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+psk-types = { path = "../../packages/psk-types" }
+serde = { workspace = true }
+toml = "0.8"
+serde_json = "1"

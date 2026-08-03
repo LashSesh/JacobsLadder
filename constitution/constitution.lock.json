@@ -1,0 +1,74 @@
+{
+  "canonical_digests": {
+    "artifact_registry.yaml": "28ad2404e547676089afc6c406f88b384295f852f504550ab1322842c7fbfe46",
+    "capability_matrix.yaml": "979cfb7937695badd07ec0019a71b925fcbec40aa74c0a3229014bfe2e9813ae",
+    "conformance_tests.yaml": "2bee48032f044dc271fb3efab548e39e3253be46a7b4b15e5b17863c08b4d0fa",
+    "constitution.yaml": "8f91efb49bd31866d0070136d6bf327bd10a4b19677877f05e2296f4080111b8",
+    "error_catalog.yaml": "00912767454be88a55b456d10aa41abbab1757ec0b68870b7da767a57589e877",
+    "gate_policy.yaml": "aa30013fb5dafcb4dd4960dbd99f20b7f83b1e9387fa4c3b910c3636aaae83e2",
+    "invariants.yaml": "41e0438757943fcf82e830b983b9765f05388c113e9d87bb56a36ad731efde84",
+    "meta_instance.yaml": "03e6235232fcf81b6ec44c89666a100a4d16ebf128c8b1eb7199a396c46f08aa",
+    "operator_registry.yaml": "f9a7742f9ff5b6d5f2fb1cb896202f38768a703d46c7eb76587619007b06e86f",
+    "proof_obligations.yaml": "f9a8f5808c08e00b10c2c2a72585e1f2f4ed95dadcaf1da329b2a6379fc0d555",
+    "release_gate.yaml": "7355b840100c85df09e046cb450fedacf61b6c292776b1f910325e37054a1132",
+    "requirement_matrix.yaml": "656510de5c5bf288471dcc79797de768a60aba3fc6a8111432e445c463ba2084",
+    "schemas/anchor_snapshot.schema.json": "80828cac9225824fc2e8cd8cb6e67dfda9cbb1fa35a43e47db112c33a763e1be",
+    "schemas/field_identity.schema.json": "aa38ea6865c0566110b59a638eb8487426ec19a8e8773ab6fbe2c890eca6124f",
+    "schemas/machine_certificate.schema.json": "865347256dbb378d8658225c22e0b801d97c828beb9cf24359fbc8c21f2c3906",
+    "schemas/run_descriptor.schema.json": "9e8c26254e7784ba25e2c0488687935d1e028c8dc4e58cdc884e78d171a39438",
+    "schemas/thought_body.schema.json": "506ddc449b03d1419c8d22c994cb21cf1082e5d8ea2b55e951af0ff920c00ee4",
+    "state_machines.yaml": "7987190f5ee6077491d02a39010eeddb2389cee538ac49e9c7fe1698600b48fe",
+    "target_identity.json": "83c1f70e3dcfa5d3553595ce6b8913958d4d670d5cab528f8e2e1b69053c6d9c",
+    "theory_binding.json": "71e39c30d4ef731137f120492a5117e35c76146949b83c1379de933815eda990",
+    "trust_boundaries.yaml": "81b24a838802e136df8b04170b932aae25d8206e959297971a87f1755092f50d",
+    "type_registry.yaml": "1af1f6ba0b32640a60d66dbff8e6a74cef605a97bfb745f536acf927695c23ab"
+  },
+  "canonicalization": "parse YAML/JSON; UTF-8; sorted object keys; compact JSON separators; preserve array order",
+  "computed_by": "H(Can(constitution/*)) — Definition 40.2 (CPSK), Regel 6.7 (PSK-RA). Can() (Algorithmus 6.1) existiert erst ab WP01.",
+  "constitution_id": "3d59eed937b1f7099cf7eb4aee4d32ba482a530a071f60e18b4ed2268cf94f6c",
+  "declared_ancestor_constitution_id": {
+    "evidence": {
+      "conflicting_files": 22,
+      "example": {
+        "artifact_registry.yaml": {
+          "ch_44_1": "60713c98185edbc07bf69b7239988488a1f8ef323a008e8f92a317b2b7549703",
+          "ch_F": "29edd41be23f3a89ec13ffc22112c149f9bf8b473fecf91e7657f164672915a4"
+        }
+      },
+      "source_note": "CPSK-Dokumentkopf: 'Kapitel F listet SHA-256-Digests von 25 Bundle-Dateien, die im Original NICHT eingebettet sind. Vertrag 41.1 ist im Original unerfuellt.'"
+    },
+    "not_adopted": true,
+    "reasoning": "Bootfolge 23.1 Schritt 4 berechnet die Konstitutions-ID ohnehin neu; boot_policy.digest_mismatch = fail. Eine unverifizierbare fremde ID fortzufuehren wuerde Axiom 1.2 verletzen (keine Konformitaet durch Benennung).",
+    "status": "unreachable — no embedded bundle, conflicting digest sets in ch. 44.1 vs. ch. F",
+    "value": "aa10aa5a9ffe5d9205ce7950905f06a81cbce0e66c7d49b77be2529fd09c0f56"
+  },
+  "filled_in_phase": "I1 (WP01, Bundle Compiler)",
+  "normative_files": [
+    "constitution.yaml",
+    "theory_binding.json",
+    "target_identity.json",
+    "artifact_registry.yaml",
+    "type_registry.yaml",
+    "state_machines.yaml",
+    "operator_registry.yaml",
+    "invariants.yaml",
+    "proof_obligations.yaml",
+    "gate_policy.yaml",
+    "capability_matrix.yaml",
+    "trust_boundaries.yaml",
+    "error_catalog.yaml",
+    "requirement_matrix.yaml",
+    "release_gate.yaml",
+    "meta_instance.yaml",
+    "conformance_tests.yaml",
+    "schemas/anchor_snapshot.schema.json",
+    "schemas/thought_body.schema.json",
+    "schemas/field_identity.schema.json",
+    "schemas/run_descriptor.schema.json",
+    "schemas/machine_certificate.schema.json"
+  ],
+  "normative_files_note": "22 Dateien, deckungsgleich mit Kapitel 44.1 (CPSK) normative_files. Die 5 schemas/*.schema.json wurden in WP02 (Core Types) ergaenzt und sind seither vollstaendig.",
+  "parent_theory_sha256": "829df842e54b9ccb51e2bfa30c6b6af0939828eea26752506e6aa66685861583",
+  "pending_since_phase": "I0",
+  "schema": "psk.constitution-lock/1.0"
+}

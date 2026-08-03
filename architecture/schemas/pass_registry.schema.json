@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.pass_registry.yaml/1.0",
+  "title": "pass_registry.yaml",
+  "description": "Strukturschema von architecture/pass_registry.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "passes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "modules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "modules",
+          "errors"
+        ]
+      }
+    },
+    "monotonicity": {
+      "type": "string"
+    },
+    "determinism": {
+      "type": "string"
+    },
+    "emission_classes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "executable_requires": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "passes",
+    "monotonicity",
+    "determinism",
+    "emission_classes",
+    "executable_requires"
+  ]
+}
