@@ -1,0 +1,69 @@
+schema: psk.memory-registry/1.0
+# Abgeleitet aus Kapitel 16 (Speicherarchitektur): Definition 16.1,
+# Invariante 16.2, Regel 16.3, Definition 16.4, Vertrag 16.5,
+# Invariante 16.6, Struktur 16.7, Vertrag 16.8.
+count: 6
+classes:
+  - {id: working, name: Working Memory, write: [M06, M07, M08, M09, M10, M11, M23, M24],
+      rule: "Laufende, nicht geschlossene Ableitungen. Fluechtig; vollstaendig aus Trace
+        rekonstruierbar."}
+  - {id: canonical, name: Canonical Memory, write: [], write_condition: G-CLOSURE,
+      rule: "Geschlossene, versionierte Strukturen. Append-only, inhaltsadressiert."}
+  - {id: witness, name: Witness Memory, write: [M12, M17],
+      rule: "Evidence und Gegenzeugen. Unveraenderlich."}
+  - {id: residual, name: Residual Memory, write: [M19],
+      rule: "Nichtclosure und offene Pflichten. Append-only, nie loeschend."}
+  - {id: replay, name: Replay Memory, write: [M19],
+      rule: "Trace-Segmente, Run Descriptor, Eingabedigests, Replaymanifeste."}
+  - {id: archive, name: Archive, write: [M19, M21],
+      rule: "Unveraenderliche abgeschlossene Runs und Zertifikate."}
+
+promotion_paths:                                          # Regel 16.3
+  - {from: working, to: canonical, operator: G-CLOSURE}
+  - {from: canonical, to: archive, operator: ARCHIVE}
+  - {from: "*", to: residual, operator: RESIDUALIZE}
+  - {from: residual, to: working, operator: Recanonicalization}
+closed_set: true
+forbidden_paths:
+  - {from: residual, to: canonical, reason: no_path_residual_to_canonical}
+  - {from: archive, to: working, reason: no_path_archive_to_working}
+  - {from: "*", to: "*", reason: all_paths_not_listed_in_promotion_paths_are_forbidden}
+
+invariants:
+  no_silent_promotion: "Ein Objekt DARF Canonical Memory nur durch einen expliziten
+    Closure- und Gatevorgang erreichen."                  # Invariante 16.2
+  archiving_is_not_fact_promotion: true
+  fact_promotion_does_not_delete_history: true
+
+memory_surfaces:                                          # Definition 16.4
+  - StateMemory
+  - ContextMemory
+  - ArtifactMemory
+  - TraceMemory
+  - PolicyMemory
+  - LineageMemory
+surface_contract:                                         # Vertrag 16.5
+  required_declarations: [identity, schema, access_policy, retention, forgetting,
+    compaction, audit_linkage]
+forgetting:                                               # Invariante 16.6
+  is_operation: true
+  compaction_must_declare: [preserved, abstracted, discarded]
+  requires_excision_certificate_when: normative_information_removed
+
+physical_layout:                                          # Struktur 16.7
+  objects: "<store_root>/objects/<aa>/<bb>/<digest>"
+  trace: "<store_root>/trace/<run_id>/<segment_no>.jsonl"
+  residue: "<store_root>/residue/<run_id>/ledger.jsonl"
+  run_descriptor: "<store_root>/replay/<run_id>/run_descriptor.json"
+  replay_manifest: "<store_root>/replay/<run_id>/manifest.json"
+  canonical: "<store_root>/canonical/<object_id>"
+  archive: "<store_root>/archive/<run_id>/certificate.json"
+  index: "<store_root>/index/"
+  lock: "<store_root>/LOCK"
+
+persistence_contract:                                     # Vertrag 16.8
+  write_sequence: [write_temp_file, fsync_file, atomic_rename, fsync_directory]
+  atomic_and_durable_before_visible: true
+  index_is_derivation_only: true
+  index_loss_is_blocking: false
+  index_rebuilt_from: [objects, trace]

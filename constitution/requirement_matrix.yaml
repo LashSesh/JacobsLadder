@@ -1,0 +1,15 @@
+schema: psk.requirement-matrix/1.1
+coverage_required_for_reference_release: 1.0
+requirements:
+  - {id: R-ID-001, severity: MUST, artifact: constitution.lock.json, test: T-ID-001, statement: "Every runtime binds to the constitution lock."}
+  - {id: R-TYPE-001, severity: MUST, artifact: schemas/, test: T-SCHEMA-001, statement: "Every committed artifact validates against a registered schema."}
+  - {id: R-ANCHOR-001, severity: MUST, artifact: anchor_snapshot.schema.json, test: T-ANCHOR-001, statement: "External claims reference a sealed anchor or remain explicitly unanchored."}
+  - {id: R-FIELD-001, severity: MUST, artifact: field_identity.schema.json, test: T-FIELD-001, statement: "No field identity is treated as the system identity."}
+  - {id: R-DEP-001, severity: MUST, artifact: gate_policy.yaml, test: T-DEP-001, statement: "Consensus uses an effective dependency-quotiented witness rank."}
+  - {id: R-GATE-001, severity: MUST, artifact: state_machines.yaml, test: T-EFFECT-001, statement: "No external effect occurs without a passing gate and token."}
+  - {id: R-RECON-001, severity: MUST, artifact: state_machines.yaml, test: T-RECON-001, statement: "No fact reaches ACTUALIZED without external reconciliation."}
+  - {id: R-TRACE-001, severity: MUST, artifact: invariants.yaml, test: T-TRACE-001, statement: "Every transition emits trace linkage."}
+  - {id: R-REPLAY-001, severity: MUST, artifact: release_gate.yaml, test: T-REPLAY-001, statement: "A release candidate reaches replay class R2 or higher."}
+  - {id: R-GLUE-001, severity: MUST, artifact: proof_obligations.yaml, test: T-GLUE-001, statement: "Global closure requires overlap compatibility and a second-order gate."}
+  - {id: R-MORPH-001, severity: MUST, artifact: state_machines.yaml, test: T-MORPH-001, statement: "Facet morphogenesis is gain-, budget-, lineage- and rollback-bound."}
+  - {id: R-RES-001, severity: MUST, artifact: invariants.yaml, test: T-RES-001, statement: "No non-pass state disappears without residue, hold reason or quarantine."}

@@ -1,0 +1,1396 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.object_schemas.yaml/1.0",
+  "title": "object_schemas.yaml",
+  "description": "Strukturschema von architecture/object_schemas.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer"
+    },
+    "objects": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "schema_id": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "note"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "schema_id",
+              "fields"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "schema_id": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "note"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "optional": {
+                          "type": "boolean"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "optional",
+                        "note"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "schema_id",
+              "fields"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "schema_id": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "note"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "nested_struct": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "nested_struct"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "nested_structs": {
+                "type": "object",
+                "properties": {
+                  "Provenance": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "type"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            },
+                            "note": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "type",
+                            "note"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "AnchorUncertainty": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    }
+                  },
+                  "Validity": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            },
+                            "note": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "type",
+                            "note"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "type"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "Provenance",
+                  "AnchorUncertainty",
+                  "Validity"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "schema_id",
+              "fields",
+              "nested_structs"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "schema_id": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "note"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "nested_struct": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "nested_struct"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "optional": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "optional"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "nested_structs": {
+                "type": "object",
+                "properties": {
+                  "Claim": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            },
+                            "note": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "type",
+                            "note"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "type"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "Claim"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "schema_id",
+              "fields",
+              "nested_structs"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "schema_id": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "rules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "statement": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "title",
+                    "statement"
+                  ]
+                }
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "note"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "optional": {
+                          "type": "boolean"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "optional",
+                        "note"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "schema_id",
+              "note",
+              "rules",
+              "fields"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "schema_id": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "note"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "nested_struct": {
+                          "type": "string"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "nested_struct",
+                        "note"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "nested_structs": {
+                "type": "object",
+                "properties": {
+                  "Graph": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "Graph"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "schema_id",
+              "fields",
+              "nested_structs"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "note"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "fields"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "optional": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "optional"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "fields"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "schema_id": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "optional": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "optional"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "note"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "schema_id",
+              "fields"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "type"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "fields"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "schema_id": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "note"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "optional": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "optional"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "schema_id",
+              "fields"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "schema_id": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "optional": {
+                          "type": "boolean"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "optional",
+                        "note"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "schema_id",
+              "fields"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "nested_struct": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "nested_struct"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "note": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "note"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "nested_structs": {
+                "type": "object",
+                "properties": {
+                  "Step": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "type"
+                          ]
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "name": {
+                              "type": "string"
+                            },
+                            "type": {
+                              "type": "string"
+                            },
+                            "optional": {
+                              "type": "boolean"
+                            }
+                          },
+                          "required": [
+                            "name",
+                            "type",
+                            "optional"
+                          ]
+                        }
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "Step"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "fields",
+              "nested_structs"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "struktur": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        },
+                        "nested_struct": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type",
+                        "nested_struct"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "nested_structs": {
+                "type": "object",
+                "properties": {
+                  "ExternalRecordRef": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "type": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "type"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "ExternalRecordRef"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "struktur",
+              "fields",
+              "nested_structs"
+            ]
+          }
+        ]
+      }
+    },
+    "not_field_specified": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "reason"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "count",
+    "objects",
+    "not_field_specified"
+  ]
+}

@@ -1,0 +1,483 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.obligations.yaml/1.0",
+  "title": "obligations.yaml",
+  "description": "Strukturschema von architecture/obligations.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer"
+    },
+    "obligations": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "required_properties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "prescribes_algorithm": {
+                "type": "boolean"
+              },
+              "declare_as": {
+                "type": "string"
+              },
+              "test": {
+                "type": "string"
+              },
+              "blocking_from": {
+                "type": "string"
+              },
+              "resolution": {
+                "type": "null"
+              },
+              "resolution_version": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "statement",
+              "required_properties",
+              "prescribes_algorithm",
+              "declare_as",
+              "test",
+              "blocking_from",
+              "resolution",
+              "resolution_version"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "required_properties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "nonconformant": {
+                "type": "string"
+              },
+              "declare_as": {
+                "type": "string"
+              },
+              "test": {
+                "type": "null"
+              },
+              "blocking_from": {
+                "type": "string"
+              },
+              "resolution": {
+                "type": "null"
+              },
+              "resolution_version": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "statement",
+              "required_properties",
+              "nonconformant",
+              "declare_as",
+              "test",
+              "blocking_from",
+              "resolution",
+              "resolution_version"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "architecture_lower_bound": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "test": {
+                "type": "string"
+              },
+              "blocking_from": {
+                "type": "string"
+              },
+              "resolution": {
+                "type": "null"
+              },
+              "resolution_version": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "statement",
+              "architecture_lower_bound",
+              "test",
+              "blocking_from",
+              "resolution",
+              "resolution_version"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "required_properties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "declare_as": {
+                "type": "string"
+              },
+              "test": {
+                "type": "string"
+              },
+              "blocking_from": {
+                "type": "string"
+              },
+              "resolution": {
+                "type": "null"
+              },
+              "resolution_version": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "statement",
+              "required_properties",
+              "declare_as",
+              "test",
+              "blocking_from",
+              "resolution",
+              "resolution_version"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "fixed_by_architecture": {
+                "type": "object",
+                "properties": {
+                  "digest": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "digest"
+                ]
+              },
+              "domain_declared": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "test": {
+                "type": "string"
+              },
+              "blocking_from": {
+                "type": "string"
+              },
+              "resolution": {
+                "type": "null"
+              },
+              "resolution_version": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "statement",
+              "fixed_by_architecture",
+              "domain_declared",
+              "test",
+              "blocking_from",
+              "resolution",
+              "resolution_version"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "required_properties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "prescribes_measure": {
+                "type": "boolean"
+              },
+              "declare_as": {
+                "type": "string"
+              },
+              "test": {
+                "type": "null"
+              },
+              "blocking_from": {
+                "type": "string"
+              },
+              "resolution": {
+                "type": "null"
+              },
+              "resolution_version": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "statement",
+              "required_properties",
+              "prescribes_measure",
+              "declare_as",
+              "test",
+              "blocking_from",
+              "resolution",
+              "resolution_version"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "object",
+                "properties": {
+                  "artifact": {
+                    "type": "string"
+                  },
+                  "finding": {
+                    "type": "string"
+                  },
+                  "consequence": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "artifact",
+                  "finding",
+                  "consequence"
+                ]
+              },
+              "kind": {
+                "type": "string"
+              },
+              "resolvable_by_implementation": {
+                "type": "boolean"
+              },
+              "references": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "note": {
+                "type": "string"
+              },
+              "blocking_from": {
+                "type": "null"
+              },
+              "resolution": {
+                "type": "null"
+              },
+              "resolution_version": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "statement",
+              "evidence",
+              "kind",
+              "resolvable_by_implementation",
+              "references",
+              "note",
+              "blocking_from",
+              "resolution",
+              "resolution_version"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "object",
+                "properties": {
+                  "artifact": {
+                    "type": "string"
+                  },
+                  "finding": {
+                    "type": "string"
+                  },
+                  "example": {
+                    "type": "object",
+                    "properties": {
+                      "artifact_registry.yaml": {
+                        "type": "object",
+                        "properties": {
+                          "ch_44_1": {
+                            "type": "string"
+                          },
+                          "ch_F": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "ch_44_1",
+                          "ch_F"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "artifact_registry.yaml"
+                    ]
+                  },
+                  "consequence": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "artifact",
+                  "finding",
+                  "example",
+                  "consequence"
+                ]
+              },
+              "kind": {
+                "type": "string"
+              },
+              "resolvable_by_implementation": {
+                "type": "boolean"
+              },
+              "references": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "note": {
+                "type": "string"
+              },
+              "blocking_from": {
+                "type": "null"
+              },
+              "resolution": {
+                "type": "string"
+              },
+              "resolution_version": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "statement",
+              "evidence",
+              "kind",
+              "resolvable_by_implementation",
+              "references",
+              "note",
+              "blocking_from",
+              "resolution",
+              "resolution_version"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "count",
+    "obligations"
+  ]
+}

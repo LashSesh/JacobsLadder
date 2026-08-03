@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.lifecycle_registry.yaml/1.0",
+  "title": "lifecycle_registry.yaml",
+  "description": "Strukturschema von architecture/lifecycle_registry.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer"
+    },
+    "lifetime_classes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "duration": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "duration",
+          "rule"
+        ]
+      }
+    },
+    "objects": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "owner": {
+                "type": "string"
+              },
+              "lifetime": {
+                "type": "string"
+              },
+              "memory": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "owner",
+              "lifetime",
+              "memory"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "owner": {
+                "type": "string"
+              },
+              "lifetime": {
+                "type": "string"
+              },
+              "memory": {
+                "type": "string"
+              },
+              "canonical": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "owner",
+              "lifetime",
+              "memory",
+              "canonical"
+            ]
+          }
+        ]
+      }
+    },
+    "allocation": {
+      "type": "object",
+      "properties": {
+        "constructor": {
+          "type": "string"
+        },
+        "before_return": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "constructor",
+        "before_return"
+      ]
+    },
+    "release": {
+      "type": "object",
+      "properties": {
+        "released_classes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "never_released": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "event_type": {
+          "type": "string"
+        },
+        "blocked_while_referenced_open": {
+          "type": "boolean"
+        },
+        "violation": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "released_classes",
+        "never_released",
+        "event_type",
+        "blocked_while_referenced_open",
+        "violation"
+      ]
+    },
+    "borrow": {
+      "type": "object",
+      "properties": {
+        "non_owner_access": {
+          "type": "string"
+        },
+        "non_owner_may": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "non_owner_may_not": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "non_owner_access",
+        "non_owner_may",
+        "non_owner_may_not"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "count",
+    "lifetime_classes",
+    "objects",
+    "allocation",
+    "release",
+    "borrow"
+  ]
+}

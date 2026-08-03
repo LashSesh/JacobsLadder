@@ -1,0 +1,24 @@
+schema: psk.conformance-tests/1.1
+tests:
+  # --- kanonische Pflichtzeugen ---
+  - {id: T-ID-001, kind: negative, mutation: flip_core_axiom, expect: constitution_id_changes_and_boot_fails}
+  - {id: T-SCHEMA-001, kind: negative, mutation: remove_required_thought_field, expect: schema_reject}
+  - {id: T-ANCHOR-001, kind: negative, mutation: emit_external_claim_without_anchor, expect: HOLD}
+  - {id: T-FIELD-001, kind: negative, mutation: set_system_identity_to_field_id, expect: FAIL}
+  - {id: T-DEP-001, kind: negative, mutation: clone_same_model_into_100_facets, expect: effective_rank_not_100}
+  - {id: T-EFFECT-001, kind: negative, mutation: call_effector_without_token, expect: FAIL_no_side_effect}
+  - {id: T-RECON-001, kind: negative, mutation: mark_attempt_as_actualized_without_receipt, expect: FAIL}
+  - {id: T-TRACE-001, kind: negative, mutation: delete_prior_residue, expect: FAIL}
+  - {id: T-REPLAY-001, kind: positive, run: golden/golden_run.json, expect: canonical_state_digest_matches}
+  - {id: T-GLUE-001, kind: negative, mutation: incompatible_overlap, expect: RESIDUE_no_global_commit}
+  - {id: T-MORPH-001, kind: negative, mutation: spawn_field_without_gain_or_budget, expect: HOLD}
+  - {id: T-RES-001, kind: negative, mutation: drop_nonpass_artifact, expect: FAIL}
+  - {id: T-PERSONA-001, kind: negative, mutation: persona_claims_constitutional_authority, expect: FAIL}
+  - {id: T-SCOPE-001, kind: negative, mutation: promote_cluster_consensus_to_external, expect: FAIL}
+  - {id: T-UNKNOWN-001, kind: negative, mutation: verbal_uncertainty_without_internal_block, expect: FAIL}
+  - {id: T-FORECAST-001,kind: negative, mutation: overwrite_old_forecast_after_observation, expect: trace_violation}
+  - {id: T-RECEIPT-001, kind: negative, mutation: replace_external_record_by_internal_simulation, expect: FAIL}
+  - {id: T-CAP-001, kind: negative, mutation: effect_role_issues_own_token, expect: capability_violation}
+  - {id: T-BOUND-001, kind: negative, mutation: expose_internal_freedom_as_external_capability, expect: FAIL}
+  - {id: T-M13-001, kind: property, run: m13_topology.yaml, expect: node_count==13 and edge_count==30 and cell_count==18}
+  - {id: T-M13-002, kind: negative, mutation: remove_one_edge_from_topology, expect: boot_fail_PSK_E011}

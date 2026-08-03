@@ -1,0 +1,18 @@
+schema: psk.ra-invariants/1.0
+invariants:
+  - {id: I-ARCH-001, scope: build, severity: blocking, predicate: runtime.architecture_id == lock.architecture_id}
+  - {id: I-ARCH-002, scope: global, severity: blocking, predicate: module_dependency_graph_is_acyclic_and_layer_respecting}
+  - {id: I-ARCH-003, scope: global, severity: blocking, predicate: every_cross_module_call_maps_to_exactly_one_port_P00_P41}
+  - {id: I-ARCH-004, scope: global, severity: blocking, predicate: every_object_type_has_exactly_one_owning_module}
+  - {id: I-ARCH-005, scope: global, severity: blocking, predicate: every_state_transition_references_a_registered_gate_or_null}
+  - {id: I-ARCH-006, scope: global, severity: blocking, predicate: trace_segment_written_before_state_visible_at_any_port}
+  - {id: I-ARCH-007, scope: effect, severity: blocking, predicate: effect_adapter_identity != observer_adapter_identity}
+  - {id: I-ARCH-008, scope: global, severity: blocking, predicate: M27_has_no_outgoing_edge_into_kernel_modules}
+  - {id: I-ARCH-009, scope: run, severity: blocking, predicate: concurrent_run_has_equivalent_sequential_canonical_digest}
+  - {id: I-ARCH-010, scope: memory, severity: blocking, predicate: only_declared_promotion_paths_between_memory_classes}
+  - {id: I-ARCH-011, scope: topology, severity: blocking, predicate: m13_counts_equal_13_30_18}
+  - {id: I-ARCH-012, scope: run, severity: blocking, predicate: replay_profile_executes_no_real_effect}
+  - {id: I-ARCH-013, scope: build, severity: blocking, predicate: refinement_map_covers_every_concrete_transition}
+  - {id: I-ARCH-014, scope: global, severity: blocking, predicate: token_consumed_at_most_once_per_idempotency_key}
+  - {id: I-ARCH-015, scope: global, severity: blocking, predicate: profiling_and_logging_do_not_alter_canonical_digest}
+  - {id: I-ARCH-016, scope: plugin, severity: blocking, predicate: plugin_cannot_alter_sorts_topology_automata_gates_or_errors}

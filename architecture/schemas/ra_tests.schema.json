@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.ra_tests.yaml/1.0",
+  "title": "ra_tests.yaml",
+  "description": "Strukturschema von architecture/ra_tests.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "mutation": {
+                "type": "string"
+              },
+              "expect": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "mutation",
+              "expect"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "run": {
+                "type": "string"
+              },
+              "expect": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "run",
+              "expect"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "tests"
+  ]
+}

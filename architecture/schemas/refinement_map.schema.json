@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.refinement_map.yaml/1.0",
+  "title": "refinement_map.yaml",
+  "description": "Strukturschema von architecture/refinement_map.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "abstract_machines": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "abstract_source": {
+      "type": "string"
+    },
+    "simulation_direction": {
+      "type": "string"
+    },
+    "preserved_by_abstraction_map": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "mappings": {
+      "type": "array"
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "concrete_transitions": {
+          "type": "integer"
+        },
+        "mapped": {
+          "type": "integer"
+        },
+        "unmapped": {
+          "type": "integer"
+        },
+        "complete": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "concrete_transitions",
+        "mapped",
+        "unmapped",
+        "complete"
+      ]
+    },
+    "unmapped_is_blocking": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "schema",
+    "abstract_machines",
+    "abstract_source",
+    "simulation_direction",
+    "preserved_by_abstraction_map",
+    "mappings",
+    "coverage",
+    "unmapped_is_blocking"
+  ]
+}

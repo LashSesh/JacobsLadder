@@ -1,0 +1,16 @@
+schema: psk.requirement-matrix/1.1
+coverage_required_for_reference_release: 1.0
+requirements:
+  # --- Architekturanforderungen dieses Werkes ---
+  - {id: R-RA-001, severity: MUST, artifact: architecture.lock.json, test: T-ARCH-001, statement: "Every runtime binds to the architecture lock."}
+  - {id: R-RA-002, severity: MUST, artifact: module_map.yaml, test: T-ARCH-002, statement: "Module dependency graph is acyclic and layer-respecting."}
+  - {id: R-RA-003, severity: MUST, artifact: port_registry.yaml, test: T-PORT-001, statement: "Every cross-module call maps to exactly one registered port."}
+  - {id: R-RA-004, severity: MUST, artifact: object_registry.yaml, test: T-OWN-001, statement: "Every object type has exactly one owning module."}
+  - {id: R-RA-005, severity: MUST, artifact: state_machines.yaml, test: T-FSM-001, statement: "Every transition references a registered gate or null."}
+  - {id: R-RA-006, severity: MUST, artifact: m13_topology.yaml, test: T-M13-001, statement: "Topology has exactly 13 nodes, 30 edges, 18 cells."}
+  - {id: R-RA-007, severity: MUST, artifact: pass_registry.yaml, test: T-PASS-001, statement: "Passes run in canonical order and are pure functions of declared inputs."}
+  - {id: R-RA-008, severity: MUST, artifact: memory_registry.yaml, test: T-MEM-001, statement: "Only declared promotion paths between memory classes occur."}
+  - {id: R-RA-009, severity: MUST, artifact: capability_matrix.yaml, test: T-SEC-001, statement: "Capabilities are enforced at substrate level, not by convention."}
+  - {id: R-RA-010, severity: MUST, artifact: refinement_map.yaml, test: T-REF-001, statement: "Every concrete transition maps forward onto an abstract transition."}
+  - {id: R-RA-011, severity: MUST, artifact: module_map.yaml, test: T-OBS-001, statement: "Observability has no write path and no kernel influence."}
+  - {id: R-RA-012, severity: MUST, artifact: port_registry.yaml, test: T-REPLAY-002, statement: "Replay profile executes no real effect."}

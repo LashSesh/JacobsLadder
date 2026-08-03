@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.sort_registry.yaml/1.0",
+  "title": "sort_registry.yaml",
+  "description": "Strukturschema von architecture/sort_registry.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer"
+    },
+    "sorts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "cell_class": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "owner",
+          "cell_class"
+        ]
+      }
+    },
+    "port_matrix": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "forbidden_relations": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "count",
+    "sorts",
+    "port_matrix",
+    "forbidden_relations"
+  ]
+}

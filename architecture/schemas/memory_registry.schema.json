@@ -1,0 +1,273 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.memory_registry.yaml/1.0",
+  "title": "memory_registry.yaml",
+  "description": "Strukturschema von architecture/memory_registry.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer"
+    },
+    "classes": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "write": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "rule": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "write",
+              "rule"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "write": {
+                "type": "array"
+              },
+              "write_condition": {
+                "type": "string"
+              },
+              "rule": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "write",
+              "write_condition",
+              "rule"
+            ]
+          }
+        ]
+      }
+    },
+    "promotion_paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "operator": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "operator"
+        ]
+      }
+    },
+    "closed_set": {
+      "type": "boolean"
+    },
+    "forbidden_paths": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "reason"
+        ]
+      }
+    },
+    "invariants": {
+      "type": "object",
+      "properties": {
+        "no_silent_promotion": {
+          "type": "string"
+        },
+        "archiving_is_not_fact_promotion": {
+          "type": "boolean"
+        },
+        "fact_promotion_does_not_delete_history": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "no_silent_promotion",
+        "archiving_is_not_fact_promotion",
+        "fact_promotion_does_not_delete_history"
+      ]
+    },
+    "memory_surfaces": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "surface_contract": {
+      "type": "object",
+      "properties": {
+        "required_declarations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "required_declarations"
+      ]
+    },
+    "forgetting": {
+      "type": "object",
+      "properties": {
+        "is_operation": {
+          "type": "boolean"
+        },
+        "compaction_must_declare": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requires_excision_certificate_when": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "is_operation",
+        "compaction_must_declare",
+        "requires_excision_certificate_when"
+      ]
+    },
+    "physical_layout": {
+      "type": "object",
+      "properties": {
+        "objects": {
+          "type": "string"
+        },
+        "trace": {
+          "type": "string"
+        },
+        "residue": {
+          "type": "string"
+        },
+        "run_descriptor": {
+          "type": "string"
+        },
+        "replay_manifest": {
+          "type": "string"
+        },
+        "canonical": {
+          "type": "string"
+        },
+        "archive": {
+          "type": "string"
+        },
+        "index": {
+          "type": "string"
+        },
+        "lock": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "objects",
+        "trace",
+        "residue",
+        "run_descriptor",
+        "replay_manifest",
+        "canonical",
+        "archive",
+        "index",
+        "lock"
+      ]
+    },
+    "persistence_contract": {
+      "type": "object",
+      "properties": {
+        "write_sequence": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "atomic_and_durable_before_visible": {
+          "type": "boolean"
+        },
+        "index_is_derivation_only": {
+          "type": "boolean"
+        },
+        "index_loss_is_blocking": {
+          "type": "boolean"
+        },
+        "index_rebuilt_from": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "write_sequence",
+        "atomic_and_durable_before_visible",
+        "index_is_derivation_only",
+        "index_loss_is_blocking",
+        "index_rebuilt_from"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "count",
+    "classes",
+    "promotion_paths",
+    "closed_set",
+    "forbidden_paths",
+    "invariants",
+    "memory_surfaces",
+    "surface_contract",
+    "forgetting",
+    "physical_layout",
+    "persistence_contract"
+  ]
+}

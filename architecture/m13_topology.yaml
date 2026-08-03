@@ -1,0 +1,81 @@
+schema: psk.m13-topology/1.0
+counts: {nodes: 13, edges: 30, cells: 18}
+nodes:
+  center: [c]
+  inner: [i0, i1, i2, i3, i4, i5]
+  outer: [o0, o1, o2, o3, o4, o5]
+edge_classes:
+  center_inner: {formula: "(c, i_k)", count: 6}
+  inner_cycle: {formula: "(i_k, i_k+1)", count: 6}
+  outer_cycle: {formula: "(o_k, o_k+1)", count: 6}
+  radial: {formula: "(i_k, o_k)", count: 6}
+  diagonal: {formula: "(i_k, o_k-1)", count: 6}
+edges:
+  - {id: E-C-0, class: center_inner, u: c, v: i0}
+  - {id: E-C-1, class: center_inner, u: c, v: i1}
+  - {id: E-C-2, class: center_inner, u: c, v: i2}
+  - {id: E-C-3, class: center_inner, u: c, v: i3}
+  - {id: E-C-4, class: center_inner, u: c, v: i4}
+  - {id: E-C-5, class: center_inner, u: c, v: i5}
+  - {id: E-I-0, class: inner_cycle, u: i0, v: i1}
+  - {id: E-I-1, class: inner_cycle, u: i1, v: i2}
+  - {id: E-I-2, class: inner_cycle, u: i2, v: i3}
+  - {id: E-I-3, class: inner_cycle, u: i3, v: i4}
+  - {id: E-I-4, class: inner_cycle, u: i4, v: i5}
+  - {id: E-I-5, class: inner_cycle, u: i5, v: i0}
+  - {id: E-O-0, class: outer_cycle, u: o0, v: o1}
+  - {id: E-O-1, class: outer_cycle, u: o1, v: o2}
+  - {id: E-O-2, class: outer_cycle, u: o2, v: o3}
+  - {id: E-O-3, class: outer_cycle, u: o3, v: o4}
+  - {id: E-O-4, class: outer_cycle, u: o4, v: o5}
+  - {id: E-O-5, class: outer_cycle, u: o5, v: o0}
+  - {id: E-R-0, class: radial, u: i0, v: o0}
+  - {id: E-R-1, class: radial, u: i1, v: o1}
+  - {id: E-R-2, class: radial, u: i2, v: o2}
+  - {id: E-R-3, class: radial, u: i3, v: o3}
+  - {id: E-R-4, class: radial, u: i4, v: o4}
+  - {id: E-R-5, class: radial, u: i5, v: o5}
+  - {id: E-D-0, class: diagonal, u: i0, v: o5}
+  - {id: E-D-1, class: diagonal, u: i1, v: o0}
+  - {id: E-D-2, class: diagonal, u: i2, v: o1}
+  - {id: E-D-3, class: diagonal, u: i3, v: o2}
+  - {id: E-D-4, class: diagonal, u: i4, v: o3}
+  - {id: E-D-5, class: diagonal, u: i5, v: o4}
+cell_classes:
+  center: {formula: "(c, i_k, i_k+1)", role: identity_constitution_lineage}
+  bridge: {formula: "(i_k, i_k+1, o_k)", role: seam_port_dependency_direction}
+  boundary: {formula: "(i_k, o_k, o_k-1)", role: anchor_effect_capability_horizon}
+cells:
+  - {id: c0, class: center, nodes: [c, i0, i1], edges: [E-C-0, E-C-1, E-I-0]}
+  - {id: c1, class: center, nodes: [c, i1, i2], edges: [E-C-1, E-C-2, E-I-1]}
+  - {id: c2, class: center, nodes: [c, i2, i3], edges: [E-C-2, E-C-3, E-I-2]}
+  - {id: c3, class: center, nodes: [c, i3, i4], edges: [E-C-3, E-C-4, E-I-3]}
+  - {id: c4, class: center, nodes: [c, i4, i5], edges: [E-C-4, E-C-5, E-I-4]}
+  - {id: c5, class: center, nodes: [c, i5, i0], edges: [E-C-5, E-C-0, E-I-5]}
+  - {id: b0, class: bridge, nodes: [i0, i1, o0], edges: [E-I-0, E-D-1, E-R-0]}
+  - {id: b1, class: bridge, nodes: [i1, i2, o1], edges: [E-I-1, E-D-2, E-R-1]}
+  - {id: b2, class: bridge, nodes: [i2, i3, o2], edges: [E-I-2, E-D-3, E-R-2]}
+  - {id: b3, class: bridge, nodes: [i3, i4, o3], edges: [E-I-3, E-D-4, E-R-3]}
+  - {id: b4, class: bridge, nodes: [i4, i5, o4], edges: [E-I-4, E-D-5, E-R-4]}
+  - {id: b5, class: bridge, nodes: [i5, i0, o5], edges: [E-I-5, E-D-0, E-R-5]}
+  - {id: o0, class: boundary, nodes: [i0, o0, o5], edges: [E-R-0, E-O-5, E-D-0]}
+  - {id: o1, class: boundary, nodes: [i1, o1, o0], edges: [E-R-1, E-O-0, E-D-1]}
+  - {id: o2, class: boundary, nodes: [i2, o2, o1], edges: [E-R-2, E-O-1, E-D-2]}
+  - {id: o3, class: boundary, nodes: [i3, o3, o2], edges: [E-R-3, E-O-2, E-D-3]}
+  - {id: o4, class: boundary, nodes: [i4, o4, o3], edges: [E-R-4, E-O-3, E-D-4]}
+  - {id: o5, class: boundary, nodes: [i5, o5, o4], edges: [E-R-5, E-O-4, E-D-5]}
+address_grammar: 'm13:<scale_path>/<cell_id>[/<node_id>]'
+placement:
+  by_sort:
+     center: [S-IDT, S-CTX, S-BRN]
+     bridge: [S-PRJ, S-FLD, S-DEP, S-STA, S-TRN, S-EVT]
+     boundary: [S-ANC, S-CAP, S-EFF, S-RCP, S-RCN, S-HOR]
+     cell_bound: [S-WIT, S-GAT, S-TRC, S-RES]
+  index_rule: "k = H(Can(node)) mod 6; bei Konflikt aufsteigende Sondierung"
+closure:
+  close360: "pi(Phi(x)) == pi(x) and Seam(Phi,x) == 1"
+  close720: "Phi^2(x) ==can x and Hol(Phi^2) == I and Replay(Phi^2) ==can x"
+  required_for_executable: close720
+scale:
+  max_depth: declared_in_runtime_manifest
+  unresolved_remainder: {sort: S-HOR, residue_type: horizon}

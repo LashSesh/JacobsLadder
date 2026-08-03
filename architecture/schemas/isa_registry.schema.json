@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.isa_registry.yaml/1.0",
+  "title": "isa_registry.yaml",
+  "description": "Strukturschema von architecture/isa_registry.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "count": {
+      "type": "integer"
+    },
+    "instructions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string"
+          },
+          "module": {
+            "type": "string"
+          },
+          "in": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "out": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "op",
+          "module",
+          "in",
+          "out"
+        ]
+      }
+    },
+    "contract": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "count",
+    "instructions",
+    "contract"
+  ]
+}

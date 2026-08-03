@@ -1,0 +1,273 @@
+# Quelle: CPSK_Konstitutioneller_Maschinenvertrag.md
+# - Datei-/Verzeichnisliste: Kapitel 41 "Bundle-Struktur", Zeilen 803-831
+#   (Listing 41.1 "Kanonische Bundle-Struktur", Zeilen 805-828, unter
+#   psk-constitution/; Vertrag 41.1, Zeilen 829-831).
+# - Rang/Funktion je Artefakt: Zeilen 88-98, Tabelle "Artefakt Rang Funktion"
+#   im Abschnitt "Dokumenten- und Artefaktstatus".
+#
+# Listing 41.1 fuehrt 22 Eintraege unter psk-constitution/ (die Zeile
+# "psk-constitution/" selbst zaehlt als Wurzel nicht mit). Das deckt sich mit
+# architecture/obligations.yaml OBL-009 ("fuer alle 22 gemeinsamen
+# Dateinamen") und mit constitution/constitution.lock.json
+# (declared_ancestor_constitution_id.evidence.conflicting_files: 22).
+#
+# Die Rang-Werte sind woertlich aus der Tabelle uebernommen: "Identitätswurzel",
+# "normativ", "normative Projektion", "Referenzwerkzeug". Ein Rang "informativ"
+# kommt im Quelltext NICHT vor und wird hier deshalb nicht verwendet.
+#
+# Die Tabelle nennt nur 7 Kategorien fuer 22 Dateien/Verzeichnisse. Wo ein
+# Eintrag woertlich in einer Tabellenzeile genannt ist (constitution.lock.json;
+# constitution.yaml; "Typen, Schemata, Automaten"; "Invarianten und Gates";
+# "Proof Obligations und Tests"; "Verifier und Golden Run"), steht
+# zuordnung: explizit. Wo ein Eintrag keiner Zeile woertlich entspricht, aber
+# laut Definition 40.2 (Kapitel 40) zur Menge der "normativen Dateien" gehoert,
+# aus denen die Konstitutions-ID gebildet wird - bestaetigt durch das bereits
+# vorliegende constitution/constitution.lock.json (Feld normative_files) und
+# constitution/constitution.yaml (Feld normative_precedence) -, steht
+# zuordnung: abgeleitet. Fuer MANIFEST.sha256 nennt die Tabelle keine
+# Kategorie; rang bleibt dort bewusst null statt erfunden.
+#
+# present_in_repo ist keine CPSK-Aussage, sondern eine Bestandspruefung dieses
+# Repos zum Schreibzeitpunkt (2026-08-03). schemas/, tools/verify_bundle.py
+# und golden/golden_run.json stehen im Register, sind aber - analog zu
+# architecture/schemas/ und den WP-Verweisen in VERSIONING.md,
+# constitution.lock.json (normative_files_note) und tools/verify-bundle/ -
+# noch nicht angelegt.
+schema: psk.artifact-registry/1.0
+count: 22
+root: psk-constitution/
+rang_definitionen:
+  - rang: Identitätswurzel
+    funktion: "Bindet Konstitutions-ID und kanonische Digests."
+    beleg: "Zeile 89-90"
+  - rang: normativ
+    funktion: "Legt Axiome, Bootpolitik, Amendment-Regeln, zulaessige Maschinenzustaende
+      und Uebergaenge, Commit-/Wirkungs-/Faktpromotionsgrenzen sowie die erforderlichen
+      Nachweisformen fest."
+    beleg: "Zeile 91-96 (vier Tabellenzeilen mit identischem Rang 'normativ', je
+      eigener Funktion: constitution.yaml; Typen/Schemata/Automaten; Invarianten
+      und Gates; Proof Obligations und Tests)"
+  - rang: normative Projektion
+    funktion: "Menschlich lesbare Verfassung und Container des Bundles."
+    beleg: "Zeile 97"
+    hinweis: "Betrifft das PDF. Laut Vertrag 41.1 traegt das PDF das Bundle als
+      eingebettete Anlage, ist selbst aber kein Eintrag von Listing 41.1 - daher
+      kein files-Eintrag mit diesem Rang in dieser Datei."
+  - rang: Referenzwerkzeug
+    funktion: "Pruefen eine konkrete Bundle-Instanz; definieren nicht allein die
+      Semantik."
+    beleg: "Zeile 98"
+files:
+  - name: constitution.lock.json
+    typ: file
+    rang: Identitätswurzel
+    zuordnung: explizit
+    beleg: "Zeile 89-90"
+    present_in_repo: true
+
+  - name: constitution.yaml
+    typ: file
+    rang: normativ
+    zuordnung: explizit
+    beleg: "Zeile 91-92"
+    present_in_repo: true
+
+  - name: theory_binding.json
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Kein woertliches Match in Zeile 88-98; in constitution.lock.json
+      (Feld normative_files) und constitution.yaml (Feld normative_precedence)
+      bereits als normative Datei gefuehrt."
+    present_in_repo: true
+
+  - name: target_identity.json
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Kein woertliches Match in Zeile 88-98; siehe auch Zeile 86-87
+      (Widerspruch der Zielidentitaet macht den Vertrag defekt); in
+      constitution.lock.json (normative_files) und constitution.yaml
+      (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: artifact_registry.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Kein woertliches Match in Zeile 88-98; diese Datei selbst, in
+      constitution.lock.json (normative_files) und constitution.yaml
+      (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: type_registry.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Zeile 93-94 ('Typen, Schemata, Automaten' - Typen); in
+      constitution.lock.json (normative_files) und constitution.yaml
+      (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: state_machines.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Zeile 93-94 ('Typen, Schemata, Automaten' - Automaten); in
+      constitution.lock.json (normative_files) und constitution.yaml
+      (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: operator_registry.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Kein woertliches Match in Zeile 88-98 (Operatoren werden dort nicht
+      als eigene Kategorie genannt); generische normativ-Zuordnung ueber
+      Definition 40.2 (Menge normativer Dateien); in constitution.lock.json
+      (normative_files) und constitution.yaml (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: invariants.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Zeile 95 ('Invarianten und Gates' - Invarianten); in
+      constitution.lock.json (normative_files) und constitution.yaml
+      (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: proof_obligations.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Zeile 96 ('Proof Obligations und Tests' - Proof Obligations); in
+      constitution.lock.json (normative_files) und constitution.yaml
+      (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: gate_policy.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Zeile 95 ('Invarianten und Gates' - Gates); in
+      constitution.lock.json (normative_files) und constitution.yaml
+      (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: capability_matrix.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Kein woertliches Match in Zeile 88-98; generische normativ-Zuordnung
+      ueber Definition 40.2; in constitution.lock.json (normative_files) und
+      constitution.yaml (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: trust_boundaries.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Kein woertliches Match in Zeile 88-98 (Kapitel 35 'Trust Boundaries
+      und Capabilities' ist nicht Teil dieser Tabelle); generische
+      normativ-Zuordnung ueber Definition 40.2; in constitution.lock.json
+      (normative_files) und constitution.yaml (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: error_catalog.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Kein woertliches Match in Zeile 88-98; generische normativ-Zuordnung
+      ueber Definition 40.2; in constitution.lock.json (normative_files) und
+      constitution.yaml (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: requirement_matrix.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Kein woertliches Match in Zeile 88-98 (thematisch naeher an Kapitel
+      43 'Register und Referenzen', Definition 43.1 Requirement Coverage, nicht
+      Teil dieser Tabelle); generische normativ-Zuordnung ueber Definition 40.2;
+      in constitution.lock.json (normative_files) und constitution.yaml
+      (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: release_gate.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Zeile 95 ('Invarianten und Gates' - Gates); in
+      constitution.lock.json (normative_files) und constitution.yaml
+      (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: meta_instance.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Kein woertliches Match in Zeile 88-98; generische normativ-Zuordnung
+      ueber Definition 40.2; in constitution.lock.json (normative_files) und
+      constitution.yaml (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: conformance_tests.yaml
+    typ: file
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Zeile 96 ('Proof Obligations und Tests' - Tests); in
+      constitution.lock.json (normative_files) und constitution.yaml
+      (normative_precedence) gefuehrt."
+    present_in_repo: true
+
+  - name: schemas
+    typ: directory
+    rang: normativ
+    zuordnung: abgeleitet
+    beleg: "Zeile 93-94 ('Typen, Schemata, Automaten' - Schemata); vgl. Kapitel
+      42 'Schemafamilie'; constitution.yaml (normative_precedence) fuehrt
+      'schemas/*.schema.json' explizit."
+    present_in_repo: true
+    hinweis: "In WP02 (Core Types, Phase I1) angelegt: die 5 Schemas aus
+      Kapitel 42 (anchor_snapshot, thought_body, field_identity,
+      run_descriptor, machine_certificate), generiert aus
+      architecture/object_schemas.yaml. Siehe
+      constitution/constitution.lock.json, normative_files."
+
+  - name: tools/verify_bundle.py
+    typ: file
+    rang: Referenzwerkzeug
+    zuordnung: explizit
+    beleg: "Zeile 98 ('Verifier und Golden Run' - Verifier)"
+    present_in_repo: false
+    hinweis: "Voraussetzung Can() (Algorithmus 6.1) ist WP01, Phase I1 (siehe
+      VERSIONING.md; tools/verify-bundle/src/main.rs; architecture/obligations.yaml
+      OBL-009). Im Repo existiert bereits ein typisierter Rust-Stub unter
+      tools/verify-bundle/ (kein .py, ohne Pruefkoerper - todo!()), der exakt
+      auf dieses Fehlen verweist. Steht im Register, ist als eigenstaendige
+      Datei aber noch nicht angelegt."
+
+  - name: golden/golden_run.json
+    typ: file
+    rang: Referenzwerkzeug
+    zuordnung: explizit
+    beleg: "Zeile 98 ('Verifier und Golden Run' - Golden Run)"
+    present_in_repo: false
+    hinweis: "Wird bereits als erwartetes Testartefakt referenziert
+      (constitution/conformance_tests.yaml, Test T-REPLAY-001, run:
+      golden/golden_run.json), haengt aber wie tools/verify_bundle.py von
+      Can() (WP01, Phase I1) ab. Steht im Register, ist noch nicht angelegt."
+
+  - name: MANIFEST.sha256
+    typ: file
+    rang: null
+    zuordnung: nicht_durch_tabelle_abgedeckt
+    beleg: null
+    present_in_repo: true
+    hinweis: "Zeile 88-98 nennt fuer dieses Artefakt keine Kategorie; kein Rang
+      'informativ' erfunden, da die Quelle diesen Wert nicht kennt. Im Repo
+      existiert bereits ein MANIFEST.sha256 auf Root-Ebene - dieses hasht
+      jedoch das gesamte Repository, nicht nur das psk-constitution/-Bundle
+      aus Listing 41.1. Scope-Unterschied zur Kapitel-41-Definition bewusst
+      vermerkt, nicht aufgeloest."

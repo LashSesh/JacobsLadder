@@ -1,0 +1,35 @@
+schema: psk.trust-boundaries/1.0
+# Kapitel 35 ("Trust Boundaries und Capabilities"), Zeilen 735-742 des
+# CPSK_Konstitutioneller_Maschinenvertrag.md. Kapitel 35 nennt die sechs
+# Referenzdomaenen und eine Pruefpflicht pro Uebergang, aber keine
+# Adjazenz-/Kantenliste zwischen den Domaenen - siehe Anmerkung bei
+# transition_requirement.
+count: 6
+domains:
+  - Constitution
+  - Kernel
+  - Field Runtime
+  - Effect Boundary
+  - External World
+  - Audit
+# Zeile 738: "Jeder Übergang MUSS Schema, Identität, Trace und Capability prüfen."
+transition_requirement:
+  applies_to: every_transition_between_domains
+  must_check:
+    - schema
+    - identity
+    - trace
+    - capability
+  # Der Quelltext spezifiziert keine erlaubten/verbotenen Paare oder Richtungen
+  # zwischen den sechs Domaenen (keine Adjazenzmatrix wie forbidden_edges in
+  # module_map.yaml). Diese Datei erfindet daher keine edges-Liste; die Pflicht
+  # gilt laut Kapitel 35 uniform fuer jeden Uebergang, unabhaengig von Quelle/Ziel.
+least_privilege_axiom:
+  # Zeilen 739-741: "Axiom 35.1 (Least Privilege). Eine Rolle erhält nur die
+  # minimal erforderlichen Fähigkeiten. [...]"
+  ref: "Axiom 35.1"
+  statement: Eine Rolle erhält nur die minimal erforderlichen Fähigkeiten.
+  # Konkrete Rollen-/Capability-Zuweisungen (inkl. der im Quelltext genannten
+  # Beispiele wie Feldidentitaet/Effektgrenze/Reconciliation Engine) werden
+  # hier nicht dupliziert, sondern dort gepflegt:
+  capability_matrix: capability_matrix.yaml

@@ -1,0 +1,12 @@
+[package]
+name = "psk-observe"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+psk-types = { path = "../psk-types" }
+
+[build-dependencies]
+psk-codegen = { path = "../../tools/psk-codegen" }

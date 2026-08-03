@@ -1,0 +1,26 @@
+schema: psk.error-catalog/1.1
+domains: [ID, SCHEMA, ANCHOR, FACT, REAL, DEP, SCOPE, GLUE, EFFECT, RECON, REPLAY, RES, MORPH, PERSONA]
+canonical: # unveraendert aus der Gesamtspezifikation
+  - {code: PSK-E001, name: untyped_input, domain: SCHEMA, reaction: [HOLD, trace, require_type]}
+  - {code: PSK-E002, name: missing_anchor, domain: ANCHOR, reaction: [no_external_promotion, require_anchor]}
+  - {code: PSK-E003, name: surface_invariant_collapse, domain: FACT, reaction: [REJECT_or_QUARANTINE, residue]}
+  - {code: PSK-E004, name: unsupported_reachability, domain: REAL, reaction: [mark_coherent_but_unsupported]}
+  - {code: PSK-E005, name: occlusion_without_trace, domain: FACT, reaction: [set_UNKNOWN, no_negative_witness]}
+  - {code: PSK-E006, name: correlated_witness_overcount, domain: DEP, reaction: [recompute_dependency_quotient]}
+  - {code: PSK-E007, name: gate_bypass, domain: EFFECT, reaction: [FAIL, lock_capability]}
+  - {code: PSK-E008, name: effect_without_token, domain: EFFECT, reaction: [block_effect, residue]}
+  - {code: PSK-E009, name: actualization_without_reconciliation, domain: RECON, reaction: [reject_fact_promotion]}
+  - {code: PSK-E010, name: same_mode_return, domain: FACT, reaction: [residualize_output]}
+  - {code: PSK-E011, name: nonclosing_m13_seam, domain: GLUE, reaction: [block_cell_and_system_closure]}
+  - {code: PSK-E012, name: self_amendment_without_identity, domain: ID, reaction: [force_new_branch_and_id]}
+architecture_extension: # dieses Werk; kollisionsfreier Bereich
+  - {code: PSK-E013, name: field_projection_undefined, domain: SCOPE, reaction: [residue_scope, no_empty_projection]}
+  - {code: PSK-E014, name: trace_or_residue_violation, domain: RES, reaction: [FAIL, quarantine_run]}
+  - {code: PSK-E015, name: unbound_nondeterminism_or_divergence, domain: REPLAY, reaction: [divergence_report, block_release]}
+  - {code: PSK-E016, name: budget_or_schedule_violation, domain: RES, reaction: [HOLD, residue_budget]}
+  - {code: PSK-E017, name: morphogenesis_violation, domain: MORPH, reaction: [HOLD, block_spawn]}
+  - {code: PSK-E018, name: release_gate_blocked, domain: ID, reaction: [REJECTED_or_QUARANTINED]}
+  - {code: PSK-E101, name: boot_precondition_failed, domain: ID, reaction: [FAIL_closed, no_kernel]}
+  - {code: PSK-E102, name: canonicalization_failed, domain: SCHEMA, reaction: [FAIL, no_digest]}
+  - {code: PSK-E103, name: identity_digest_mismatch, domain: ID, reaction: [FAIL, no_kernel]}
+stability: codes_are_never_repurposed; changed_meaning_requires_new_code

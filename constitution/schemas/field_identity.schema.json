@@ -1,0 +1,117 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.field-identity/1.0",
+  "title": "FieldIdentity",
+  "description": "FieldIdentity (OBJ-FLD), Struktur 7.10 (PSK-RA v1.0.2).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "psk.field-identity/1.0"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^psk:[A-Za-z0-9_-]+:[0-9a-f]{64}$",
+      "description": "Definition 6.5: psk:<Sorte>:<Digest>."
+    },
+    "domain": {
+      "type": "string",
+      "description": "D_lambda"
+    },
+    "lens": {
+      "type": "string",
+      "description": "Pi_lambda: typisierter Projektor"
+    },
+    "operators": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Vokabulartyp OpId: im Werk referenziert, nicht strukturell definiert."
+      },
+      "description": "O_lambda, Teilmenge der ISA"
+    },
+    "questions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Vokabulartyp QuestionSpec: im Werk referenziert, nicht strukturell definiert."
+      },
+      "description": "Q_lambda"
+    },
+    "witness_rules": {
+      "type": "string",
+      "description": "W_lambda"
+    },
+    "boundaries": {
+      "type": "string",
+      "description": "B_lambda: Ressourcen- und Effektgrenzen"
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Vokabulartyp GateId: im Werk referenziert, nicht strukturell definiert."
+      },
+      "description": "G_lambda"
+    },
+    "time_window": {
+      "type": "string",
+      "description": "Theta_lambda"
+    },
+    "lineage": {
+      "type": "string",
+      "description": "Lin_lambda"
+    },
+    "lifecycle": {
+      "enum": [
+        "PROPOSED",
+        "ACTIVE",
+        "QUIESCENT",
+        "SPLIT_PENDING",
+        "MERGE_PENDING",
+        "FOLDED",
+        "RETIRED",
+        "EXCISED"
+      ]
+    },
+    "archetype": {
+      "type": "string",
+      "description": "explorer|falsifier|constructor|historian|auditor|integrator"
+    },
+    "dependency_profile_ref": {
+      "type": "string",
+      "pattern": "^psk:[A-Za-z0-9_-]+:[0-9a-f]{64}$",
+      "description": "Definition 6.5: psk:<Sorte>:<Digest>."
+    },
+    "budget": {
+      "type": "string",
+      "description": "Vokabulartyp BudgetSpec: im Werk referenziert, nicht strukturell definiert."
+    },
+    "rollback": {
+      "type": "string",
+      "description": "Vokabulartyp RollbackSpec: im Werk referenziert, nicht strukturell definiert."
+    },
+    "marginal_gain": {
+      "type": "string",
+      "description": "zuletzt gemessener Wert von Delta-G"
+    }
+  },
+  "required": [
+    "schema",
+    "id",
+    "domain",
+    "lens",
+    "operators",
+    "questions",
+    "witness_rules",
+    "boundaries",
+    "gates",
+    "time_window",
+    "lineage",
+    "lifecycle",
+    "archetype",
+    "dependency_profile_ref",
+    "budget",
+    "rollback",
+    "marginal_gain"
+  ]
+}

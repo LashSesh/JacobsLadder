@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.anchor-snapshot/1.0",
+  "title": "AnchorSnapshot",
+  "description": "AnchorSnapshot (OBJ-ANC), Struktur 7.4 (PSK-RA v1.0.2).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "psk.anchor-snapshot/1.0"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^psk:[A-Za-z0-9_-]+:[0-9a-f]{64}$",
+      "description": "Definition 6.5: psk:<Sorte>:<Digest>."
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Vokabulartyp Observation: im Werk referenziert, nicht strukturell definiert."
+      },
+      "description": "rohe, unvermischte Aussenrecords"
+    },
+    "provenance": {
+      "$ref": "#/$defs/Provenance"
+    },
+    "uncertainty": {
+      "$ref": "#/$defs/AnchorUncertainty"
+    },
+    "context": {
+      "type": "string",
+      "description": "Vokabulartyp ContextRef: im Werk referenziert, nicht strukturell definiert."
+    },
+    "time": {
+      "type": "object",
+      "description": "Struktur 6.10 (DualTime).",
+      "properties": {
+        "tau_i": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "tau_e": {
+          "type": "string",
+          "format": "date-time",
+          "description": "RFC3339Nano, Pflicht \"Z\"-Suffix."
+        },
+        "clock_ref": {
+          "type": "string"
+        },
+        "uncertainty_ns": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "tau_i",
+        "tau_e",
+        "clock_ref",
+        "uncertainty_ns"
+      ]
+    },
+    "validity": {
+      "$ref": "#/$defs/Validity"
+    },
+    "boundary": {
+      "type": "string",
+      "description": "was der Anker NICHT erfasst"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "sealed": {
+      "type": "boolean",
+      "description": "true nach Versiegelung; danach unveraenderlich"
+    }
+  },
+  "required": [
+    "schema",
+    "id",
+    "observations",
+    "provenance",
+    "uncertainty",
+    "context",
+    "time",
+    "validity",
+    "boundary",
+    "digest",
+    "sealed"
+  ],
+  "$defs": {
+    "Provenance": {
+      "type": "object",
+      "properties": {
+        "source_adapter": {
+          "type": "string",
+          "description": "Vokabulartyp AdapterId: im Werk referenziert, nicht strukturell definiert."
+        },
+        "observer_identity": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "MUSS != Effekt-Adapteridentitaet"
+        },
+        "method": {
+          "type": "string"
+        },
+        "input_digests": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+          }
+        }
+      },
+      "required": [
+        "source_adapter",
+        "observer_identity",
+        "method",
+        "input_digests"
+      ]
+    },
+    "AnchorUncertainty": {
+      "type": "object",
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Vokabulartyp UncertaintyModelId: im Werk referenziert, nicht strukturell definiert."
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "model",
+        "parameters"
+      ]
+    },
+    "Validity": {
+      "type": "object",
+      "properties": {
+        "freshness_predicate": {
+          "type": "string",
+          "description": "z.B. \"age_ns < 5e9 and fs_generation == g\""
+        },
+        "expires_at_tau_i": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "freshness_predicate",
+        "expires_at_tau_i"
+      ]
+    }
+  }
+}

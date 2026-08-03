@@ -1,0 +1,368 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.m13_topology.yaml/1.0",
+  "title": "m13_topology.yaml",
+  "description": "Strukturschema von architecture/m13_topology.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "nodes": {
+          "type": "integer"
+        },
+        "edges": {
+          "type": "integer"
+        },
+        "cells": {
+          "type": "integer"
+        }
+      },
+      "required": [
+        "nodes",
+        "edges",
+        "cells"
+      ]
+    },
+    "nodes": {
+      "type": "object",
+      "properties": {
+        "center": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inner": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outer": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "center",
+        "inner",
+        "outer"
+      ]
+    },
+    "edge_classes": {
+      "type": "object",
+      "properties": {
+        "center_inner": {
+          "type": "object",
+          "properties": {
+            "formula": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "formula",
+            "count"
+          ]
+        },
+        "inner_cycle": {
+          "type": "object",
+          "properties": {
+            "formula": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "formula",
+            "count"
+          ]
+        },
+        "outer_cycle": {
+          "type": "object",
+          "properties": {
+            "formula": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "formula",
+            "count"
+          ]
+        },
+        "radial": {
+          "type": "object",
+          "properties": {
+            "formula": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "formula",
+            "count"
+          ]
+        },
+        "diagonal": {
+          "type": "object",
+          "properties": {
+            "formula": {
+              "type": "string"
+            },
+            "count": {
+              "type": "integer"
+            }
+          },
+          "required": [
+            "formula",
+            "count"
+          ]
+        }
+      },
+      "required": [
+        "center_inner",
+        "inner_cycle",
+        "outer_cycle",
+        "radial",
+        "diagonal"
+      ]
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "u": {
+            "type": "string"
+          },
+          "v": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "class",
+          "u",
+          "v"
+        ]
+      }
+    },
+    "cell_classes": {
+      "type": "object",
+      "properties": {
+        "center": {
+          "type": "object",
+          "properties": {
+            "formula": {
+              "type": "string"
+            },
+            "role": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "formula",
+            "role"
+          ]
+        },
+        "bridge": {
+          "type": "object",
+          "properties": {
+            "formula": {
+              "type": "string"
+            },
+            "role": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "formula",
+            "role"
+          ]
+        },
+        "boundary": {
+          "type": "object",
+          "properties": {
+            "formula": {
+              "type": "string"
+            },
+            "role": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "formula",
+            "role"
+          ]
+        }
+      },
+      "required": [
+        "center",
+        "bridge",
+        "boundary"
+      ]
+    },
+    "cells": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "class",
+          "nodes",
+          "edges"
+        ]
+      }
+    },
+    "address_grammar": {
+      "type": "string"
+    },
+    "placement": {
+      "type": "object",
+      "properties": {
+        "by_sort": {
+          "type": "object",
+          "properties": {
+            "center": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "bridge": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "boundary": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "cell_bound": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "center",
+            "bridge",
+            "boundary",
+            "cell_bound"
+          ]
+        },
+        "index_rule": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "by_sort",
+        "index_rule"
+      ]
+    },
+    "closure": {
+      "type": "object",
+      "properties": {
+        "close360": {
+          "type": "string"
+        },
+        "close720": {
+          "type": "string"
+        },
+        "required_for_executable": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "close360",
+        "close720",
+        "required_for_executable"
+      ]
+    },
+    "scale": {
+      "type": "object",
+      "properties": {
+        "max_depth": {
+          "type": "string"
+        },
+        "unresolved_remainder": {
+          "type": "object",
+          "properties": {
+            "sort": {
+              "type": "string"
+            },
+            "residue_type": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "sort",
+            "residue_type"
+          ]
+        }
+      },
+      "required": [
+        "max_depth",
+        "unresolved_remainder"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "counts",
+    "nodes",
+    "edge_classes",
+    "edges",
+    "cell_classes",
+    "cells",
+    "address_grammar",
+    "placement",
+    "closure",
+    "scale"
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.run-descriptor/1.0",
+  "title": "RunDescriptor",
+  "description": "RunDescriptor (OBJ-RUN), Struktur 7.34 (PSK-RA v1.0.2).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "const": "psk.run-descriptor/1.0"
+    },
+    "run_id": {
+      "type": "string"
+    },
+    "I_C": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "I_A": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "I_M": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    },
+    "seed": {
+      "type": "string",
+      "description": "Wurzel aller Pseudozufallsstroeme"
+    },
+    "versions": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "input_digests": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$",
+        "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+      },
+      "description": "versiegelte Eingaben"
+    },
+    "operators": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "description": "Vokabulartyp OpId: im Werk referenziert, nicht strukturell definiert."
+      }
+    },
+    "environment": {
+      "type": "string",
+      "description": "deklarierte, replayrelevante Umgebung"
+    },
+    "time_window": {
+      "type": "string",
+      "description": "gebundene Zeitgrenzen fuer Entscheidungen"
+    },
+    "nondeterminism_budget": {
+      "type": "string",
+      "description": "zulaessige, deklarierte Abweichungsquellen"
+    },
+    "canon": {
+      "type": "string",
+      "description": "Vokabulartyp CanonicalizationProfile: im Werk referenziert, nicht strukturell definiert."
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Definition 6.4: H=SHA-256, 64 Zeichen Kleinbuchstaben-Hex."
+    }
+  },
+  "required": [
+    "schema",
+    "run_id",
+    "I_C",
+    "I_A",
+    "I_M",
+    "seed",
+    "versions",
+    "input_digests",
+    "operators",
+    "environment",
+    "time_window",
+    "nondeterminism_budget",
+    "canon",
+    "digest"
+  ]
+}

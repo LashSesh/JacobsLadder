@@ -1,0 +1,25 @@
+schema: psk.release-gate/1.0
+minimum_replay_class: R2
+blocking_conditions:
+  - manifest_invalid
+  - constitution_digest_mismatch
+  - schema_failure
+  - blocking_invariant_failure
+  - blocking_proof_obligation_open
+  - negative_test_failure
+  - blocking_residue
+  - effect_boundary_unverified
+  - reconciliation_unverified
+required_reports:
+  - conformance_report
+  - replay_manifest
+  - negative_test_report
+  - residue_report
+  - capability_audit
+  - machine_certificate
+verdicts:
+  - REJECTED
+  - QUARANTINED
+  - CONFORMANT_LIMITED
+  - CONFORMANT_REFERENCE
+  - EXTERNALLY_VALIDATED

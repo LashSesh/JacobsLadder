@@ -1,0 +1,51 @@
+schema: psk.sort-registry/1.0
+count: 19
+sorts:
+  - {id: S-IDT, name: Identity, owner: M04, cell_class: center}
+  - {id: S-ANC, name: Anchor, owner: M05, cell_class: boundary}
+  - {id: S-CTX, name: Context, owner: M06, cell_class: center}
+  - {id: S-EVT, name: Event, owner: M19, cell_class: bridge}
+  - {id: S-STA, name: State, owner: M23, cell_class: bridge}
+  - {id: S-TRN, name: Transition, owner: M23, cell_class: bridge}
+  - {id: S-PRJ, name: Projection, owner: M09, cell_class: bridge}
+  - {id: S-FLD, name: FieldIdentity, owner: M08, cell_class: bridge}
+  - {id: S-WIT, name: Witness, owner: M12, cell_class: cell_bound}
+  - {id: S-TRC, name: Trace, owner: M19, cell_class: cell_bound}
+  - {id: S-RES, name: Residue, owner: M19, cell_class: cell_bound}
+  - {id: S-GAT, name: Gate, owner: M14, cell_class: cell_bound}
+  - {id: S-CAP, name: Capability, owner: M15, cell_class: boundary}
+  - {id: S-EFF, name: Effect, owner: M16, cell_class: boundary}
+  - {id: S-RCP, name: Receipt, owner: M17, cell_class: boundary}
+  - {id: S-RCN, name: Reconciliation, owner: M18, cell_class: boundary}
+  - {id: S-DEP, name: Dependency, owner: M10, cell_class: bridge}
+  - {id: S-HOR, name: Horizon, owner: M07, cell_class: boundary}
+  - {id: S-BRN, name: Branch, owner: M24, cell_class: center}
+port_matrix: # zulaessige (source_sort, target_sort, relation_sort)
+  - [S-ANC, S-CTX, grounds]
+  - [S-CTX, S-STA, scopes]
+  - [S-STA, S-TRN, enables]
+  - [S-TRN, S-STA, yields]
+  - [S-STA, S-EVT, emits]
+  - [S-EVT, S-TRC, records]
+  - [S-IDT, S-BRN, forks]
+  - [S-BRN, S-IDT, rebinds]
+  - [S-FLD, S-PRJ, projects]
+  - [S-PRJ, S-STA, views]
+  - [S-PRJ, S-DEP, shares_source]
+  - [S-DEP, S-WIT, quotients]
+  - [S-WIT, S-GAT, supports]
+  - [S-GAT, S-CAP, authorizes]
+  - [S-CAP, S-EFF, permits]
+  - [S-EFF, S-RCP, observed_by]
+  - [S-RCP, S-RCN, feeds]
+  - [S-RCN, S-STA, promotes]
+  - [S-HOR, S-STA, bounds]
+  - [S-RES, S-STA, blocks]
+  - [S-GAT, S-RES, opens]
+  - [S-TRC, S-RES, preserves]
+  - [S-ANC, S-HOR, defines]
+forbidden_relations:
+  - [S-PRJ, S-RCN, any] # Feldprojektion promoviert keinen Fakt
+  - [S-EFF, S-RCP, produced_by] # Effektor erzeugt keinen eigenen Receipt
+  - [S-RES, S-STA, silently_closes]
+  - [S-IDT, S-CAP, any] # Identitaet erzeugt keine Faehigkeit
