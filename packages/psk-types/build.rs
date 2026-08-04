@@ -32,9 +32,10 @@ fn main() {
         psk_codegen::generate_error_enum(&error_catalog),
     )
     .unwrap();
+    let known_objects = psk_codegen::known_object_names(&object_schemas);
     fs::write(
         out_dir.join("payloads.rs"),
-        psk_codegen::generate_payload_markers(&port_registry),
+        psk_codegen::generate_payload_markers(&port_registry, &known_objects),
     )
     .unwrap();
     fs::write(
@@ -45,6 +46,20 @@ fn main() {
     fs::write(
         out_dir.join("object_structs.rs"),
         psk_codegen::generate_object_structs(&object_schemas),
+    )
+    .unwrap();
+
+    let state_machines = psk_codegen::load_state_machines(&root);
+    fs::write(
+        out_dir.join("automata.rs"),
+        psk_codegen::generate_automata(&state_machines),
+    )
+    .unwrap();
+
+    let pass_registry = psk_codegen::load_pass_registry(&root);
+    fs::write(
+        out_dir.join("passes.rs"),
+        psk_codegen::generate_passes(&pass_registry),
     )
     .unwrap();
 }

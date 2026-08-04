@@ -68,7 +68,7 @@ pub fn generate_sort_id_enum(reg: &SortRegistry) -> String {
     out.push_str("            _ => None,\n");
     out.push_str("        }\n    }\n\n");
     out.push_str(
-        "    /// Zellklasse laut architecture/sort_registry.yaml (Regel 9.9, Platzierungsregel).\n",
+        "    /// Zellklasse laut architecture/sort_registry.yaml (Regel 9.10, Platzierungsregel).\n",
     );
     out.push_str("    pub const fn cell_class(self) -> SortCellClass {\n        match self {\n");
     for s in &reg.sorts {
@@ -101,11 +101,11 @@ pub fn generate_sort_id_enum(reg: &SortRegistry) -> String {
     out.push_str("        SortId::from_id(&s).ok_or_else(|| serde::de::Error::custom(format!(\"unbekannte SortId: {s}\")))\n");
     out.push_str("    }\n}\n\n");
 
-    out.push_str("/// Vier Gruppen aus Regel 9.9 (Platzierungsregel): drei feste Zellklassen\n");
+    out.push_str("/// Vier Gruppen aus Regel 9.10 (Platzierungsregel): drei feste Zellklassen\n");
     out.push_str(
         "/// plus \"zellgebunden\" (die Zelle des bereits geprueften Knotens, nicht frei\n",
     );
-    out.push_str("/// waehlbar - siehe Regel 9.9 Punkt 4).\n");
+    out.push_str("/// waehlbar - siehe Regel 9.10 Punkt 4).\n");
     out.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq)]\n");
     out.push_str(
         "pub enum SortCellClass {\n    Center,\n    Bridge,\n    Boundary,\n    CellBound,\n}\n",
@@ -380,7 +380,7 @@ pub fn generate_object_structs(schemas: &ObjectSchemas) -> String {
     let mut out = String::new();
     out.push_str("// GENERIERT von tools/psk-codegen aus architecture/object_schemas.yaml.\n");
     out.push_str("// Nicht von Hand bearbeiten. Quelle: Struktur 7.1-7.38, 21.5, 22.5.\n");
-    out.push_str("// Feldnamen I_C/I_A/I_M/I_t sind woertlich aus Regel 6.7 (siehe #![allow(non_snake_case)] am Modulkopf).\n\n");
+    out.push_str("// Feldnamen I_C/I_A/I_M/I_t sind woertlich aus Regel 6.10 (siehe #![allow(non_snake_case)] am Modulkopf).\n\n");
 
     let mut known_structs: BTreeSet<String> = BTreeSet::new();
     for obj in &schemas.objects {

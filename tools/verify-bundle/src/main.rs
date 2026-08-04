@@ -3,7 +3,7 @@
 //!
 //! Prueft die REKONSTRUIERTE constitution/ auf Selbstkonsistenz: die in
 //! `normative_files` gelistete, ordnungssemantische Dateireihenfolge wird
-//! kanonisiert und ueber Definition 6.6 zu einer Konstitutions-ID verdichtet,
+//! kanonisiert und ueber Definition 6.9 zu einer Konstitutions-ID verdichtet,
 //! die gegen den in derselben Lockdatei gespeicherten Wert geprueft wird.
 //!
 //! Was diese Pruefung NICHT tut: gegen `declared_ancestor_constitution_id`

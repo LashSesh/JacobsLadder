@@ -33,6 +33,7 @@ members = [
     "tools/verify-architecture",
     "tools/verify-refinement",
     "tools/lock-gen",
+    "tools/refinement-gen",
 ]
 
 # Regel 26.7: SemVer. Vor C0 (Anhang gate_registry/release_gate,

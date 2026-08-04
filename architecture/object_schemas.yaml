@@ -7,7 +7,7 @@ schema: psk.object-schemas/1.0
 # Von den 27 Eintraegen in object_registry.yaml haben 26 eine explizite
 # Feldstruktur: die urspruenglichen 25 plus OBJ-PRJ (FieldProjection),
 # das in v1.0.3 nachgetragen wurde (Fehlerkorrektur v1.0.3, Punkt 4;
-# Struktur 7.11, Regel 7.12/7.13). Nur OBJ-VIW (ViewArtifact) bleibt ohne
+# Struktur 7.11, Regel 7.12/7.13/7.14). Nur OBJ-VIW (ViewArtifact) bleibt ohne
 # Feldstruktur: es traegt seit v1.0.3 explizit canonical:false in
 # object_registry.yaml und faellt nach I-ARCH-015 aus der Kanonisierung -
 # der Registereintrag dient Ownership und Lebensdauer, nicht der
@@ -139,16 +139,24 @@ objects:
     note: "Nachgetragen in v1.0.3 (Fehlerkorrektur Punkt 4). Kein Randfall:
       Eingang der Kernproduktionen ((ThoughtBody, FieldIdentity) => FieldProjection,
       {FieldProjection}_compat => ScopedCognitionGraph), fliesst ueber P13,
-      Eingang von M10 und M11."
+      Eingang von M10 und M11. v1.0.6 (Fehlerkorrektur Punkt 7): Feld
+      undefined_reason ersatzlos entfallen, Regel 7.12 geteilt - der Fall
+      der nicht anwendbaren Linse steht jetzt in Regel 7.13 und erzeugt gar
+      keine Projektion."
     rules:
       - {id: "Regel 7.12", title: "Projektion promoviert nicht",
           statement: "Eine FieldProjection ist eine Sicht, kein Fakt. reality_status
             und facticity des Urbildes DARF NICHT durch eine Projektion veraendert
             werden; die Sorten-Port-Matrix verbietet die Relation (S-PRJ, S-RCN)
-            vollstaendig. Ist die Linse auf das Urbild nicht anwendbar, so MUSS
-            undefined_reason gesetzt, visible leer und PSK-E013 emittiert werden;
-            eine leere Projektion ohne Begruendung ist ein Konformitaetsdefekt."}
-      - {id: "Regel 7.13", title: "Occlusion ist explizit",
+            vollstaendig."}
+      - {id: "Regel 7.13", title: "Nicht anwendbare Linse erzeugt keine Projektion",
+          statement: "Ist die Spektrallinse auf die Sortenmenge des Urbildes nicht
+            anwendbar, so entsteht DARF NICHT eine FieldProjection. Statt dessen
+            MUSS M09 einen ResidueRecord des Typs scope erzeugen und PSK-E013
+            emittieren; dies ist die in Vertrag C5 verlangte Form. Eine
+            FieldProjection mit leerem visible ist unzulaessig: Es gibt keine
+            leere Projektion, sondern nur eine ausgebliebene."}
+      - {id: "Regel 7.14", title: "Occlusion ist explizit",
           statement: "occluded MUSS vollstaendig gefuehrt werden. Was eine Linse
             nicht aufloest, ist ein bezeugter Nichtbefund und DARF NICHT als
             Abwesenheit gewertet werden; andernfalls greift PSK-E005."}
@@ -159,13 +167,12 @@ objects:
       - {name: source_refs, type: "[ObjectId]", note: "ThoughtBody bzw. IR-Knoten des Urbildes"}
       - {name: lens_ref, type: LensSpec, note: "Pi_lambda, wie zum Zeitpunkt der Anwendung gebunden"}
       - {name: scope, type: ScopeSpec, note: "Geltungsbereich; erweitert sich nie ohne Gate"}
-      - {name: visible, type: "[IRNodeId]", note: "was die Linse aufloest"}
+      - {name: visible, type: "[IRNodeId]", note: "was die Linse aufloest; nie leer (Regel 7.13)"}
       - {name: occluded, type: "[IRNodeId]", note: "was sie nachweislich nicht aufloest"}
       - {name: distinctions, type: "[DistinctionSpec]", note: "intern erzeugte Unterscheidungen"}
       - {name: source_provenance, type: "[SourceId]", note: "Grundlage des Abhaengigkeitsquotienten (M10)"}
       - {name: reality_view, type: RealityStatus, note: "Sicht, nicht Promotion"}
       - {name: tick, type: TickId, note: "L-TICK: gilt genau fuer diesen Takt"}
-      - {name: undefined_reason, type: string, optional: true, note: "gesetzt gdw. Projektion nicht anwendbar"}
 
   - id: OBJ-IRB
     name: IRBundle

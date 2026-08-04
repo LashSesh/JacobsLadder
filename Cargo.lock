@@ -712,6 +712,7 @@ dependencies = [
 name = "observer-local-fs"
 version = "0.0.0"
 dependencies = [
+ "psk-anchor",
  "psk-codegen",
  "psk-types",
 ]
@@ -793,8 +794,10 @@ dependencies = [
 name = "psk-anchor"
 version = "0.0.0"
 dependencies = [
+ "psk-canon",
  "psk-codegen",
  "psk-types",
+ "serde_json",
 ]
 
 [[package]]
@@ -1031,6 +1034,13 @@ dependencies = [
  "parking_lot",
  "percent-encoding",
  "serde_json",
+]
+
+[[package]]
+name = "refinement-gen"
+version = "0.0.0"
+dependencies = [
+ "psk-codegen",
 ]
 
 [[package]]

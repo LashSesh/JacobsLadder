@@ -27,7 +27,121 @@
       }
     },
     "mappings": {
-      "type": "array"
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "concrete": {
+                "type": "object",
+                "properties": {
+                  "machine": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "machine",
+                  "from",
+                  "to",
+                  "operator"
+                ]
+              },
+              "abstract": {
+                "type": "object",
+                "properties": {
+                  "machine": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  },
+                  "gate": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "machine",
+                  "from",
+                  "to",
+                  "gate"
+                ]
+              }
+            },
+            "required": [
+              "concrete",
+              "abstract"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "concrete": {
+                "type": "object",
+                "properties": {
+                  "machine": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  },
+                  "operator": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "machine",
+                  "from",
+                  "to",
+                  "operator"
+                ]
+              },
+              "abstract": {
+                "type": "object",
+                "properties": {
+                  "machine": {
+                    "type": "string"
+                  },
+                  "from": {
+                    "type": "string"
+                  },
+                  "to": {
+                    "type": "string"
+                  },
+                  "gate": {
+                    "type": "null"
+                  }
+                },
+                "required": [
+                  "machine",
+                  "from",
+                  "to",
+                  "gate"
+                ]
+              }
+            },
+            "required": [
+              "concrete",
+              "abstract"
+            ]
+          }
+        ]
+      }
     },
     "coverage": {
       "type": "object",

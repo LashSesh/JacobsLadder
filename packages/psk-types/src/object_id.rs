@@ -1,5 +1,9 @@
-//! ObjectId nach Definition 6.5: id(o) = psk:s:H(Can(o)). Inhaltsadressiert;
-//! zwei Objekte mit gleicher ID sind identisch.
+//! ObjectId nach Definition 6.6: id(o) = psk:s:H(Can(pi_vol(o))). `pi_vol`
+//! (Definition 6.5) entfernt volatile Felder (z.B. DualTime.tau_e) vor der
+//! Kanonisierung; die eigentliche Berechnung liegt in psk-canon
+//! (`identity_projection()`), da psk-types nicht von psk-canon abhaengt.
+//! Dieser Typ ist nur der Speicher- und Vergleichstyp fuer das Ergebnis.
+//! Inhaltsadressiert; zwei Objekte mit gleicher ID sind identisch.
 
 use crate::objects::SortId;
 use crate::Digest;
@@ -34,7 +38,7 @@ impl std::fmt::Display for ObjectIdParseError {
         match self {
             ObjectIdParseError::WrongForm => write!(
                 f,
-                "ObjectId muss die Form psk:<sort>:<digest> haben (Definition 6.5)"
+                "ObjectId muss die Form psk:<sort>:<digest> haben (Definition 6.6)"
             ),
             ObjectIdParseError::UnknownSort => write!(f, "unbekannte Sorte in ObjectId"),
             ObjectIdParseError::BadDigest => write!(f, "ungueltiger Digest in ObjectId"),
@@ -62,7 +66,7 @@ impl std::str::FromStr for ObjectId {
 }
 
 /// Drahtform: die kanonische Zeichenkette "psk:<sort>:<digest>" selbst
-/// (Definition 6.5), nicht eine strukturierte Aufloesung.
+/// (Definition 6.6), nicht eine strukturierte Aufloesung.
 impl serde::Serialize for ObjectId {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         s.collect_str(self)

@@ -1,14 +1,15 @@
 //! `psk architecture verify <bundle>` (Struktur 27.5): prueft I_A gegen
 //! architecture/architecture.lock.json (Boot-Schritt 10, Algorithmus 17.1)
-//! UND prueft die 16 Architekturregister strukturell gegen ihre Schemas in
-//! architecture/schemas/ (Struktur 25.3, PSK-RA v1.0.3 Fehlerkorrektur
-//! Punkt 6: "schemas/ = JSON-Schemas der 16 Architekturregister selbst,
-//! NICHT Kopien der Objektschemas aus constitution/").
+//! UND prueft die 17 Architekturregister strukturell gegen ihre Schemas in
+//! architecture/schemas/ (Struktur 25.3, v1.0.5: object_schemas.yaml und
+//! volatile_fields.yaml jetzt im Bundle deklariert, Fehlerkorrektur Punkt
+//! 4; "schemas/ = JSON-Schemas der Architekturregister selbst, NICHT
+//! Kopien der Objektschemas aus constitution/").
 //!
 //! I_A = H(Can(architecture/*)) (architecture.lock.json: "computed_by"),
-//! analog zu I_C in constitution/constitution.lock.json: die 16
-//! Registerschemas sind dort normative Dateien des Bundles wie die 16
-//! YAML-Register selbst (32 Dateien gesamt) - keine reinen Hilfsartefakte,
+//! analog zu I_C in constitution/constitution.lock.json: die 17
+//! Registerschemas sind dort normative Dateien des Bundles wie die 17
+//! YAML-Register selbst (34 Dateien gesamt) - keine reinen Hilfsartefakte,
 //! die aus dem Digest herausfallen duerften.
 
 use std::fs;
@@ -26,6 +27,7 @@ const ARCHITECTURE_FILES_YAML: &[&str] = &[
     "sort_registry.yaml",
     "object_registry.yaml",
     "object_schemas.yaml",
+    "volatile_fields.yaml",
     "lifecycle_registry.yaml",
     "m13_topology.yaml",
     "pass_registry.yaml",
@@ -45,6 +47,7 @@ const ARCHITECTURE_SCHEMAS: &[&str] = &[
     "schemas/sort_registry.schema.json",
     "schemas/object_registry.schema.json",
     "schemas/object_schemas.schema.json",
+    "schemas/volatile_fields.schema.json",
     "schemas/lifecycle_registry.schema.json",
     "schemas/m13_topology.schema.json",
     "schemas/pass_registry.schema.json",
@@ -110,7 +113,7 @@ fn main() -> ExitCode {
     let root = workspace_root();
     let arch_dir = root.join("architecture");
 
-    // --- Strukturpruefung der 16 Register gegen architecture/schemas/ ---
+    // --- Strukturpruefung der 17 Register gegen architecture/schemas/ ---
     let mut schema_failures = 0usize;
     for name in ARCHITECTURE_FILES_YAML {
         match validate_register(&root, name) {
@@ -140,7 +143,7 @@ fn main() -> ExitCode {
         ARCHITECTURE_FILES_YAML.len()
     );
 
-    // --- I_A: Kollektionsdigest ueber die 16 YAML-Register + 16 Registerschemas ---
+    // --- I_A: Kollektionsdigest ueber die 17 YAML-Register + 17 Registerschemas ---
     let mut present: Vec<(String, CanonicalBytes)> = Vec::new();
     let mut missing: Vec<String> = Vec::new();
     for name in ARCHITECTURE_FILES_YAML {

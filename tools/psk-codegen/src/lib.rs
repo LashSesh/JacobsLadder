@@ -20,6 +20,17 @@ pub use objects::{
 mod topology;
 pub use topology::{generate_m13_topology, load_m13_topology, M13Topology};
 
+mod automata;
+pub use automata::{
+    generate_automata, generate_refinement_map, load_state_machines, StateMachinesDoc,
+};
+
+mod passes;
+pub use passes::{generate_passes, load_pass_registry, PassEntry, PassRegistry};
+
+mod volatile;
+pub use volatile::{generate_volatile_fields, load_volatile_fields, VolatileFieldsDoc};
+
 // ---------------------------------------------------------------- Register-Schemas
 
 #[derive(Debug, Deserialize)]
@@ -128,6 +139,9 @@ pub fn tracked_register_files(root: &Path) -> Vec<PathBuf> {
         "architecture/sort_registry.yaml",
         "architecture/object_schemas.yaml",
         "architecture/m13_topology.yaml",
+        "constitution/state_machines.yaml",
+        "architecture/pass_registry.yaml",
+        "architecture/volatile_fields.yaml",
     ]
     .iter()
     .map(|p| root.join(p))
@@ -328,24 +342,38 @@ pub fn generate_error_enum(cat: &ErrorCatalog) -> String {
 
 // ---------------------------------------------------------------- Codegen: payload marker types
 
-/// Erzeugt fuer jeden in port_registry.yaml auftretenden Nutzlastnamen einen
-/// leeren Markertyp. Diese Typen tragen bis WP02 (Core Types, Phase I1)
-/// keine Felder; sie machen lediglich jede Portgrenze in I0 typisiert statt
-/// unspezifiziert. Reale Felder folgen den Strukturen aus Kapitel 7.
-pub fn generate_payload_markers(reg: &PortRegistry) -> String {
+/// Die Namen der Kapitel-7-Objekte (Top-Level, keine nested_structs) - die
+/// Grundlage, um Portnutzlasten auf `objects::X` statt auf einen leeren
+/// Marker zu verweisen, sobald eine reale Struktur existiert.
+pub fn known_object_names(schemas: &ObjectSchemas) -> BTreeSet<String> {
+    schemas.objects.iter().map(|o| o.name.clone()).collect()
+}
+
+/// Erzeugt fuer jeden in port_registry.yaml auftretenden Nutzlastnamen, der
+/// KEIN Kapitel-7-Objekt ist, einen leeren Markertyp. Ein Name, fuer den
+/// object_schemas.yaml bereits eine reale Struktur fuehrt (z.B.
+/// AnchorSnapshot), bekommt keinen zweiten, konkurrierenden Typ - Portstubs
+/// verweisen dafuer auf `objects::X` (siehe `payload_type_expr`). Fuer
+/// Namen ohne eigene Kapitel-7-Struktur (z.B. ExternalRecord,
+/// ReanchorRequest) bleibt der leere Marker die spezifizierte Portgrenze,
+/// bis das jeweilige Modul sie ausimplementiert.
+pub fn generate_payload_markers(reg: &PortRegistry, known_objects: &BTreeSet<String>) -> String {
     let mut names: BTreeSet<String> = BTreeSet::new();
     for p in &reg.ports {
         for raw in p.payload.split(',') {
             let cleaned: String = raw.trim().chars().filter(|c| c.is_alphanumeric()).collect();
-            if !cleaned.is_empty() {
+            if !cleaned.is_empty() && !known_objects.contains(&cleaned) {
                 names.insert(cleaned);
             }
         }
     }
     let mut out = String::new();
-    out.push_str("// GENERIERT von tools/psk-codegen aus architecture/port_registry.yaml.\n");
-    out.push_str("// Nicht von Hand bearbeiten. Platzhalter bis WP02 (Core Types, I1) die\n");
-    out.push_str("// realen Felder aus Kapitel 7 nachtraegt.\n\n");
+    out.push_str("// GENERIERT von tools/psk-codegen aus architecture/port_registry.yaml\n");
+    out.push_str("// und architecture/object_schemas.yaml. Nicht von Hand bearbeiten.\n");
+    out.push_str("// Platzhalter fuer Nutzlastnamen ohne eigene Kapitel-7-Struktur; sie\n");
+    out.push_str("// machen die Portgrenze typisiert statt unspezifiziert. Ein Name mit\n");
+    out.push_str("// realer Struktur (object_schemas.yaml) erscheint hier NICHT - siehe\n");
+    out.push_str("// objects::X in psk-types stattdessen.\n\n");
     for n in &names {
         out.push_str(&format!(
             "#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]\npub struct {n};\n"
@@ -362,7 +390,14 @@ pub fn generate_payload_markers(reg: &PortRegistry) -> String {
 /// erzeugt; die andere Seite ist erst mit realer Modul-Logik sinnvoll
 /// modellierbar (Scheduler/Trace-Dispatch, Phase I5) und wird hier
 /// bewusst ausgelassen statt geraten.
-fn payload_type_expr(payload: &str) -> String {
+///
+/// Eine Nutzlast, die ein Kapitel-7-Objekt ist, verweist auf
+/// `psk_types::objects::X` (die reale, aus object_schemas.yaml generierte
+/// Struktur); alles andere weiterhin auf den leeren Marker in `payloads`.
+/// Ohne diese Unterscheidung wuerde jeder Portstub - auch fuer laengst
+/// ausstrukturierte Objekte wie AnchorSnapshot - dauerhaft einen
+/// bedeutungslosen Platzhaltertyp tragen.
+fn payload_type_expr(payload: &str, known_objects: &BTreeSet<String>) -> String {
     let names: Vec<String> = payload
         .split(',')
         .map(|raw| {
@@ -373,12 +408,19 @@ fn payload_type_expr(payload: &str) -> String {
         })
         .filter(|s| !s.is_empty())
         .collect();
+    let one_ty = |n: &str| -> String {
+        if known_objects.contains(n) {
+            format!("objects::{n}")
+        } else {
+            format!("payloads::{n}")
+        }
+    };
     match names.as_slice() {
-        [one] => format!("payloads::{one}"),
+        [one] => one_ty(one),
         many => format!(
             "({})",
             many.iter()
-                .map(|n| format!("payloads::{n}"))
+                .map(|n| one_ty(n))
                 .collect::<Vec<_>>()
                 .join(", ")
         ),
@@ -389,6 +431,7 @@ pub fn generate_port_stubs_for_package(
     map: &ModuleMap,
     reg: &PortRegistry,
     package: &str,
+    known_objects: &BTreeSet<String>,
 ) -> String {
     let owned: BTreeSet<&str> = map
         .modules
@@ -399,6 +442,8 @@ pub fn generate_port_stubs_for_package(
 
     let mut body = String::new();
     let mut emitted = 0usize;
+    let mut uses_objects = false;
+    let mut uses_payloads = false;
     for p in &reg.ports {
         let produces = owned.contains(p.from.as_str());
         let consumes = owned.contains(p.to.as_str());
@@ -411,7 +456,13 @@ pub fn generate_port_stubs_for_package(
             .and_then(|e| e.first())
             .cloned()
             .unwrap_or_else(|| "keiner deklariert".to_string());
-        let payload_ty = payload_type_expr(&p.payload);
+        let payload_ty = payload_type_expr(&p.payload, known_objects);
+        if payload_ty.contains("objects::") {
+            uses_objects = true;
+        }
+        if payload_ty.contains("payloads::") {
+            uses_payloads = true;
+        }
 
         if produces {
             emitted += 1;
@@ -466,7 +517,15 @@ pub fn generate_port_stubs_for_package(
         out.push_str("// konkreten (nicht-Wildcard-) Port. Das ist bei Paketen ohne eigenes\n");
         out.push_str("// Portregister-Modul (psk-conformance, psk-cli) erwartet.\n");
     } else {
-        out.push_str("use psk_types::{payloads, Msg, PortId, PskError};\n\n");
+        let mut names = vec!["Msg", "PortId", "PskError"];
+        if uses_objects {
+            names.push("objects");
+        }
+        if uses_payloads {
+            names.push("payloads");
+        }
+        names.sort_unstable();
+        out.push_str(&format!("use psk_types::{{{}}};\n\n", names.join(", ")));
         out.push_str(&body);
     }
     out
