@@ -1,5 +1,5 @@
 {
-  "architecture_id": "5c4fea5cbf65ab24ecee3027bc616507f1b6ba99e2cac2deb14559233b536bc4",
+  "architecture_id": "5537163403d49d90c6e45864c4c17c0b054d22139ce775e8fe71cb0881c0b116",
   "computed_by": {
     "architecture_id": "I_A = H(Can(RA-Register)) — Regel 6.7, Definition 1.6. Siehe architecture/architecture.lock.json.",
     "constitution_id": "I_C = H(Can(C)) — Regel 6.7. Quelle constitution.lock.json liegt ausserhalb von PSK-RA v1.0 (Elternnorm 2, CPSK) und wurde dieser Implementierung nicht vorgelegt.",

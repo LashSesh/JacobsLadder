@@ -6,6 +6,9 @@
 //! WP15 (I7): `certify` - Konformanzleiter (Regel 23.1/Tabelle 23.2),
 //! MachineCertificate (Struktur 7.46), G-RELEASE (eigenes Gate, ueber
 //! `psk_gate::evaluate_gate`).
+//!
+//! Boot-Realisierung (Algorithmus 17.1, Schritt 18): `posture`
+//! (M21 - `compute_release_and_operational_posture`, Definition 31.3).
 
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
@@ -14,3 +17,6 @@ pub use certify::{
     check_minimum_replay_class, compute_conformance_class, evaluate_release_gate,
     issue_certificate, AdditionalAcceptance, CertificateInputs,
 };
+
+mod posture;
+pub use posture::{compute_release_and_operational_posture, PostureInputs};

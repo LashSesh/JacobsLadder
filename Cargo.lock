@@ -870,10 +870,12 @@ dependencies = [
  "psk-certify",
  "psk-closure",
  "psk-codegen",
+ "psk-contract",
  "psk-dependency",
  "psk-effect",
  "psk-fields",
  "psk-gate",
+ "psk-lifecycle",
  "psk-reconciliation",
  "psk-thought",
  "psk-topology",
@@ -890,8 +892,17 @@ dependencies = [
 name = "psk-contract"
 version = "0.0.0"
 dependencies = [
+ "psk-canon",
+ "psk-certify",
  "psk-codegen",
+ "psk-effect",
+ "psk-gate",
+ "psk-lifecycle",
+ "psk-topology",
+ "psk-trace",
  "psk-types",
+ "verify-architecture",
+ "verify-bundle",
 ]
 
 [[package]]

@@ -9,6 +9,9 @@
 //! (M16 - EffectAdapter-Schnittstelle ohne Beobachtungsmethoden, Invariante
 //! 20.2 als Ausfuehrungsschwelle). Adaptertrennung (Invariante 20.5) und
 //! die forbidden_edges [M16,M15]/[M16,M17] siehe Modulkopf von `boundary`.
+//!
+//! Boot-Realisierung (Algorithmus 17.1, Schritt 17): `registration`
+//! (M15 - `register_only_versioned_operators_and_capabilities`).
 
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
@@ -20,3 +23,6 @@ pub use consume::{check_not_expired, TokenLedger, TokenState};
 
 mod boundary;
 pub use boundary::{execute_effect, EffectAdapter};
+
+mod registration;
+pub use registration::{register_only_versioned_operators_and_capabilities, OperatorRegistration};
