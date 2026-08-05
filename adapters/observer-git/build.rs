@@ -10,8 +10,14 @@ fn main() {
     }
     let module_map = psk_codegen::load_module_map(&root);
     let port_registry = psk_codegen::load_port_registry(&root);
-    let stubs =
-        psk_codegen::generate_port_stubs_for_package(&module_map, &port_registry, "observer-git");
+    let object_schemas = psk_codegen::load_object_schemas(&root);
+    let known_objects = psk_codegen::known_object_names(&object_schemas);
+    let stubs = psk_codegen::generate_port_stubs_for_package(
+        &module_map,
+        &port_registry,
+        "observer-git",
+        &known_objects,
+    );
     let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
     fs::write(out_dir.join("port_stubs.rs"), stubs).unwrap();
 }

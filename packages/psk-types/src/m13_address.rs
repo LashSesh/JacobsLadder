@@ -8,17 +8,21 @@
 //! node_id: "c" | "i" k | "o" k
 //! ```
 //!
-//! Dokumentbefund (nicht stillschweigend geloest): Beispiel 3 in Definition
-//! 9.8 ("m13:0.c2.i2/1/o5" -> "Feinskala 1 im Innenknoten i2 der
-//! Zentrumzelle 2") erfuellt die eigene Grammatik nicht woertlich. Nach der
-//! Ahnenkette "0.c2.i2" verlangt die Grammatik als naechstes Token "/"
-//! cell_id mit cell_id = ("c"|"b"|"o") k; das Beispiel hat dort aber "1"
-//! (eine blosse Zahl, kein cell_id-Token - vermutlich als neuer
-//! Skalenlevel gemeint, aber so nicht Teil der zitierten Produktion). Diese
-//! Implementierung parst die Grammatik woertlich: Beispiele 1 und 2 sind
-//! eindeutig und werden akzeptiert, Beispiel 3 wird als Parsefehler
-//! abgelehnt statt eine im Text nicht belegte Lesart zu erfinden (siehe
-//! Testfall `example_3_from_definition_9_8_does_not_parse_literally`).
+//! Dieses Modul deckt ausschliesslich die GRAMMATIK ab. Regel 9.9
+//! (Wohlgeformtheit einer M13Address) stellt drei zusaetzliche Bedingungen,
+//! die die Grammatik allein nicht traegt; zwei davon setzen das Zellregister
+//! voraus ("geprueft gegen m13_topology.yaml, nicht gegen die
+//! Schreibweise"). Sie sind daher in `psk_topology::check_wellformed`
+//! implementiert, dem Modul, das die Topologie besitzt (M22) - nicht hier.
+//! Eine grammatisch gueltige, aber nicht wohlgeformte Adresse erzeugt
+//! PSK-E011 und DARF NICHT in eine Zelle eintreten.
+//!
+//! Erledigter Dokumentbefund: das dritte Beispiel lautete bis v1.0.3
+//! "m13:0.c2.i2/1/o5" und verletzte die eigene Grammatik (blosse Zahl "1"
+//! an der cell_id-Position; zusaetzlich ist o5 kein Knoten einer
+//! Zentrumzelle). In v1.0.4 zu "m13:1.c2.i2/b5/o5" korrigiert - der Test
+//! `example_3_parses_and_matches_definition_9_8` haelt die korrigierte
+//! Fassung fest.
 
 use crate::objects::M13Address;
 
@@ -258,11 +262,31 @@ mod tests {
     }
 
     #[test]
-    fn example_3_from_definition_9_8_does_not_parse_literally() {
-        // "m13:0.c2.i2/1/o5" — siehe Modul-Dokumentation: der Ahnenkette
-        // "0.c2.i2" folgt hier "1" statt eines gueltigen cell_id-Tokens
-        // ("c"|"b"|"o")k. Das ist ein Befund im Dokument, kein Bug im
-        // Parser: dieser Test haelt fest, DASS und WARUM es fehlschlaegt.
+    fn example_3_parses_and_matches_definition_9_8() {
+        // v1.0.4: "m13:1.c2.i2/b5/o5 -> Feinskala 1, betreten ueber
+        // Zentrumzelle 2 und Innenknoten i2; darin Brueckenzelle 5,
+        // Aussenknoten o5". Die Zellzugehoerigkeit (i2 in c2, o5 in b5)
+        // pruefen nicht wir, sondern psk_topology::check_wellformed gegen
+        // das Zellregister (Regel 9.9 Punkt 2).
+        let p = parse("m13:1.c2.i2/b5/o5").unwrap();
+        assert_eq!(p.level, 1);
+        assert_eq!(
+            p.ancestors,
+            vec![ScaleAncestor {
+                cell: CellId::new(CellKind::Center, 2).unwrap(),
+                node: M13NodeId::Inner(2),
+            }]
+        );
+        assert_eq!(p.cell, CellId::new(CellKind::Bridge, 5).unwrap());
+        assert_eq!(p.node, Some(M13NodeId::Outer(5)));
+        assert_eq!(format(&p), "m13:1.c2.i2/b5/o5");
+    }
+
+    #[test]
+    fn pre_v104_third_example_is_still_a_grammar_error() {
+        // Die bis v1.0.3 gedruckte Fassung "m13:0.c2.i2/1/o5" bleibt
+        // grammatisch ungueltig ("1" ist kein (c|b|o)k-Token). Der Test
+        // haelt fest, dass die Korrektur die Grammatik nicht aufgeweicht hat.
         assert_eq!(parse("m13:0.c2.i2/1/o5"), Err(M13AddressError::BadCellId));
     }
 

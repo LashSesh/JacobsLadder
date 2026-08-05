@@ -7,6 +7,12 @@ publish = false
 
 [dependencies]
 psk-types = { path = "../psk-types" }
+psk-anchor = { path = "../psk-anchor" }
+psk-conformance = { path = "../psk-conformance" }
+observer-local-fs = { path = "../../adapters/observer-local-fs" }
+verify-bundle = { path = "../../tools/verify-bundle" }
+verify-architecture = { path = "../../tools/verify-architecture" }
+verify-refinement = { path = "../../tools/verify-refinement" }
 
 [build-dependencies]
 psk-codegen = { path = "../../tools/psk-codegen" }

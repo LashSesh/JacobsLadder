@@ -53,7 +53,7 @@ impl Digest {
     }
 
     /// H(...) mod m als grosse vorzeichenlose Ganzzahl (Big-Endian-Faltung
-    /// ueber alle 32 Bytes, nicht nur das letzte). Regel 9.9 (Platzierungsregel):
+    /// ueber alle 32 Bytes, nicht nur das letzte). Regel 9.10 (Platzierungsregel):
     /// "Der Index k ergibt sich als k = H(Can(node)) mod 6".
     pub fn mod_small(&self, m: u64) -> u64 {
         self.0

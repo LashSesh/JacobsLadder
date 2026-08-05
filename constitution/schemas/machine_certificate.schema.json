@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "psk.machine-certificate/1.0",
   "title": "MachineCertificate",
-  "description": "MachineCertificate (OBJ-CRT), Struktur 7.38 (PSK-RA v1.0.2).",
+  "description": "MachineCertificate (OBJ-CRT), Struktur 7.44 (PSK-RA v1.0.7).",
   "type": "object",
   "properties": {
     "schema": {

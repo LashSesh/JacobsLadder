@@ -1,0 +1,37 @@
+schema: psk.capability-matrix/1.0
+# Struktur 19.5 (CapabilityMatrix; v1.0.10: 19.4 - Kapitel 19 wurde in
+# v1.0.11 um Regel 19.2 (Zuordnung von M15, M17, M18) erweitert, alles ab
+# dort rueckt um eins), Kapitel 19.2. PSK-RA-spezifisch mit eigenen
+# Capability-Bezeichnern - nicht zu verwechseln mit
+# constitution/capability_matrix.yaml (CPSK Kapitel 35, nur die drei
+# Least-Privilege-Teilsaetze aus Axiom 35.1, keine Capability-IDs; jene
+# Datei verweist fuer die "konkreten Rollen-/Capability-Zuweisungen"
+# ausdruecklich hierher, siehe dortiger Kommentar).
+#
+# Ergaenzt in v1.0.10: Grundlage fuer GateAuthorization (psk-gate) und
+# T-SEC-001/R-RA-009 (Vertrag 19.6 Capability-Erzwingung, Kapitel 19.2:
+# "Capabilities MUESSEN auf Substratebene erzwungen werden [...].
+# Erzwingung allein durch Programmkonvention ist nicht konform und
+# erzeugt T-SEC-001-Fehlschlag."). Struktur 19.5 selbst war bis dahin nur
+# im Fliesstext gefuehrt, ohne maschinenlesbares Register - derselbe
+# Fehlerklasse wie Matrix vor v1.0.8 (Struktur 7.25): intern bedeutsam,
+# aber nirgends als Register festgehalten.
+capabilities:
+  - {id: fs.read.bundle, holders: [M00], scope: bundle_path}
+  - {id: fs.read.workspace, holders: [M05], scope: anchor_scope}
+  - {id: fs.read.observer, holders: [M17], scope: observer_scope}
+  - {id: fs.write.sandbox, holders: [M16], scope: token.scope}
+  - {id: net.request, holders: [M16], scope: token.scope}
+  - {id: proc.spawn, holders: [M16], scope: token.scope}
+  - {id: token.issue, holders: [M15], scope: gate_report}
+  - {id: store.append, holders: [M19], scope: store_root}
+  - {id: store.read, holders: [M19, M27], scope: store_root}
+  - {id: key.sign, holders: [M21], scope: certificate}
+  - {id: clock.read, holders: [M25], scope: run}
+  - {id: proc.control, holders: [M26], scope: process}
+denials:
+  - {holder: M16, capability: token.issue, reason: separation_of_powers}
+  - {holder: M16, capability: fs.read.observer, reason: observer_independence}
+  - {holder: M18, capability: store.write.receipt, reason: record_immutability}
+  - {holder: "M08..M10", capability: "fs.*", reason: field_has_no_effect}
+  - {holder: M27, capability: store.append, reason: observation_has_no_authority}

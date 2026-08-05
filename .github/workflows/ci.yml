@@ -3,12 +3,36 @@
 #   integration -> golden -> replay -> security -> differential ->
 #   conformance-report.
 #
-# Phase I0 (WP00) enthaelt ausschliesslich die ersten drei Stufen. Die
-# uebrigen pruefen Eigenschaften von Code, der erst ab I1 (property,
-# schema), I2 (fsm), I3+ (negative, integration) usw. existiert; eine
-# Stufe hinzuzufuegen, die nichts zu pruefen hat, waere entweder immer
-# gruen ohne Aussagekraft oder erzwungen rot — beides keine ehrliche
-# Pruefung. Jede Stufe wird ergaenzt, sobald ihre Phase erreicht ist.
+# Phase I0 (WP00) enthielt ausschliesslich die ersten drei Stufen. Mit
+# I1/I2/I7/I8 abgeschlossen (siehe architecture/ra_tests.yaml,
+# constitution/conformance_tests.yaml, psk-conformance/src/
+# conformance_catalog.rs) haben sieben weitere Stufen jetzt echten
+# Pruefinhalt und sind unten ergaenzt. ZWEI bleiben bewusst aus:
+# security (T-SEC-001 verlangt echte Substraterzwingung, Vertrag 20.2 -
+# kein OS-Mechanismus implementiert) und differential (Regel 24.4
+# verlangt zwei Pflichtbaselines - monolithischer Agent,
+# Event-Sourcing-Agent -, die nicht existieren). Beide werden ergaenzt,
+# sobald ihre Voraussetzung real ist - dieselbe "keine erzwungene,
+# aussagelose Stufe"-Regel wie zuvor, nur jetzt mit begruendeten statt
+# fehlenden Stufen.
+#
+# Jede neu ergaenzte Stufe traegt einen Ratchet: die Mindestanzahl real
+# vorhandener Tests wird VOR der eigentlichen Ausfuehrung gezaehlt und
+# geprueft (`--list` statt Ausfuehrung) - faellt die Zahl kuenftig unter
+# das Minimum (z.B. weil jemand Tests loescht oder eine Datei aus der
+# mod-Kette faellt), bricht die Stufe SOFORT, bevor sie faelschlich gruen
+# werden koennte. Die Minima selbst sind hier bewusst als Literale
+# eingetragen (anders als z.B. `OBJECT_COUNT`): ein Ratchet ist eine
+# normative Untergrenze, die NICHT automatisch mitwandern soll, wenn
+# jemand Tests entfernt - genau umgekehrt zu einem beschreibenden Zaehler.
+#
+# Jede Stufe deckt nur einen Teil der dort registrierten T-*-IDs ab - wo
+# eine Stufe nicht alle IDs ihrer Kategorie abdeckt, ist die Luecke im
+# Kommentar der jeweiligen Stufe benannt, mit Verweis auf
+# psk-conformance/src/conformance_catalog.rs Kategorie (c) fuer die
+# Begruendung. Eine Stufe ohne diese Aufschluesselung waere entweder
+# unwissentlich unvollstaendig oder taeuschte Vollstaendigkeit vor -
+# beides das Gegenteil einer ehrlichen Pruefung.
 name: CI
 
 on:
@@ -46,3 +70,189 @@ jobs:
       - uses: actions/checkout@v4
       - name: cargo test --workspace --locked
         run: cargo test --workspace --locked
+
+  property:
+    name: property
+    needs: unit
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Real: T-CAN-001 (psk-conformance), T-IR-001 (psk-ir),
+      # T-RATCHET-001 (psk-adversarial, 2 Tests), T-M13-001 (psk-topology,
+      # 1 von 18 dortigen Tests - die anderen 17 sind verwandte
+      # Platzierungs-/Wohlgeformtheitseigenschaften, kein T-ID-Ueberzug).
+      # Fehlt: T-CONC-001 (nebenlaeufiger Stresstest), T-OBSV-001
+      # (Profiling-Vergleich) - beide brauchen Infrastruktur, die nicht
+      # existiert (siehe conformance_catalog.rs Kategorie c).
+      - name: property (T-CAN-001, T-IR-001, T-RATCHET-001, T-M13-001)
+        shell: bash
+        run: |
+          set -e
+          n1=$(cargo test -p psk-ir --locked -- --list 2>/dev/null | grep -c ": test$")
+          n2=$(cargo test -p psk-adversarial --locked -- --list 2>/dev/null | grep -c ": test$")
+          n3=$(cargo test -p psk-topology --locked -- --list 2>/dev/null | grep -c ": test$")
+          n4=$(cargo test -p psk-conformance t_can_001 --locked -- --list 2>/dev/null | grep -c ": test$")
+          total=$((n1 + n2 + n3 + n4))
+          echo "psk-ir=$n1 psk-adversarial=$n2 psk-topology=$n3 psk-conformance(t_can_001)=$n4 total=$total"
+          if [ "$total" -lt 39 ]; then
+            echo "RATCHET FAIL: erwartet mindestens 39 Tests, gefunden $total"
+            exit 1
+          fi
+          cargo test -p psk-ir -p psk-adversarial -p psk-topology --locked
+          cargo test -p psk-conformance t_can_001 --locked
+
+  schema:
+    name: schema
+    needs: property
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Real: verify-architecture (18 Register strukturell gegen
+      # architecture/schemas/ validiert, Struktur 25.3) + T-SCHEMA-001
+      # (psk-conformance, Constitution-Objektschema-Ablehnung).
+      - name: schema (verify-architecture, T-SCHEMA-001)
+        shell: bash
+        run: |
+          set -e
+          n=$(cargo test -p psk-conformance t_schema_001 --locked -- --list 2>/dev/null | grep -c ": test$")
+          echo "psk-conformance(t_schema_001)=$n"
+          if [ "$n" -lt 1 ]; then
+            echo "RATCHET FAIL: T-SCHEMA-001-Test nicht gefunden"
+            exit 1
+          fi
+          cargo run -p verify-architecture --locked
+          cargo test -p psk-conformance t_schema_001 --locked
+
+  fsm:
+    name: fsm
+    needs: schema
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Real: die 21 generierten Automatentests (7 Automaten x 3, siehe
+      # psk_types::automata Modulkopf) inkl. T-FSM-001s
+      # "verbotene Transition"-Faelle, plus verify-refinement (FSM-THOUGHT/
+      # FSM-FIELD wortgetreu gegen C_PSK Anhang D, Vertrag 13.7/13.13).
+      - name: fsm (automata generated tests, verify-refinement)
+        shell: bash
+        run: |
+          set -e
+          n=$(cargo test -p psk-types automata::generated_tests --locked -- --list 2>/dev/null | grep -c ": test$")
+          echo "psk-types(automata::generated_tests)=$n"
+          if [ "$n" -lt 21 ]; then
+            echo "RATCHET FAIL: erwartet mindestens 21 Automatentests, gefunden $n"
+            exit 1
+          fi
+          cargo test -p psk-types automata::generated_tests --locked
+          cargo run -p verify-refinement --locked
+
+  negative:
+    name: negative
+    needs: fsm
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Real: 19 von 30 registrierten negative-Tests (siehe
+      # conformance_catalog.rs Kategorien a+b fuer die genaue Liste) -
+      # ueberwiegend in psk-conformance (14 Testfunktionen, 16 IDs - eine
+      # Funktion deckt T-CAP-001/T-OBS-001/T-BOUND-001 zusammen ab), dazu
+      # T-EFFECT-001 (psk-effect) und T-PERSONA-001 (psk-observe,
+      # compile_fail-Doctest). Fehlt: T-ARCH-002, T-PORT-001, T-OWN-001,
+      # T-PASS-001, T-SEC-001, T-REPLAY-002, T-FIELD-001, T-TRACE-001,
+      # T-RES-001, T-UNKNOWN-001, T-FORECAST-001 (11 IDs) - siehe
+      # conformance_catalog.rs Kategorie (c) fuer je eine konkrete
+      # Begruendung pro ID, keine pauschale.
+      - name: negative (19 von 30 registrierten Tests)
+        shell: bash
+        run: |
+          set -e
+          n1=$(cargo test -p psk-conformance --locked -- --list 2>/dev/null | grep -c ": test$")
+          n2=$(cargo test -p psk-effect --locked -- --list 2>/dev/null | grep -c ": test$")
+          n3=$(cargo test -p psk-observe --doc --locked -- --list 2>/dev/null | grep -c ": test$")
+          total=$((n1 + n2 + n3))
+          echo "psk-conformance=$n1 psk-effect=$n2 psk-observe(doc)=$n3 total=$total"
+          if [ "$total" -lt 37 ]; then
+            echo "RATCHET FAIL: erwartet mindestens 37 Tests, gefunden $total"
+            exit 1
+          fi
+          cargo test -p psk-conformance --locked
+          cargo test -p psk-effect --locked
+          cargo test -p psk-observe --doc --locked
+
+  integration:
+    name: integration
+    needs: negative
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Interpretation, nicht woertlich aus einem Register abgeleitet
+      # (Regel 26.6 definiert "integration" nicht ueber eine T-*-Kind-
+      # Auspraegung wie "property"/"negative" es tun): dieser Schritt
+      # deckt Tests ab, die das tatsaechlich kompilierte `psk-cli`-Binary
+      # ueber einen echten Prozessgrenzenwechsel hinweg pruefen (siehe
+      # packages/psk-cli/tests/), statt einzelne Funktionen innerhalb
+      # eines Prozesses (das leistet bereits "unit"). Bei Uneinigkeit
+      # bitte korrigieren - diese Zuordnung ist unsere beste Lesart, kein
+      # Zitat.
+      - name: integration (psk-cli Blackbox-Tests)
+        shell: bash
+        run: |
+          set -e
+          n=$(cargo test -p psk-cli --locked -- --list 2>/dev/null | grep -c ": test$")
+          echo "psk-cli=$n"
+          if [ "$n" -lt 1 ]; then
+            echo "RATCHET FAIL: keine psk-cli-Integrationstests gefunden"
+            exit 1
+          fi
+          cargo test -p psk-cli --locked
+
+  golden:
+    name: golden
+    needs: integration
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Regel 24.3, alle 13 Schritte inkl. I7-Replay (siehe
+      # psk-conformance/src/golden_run.rs) - ueber das echte `psk-cli`-
+      # Binary, nicht nur die Bibliotheksfunktion direkt.
+      - name: golden (psk golden-run)
+        shell: bash
+        run: cargo run -p psk-cli --locked -- golden-run "$RUNNER_TEMP/psk-ci-golden"
+
+  replay:
+    name: replay
+    needs: golden
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      # I8 (Phasentabelle 32.1, Klasse C5): zweiter echter Betriebssystem-
+      # prozess reproduziert denselben kanonischen Zustandsdigest -
+      # HOLD statt PASS ist zulaessig (M00/M02/M04 fehlen Laufzeitkoerper),
+      # entscheidend ist Uebereinstimmung, nicht Erfolg.
+      - name: replay (psk golden-run --independent)
+        shell: bash
+        run: cargo run -p psk-cli --locked -- golden-run "$RUNNER_TEMP/psk-ci-replay" --independent
+
+  # security und differential: siehe Kopfkommentar - bewusst ausgelassen,
+  # bis ihre Voraussetzung real ist.
+
+  conformance-report:
+    name: conformance-report
+    needs: replay
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Meldet den TATSAECHLICHEN Deckungsgrad (cargo's eigene Zusammen-
+      # fassung plus der aktuelle Inhalt von conformance_catalog.rs'
+      # eigenem Kategorienkommentar) statt einer hier eingetragenen Zahl -
+      # dieselbe "nicht von Hand pflegen"-Lehre wie bei `OBJECT_COUNT`
+      # (siehe psk-types/src/lib.rs), nur auf einen Bericht statt eine
+      # Konstante angewendet.
+      - name: conformance-report
+        shell: bash
+        run: |
+          cargo test -p psk-conformance --locked
+          echo "---- aktuelle T-*-Kategorisierung (conformance_catalog.rs) ----"
+          sed -n '/## (a)/,/^\/\/![[:space:]]*$/p' packages/psk-conformance/src/conformance_catalog.rs
+          sed -n '/## (b)/,/^\/\/![[:space:]]*$/p' packages/psk-conformance/src/conformance_catalog.rs
+          sed -n '/## (c)/,$p' packages/psk-conformance/src/conformance_catalog.rs

@@ -1,5 +1,5 @@
-//! Definition 9.11 (360-Grad-Closure), Definition 9.12 (720-Grad-Closure),
-//! Invariante 9.15 (Keine Halbschliessung).
+//! Definition 9.12 (360-Grad-Closure), Definition 9.13 (720-Grad-Closure),
+//! Invariante 9.16 (Keine Halbschliessung).
 //!
 //! ```text
 //! Close360(x) = 1 <=> pi(Phi(x)) = pi(x)  and  Seam(Phi,x) = 1
@@ -10,13 +10,13 @@
 //! (M10/M11) und Replay (M19/Trace-Replay-Residue-Store) selbst zu
 //! berechnen liegt ausserhalb dieses Moduls und ausserhalb des fuer I2
 //! vereinbarten Umfangs; hier wird ausschliesslich die in Definition
-//! 9.11/9.12 gegebene Verknuepfungsformel ueber bereits vorliegende Evidenz
+//! 9.12/9.13 gegebene Verknuepfungsformel ueber bereits vorliegende Evidenz
 //! ausgewertet - das ist woertliche Umsetzung der Definition, nicht eine
 //! Annaeherung an sie.
 
 use psk_types::Digest;
 
-/// Evidenz fuer Definition 9.11: die bereits andernorts (M09/M10)
+/// Evidenz fuer Definition 9.12: die bereits andernorts (M09/M10)
 /// berechneten Groessen pi(Phi(x)), pi(x) und Seam(Phi,x).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Close360Evidence {
@@ -28,30 +28,30 @@ pub struct Close360Evidence {
     pub seam_ok: bool,
 }
 
-/// Definition 9.11 woertlich: pi(Phi(x)) = pi(x) und Seam(Phi,x) = 1.
+/// Definition 9.12 woertlich: pi(Phi(x)) = pi(x) und Seam(Phi,x) = 1.
 pub fn close360(e: &Close360Evidence) -> bool {
     e.projected_lensed == e.projected_source && e.seam_ok
 }
 
-/// Evidenz fuer Definition 9.12: die bereits andernorts (M09/M19)
+/// Evidenz fuer Definition 9.13: die bereits andernorts (M09/M19)
 /// berechneten Groessen Phi^2(x) ==can x, Hol(Phi^2) = I und
 /// Replay(Phi^2) ==can x.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Close720Evidence {
     /// Phi^2(x) ==can x.
     pub double_lensed_canon_eq: bool,
-    /// Hol(Phi^2) == I (Identitaetstransport, Definition 9.13).
+    /// Hol(Phi^2) == I (Identitaetstransport, Definition 9.14).
     pub holonomy_is_identity: bool,
     /// Replay(Phi^2) ==can x.
     pub replay_canon_eq: bool,
 }
 
-/// Definition 9.12 woertlich: alle drei Bedingungen zugleich.
+/// Definition 9.13 woertlich: alle drei Bedingungen zugleich.
 pub fn close720(e: &Close720Evidence) -> bool {
     e.double_lensed_canon_eq && e.holonomy_is_identity && e.replay_canon_eq
 }
 
-/// Vertrag 9.14 (Semantische Rueckkehr): eine geschlossene Atlasroute ist
+/// Vertrag 9.15 (Semantische Rueckkehr): eine geschlossene Atlasroute ist
 /// semantisch geschlossen, wenn Can(Hol_gamma(E)) = Can(E) gilt, oder die
 /// Abweichung als zulaessiger Wicklungssektor, deklarierter Nachfolger oder
 /// sichtbares Residuum klassifiziert ist. `UnclassifiedDeviation` ist keine
@@ -67,7 +67,7 @@ pub enum ReturnClassification {
     UnclassifiedDeviation,
 }
 
-/// Vertrag 9.14: semantisch geschlossen, sofern eine der drei benannten
+/// Vertrag 9.15: semantisch geschlossen, sofern eine der drei benannten
 /// Ausweichklassen zutrifft oder der Exaktfall Can(Hol)=Can(E) vorliegt;
 /// eine unklassifizierte Abweichung ist es nicht.
 pub fn semantically_closed(classification: ReturnClassification) -> bool {
@@ -86,7 +86,7 @@ pub fn semantically_closed(classification: ReturnClassification) -> bool {
 pub struct ClosureReport {
     pub close360: bool,
     pub close720: bool,
-    /// Invariante 9.15 (Keine Halbschliessung): Close360(x)=1 impliziert
+    /// Invariante 9.16 (Keine Halbschliessung): Close360(x)=1 impliziert
     /// NICHT Close720(x)=1. Emissionsklasse EXECUTABLE erfordert
     /// Close720=1 - unabhaengig vom Wert von close360. Dieses Feld macht
     /// genau das exekutierbar: es ist buchstaeblich gleich `close720`,
@@ -95,7 +95,7 @@ pub struct ClosureReport {
 }
 
 /// Wertet Close360 und Close720 aus der jeweiligen Evidenz aus (Definition
-/// 9.11/9.12) und bildet daraus den ClosureReport (Invariante 9.15:
+/// 9.12/9.13) und bildet daraus den ClosureReport (Invariante 9.16:
 /// `executable_eligible` haengt ausschliesslich von `close720` ab).
 pub fn evaluate(c360: &Close360Evidence, c720: &Close720Evidence) -> ClosureReport {
     let close360 = close360(c360);
@@ -176,10 +176,10 @@ mod tests {
     }
 
     #[test]
-    fn invariante_9_15_no_half_closure() {
+    fn invariante_9_16_no_half_closure() {
         // Close360 = 1, aber Close720 = 0: executable_eligible MUSS false
         // bleiben - Close360 allein darf niemals Identitaetsschluss
-        // begruenden (Invariante 9.15).
+        // begruenden (Invariante 9.16).
         let d = digest(b"same");
         let c360 = Close360Evidence {
             projected_lensed: d,
@@ -217,7 +217,7 @@ mod tests {
     }
 
     #[test]
-    fn semantic_return_accepts_the_named_vertrag_9_14_classes_only() {
+    fn semantic_return_accepts_the_named_vertrag_9_15_classes_only() {
         assert!(semantically_closed(
             ReturnClassification::ExactCanonicalReturn
         ));

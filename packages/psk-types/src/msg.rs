@@ -32,20 +32,23 @@ pub enum MessageType {
 #[serde(transparent)]
 pub struct SchemaId(pub String);
 
-/// Laeufer-Kennung, referenziert u.a. in RunDescriptor (Struktur 7.34) und
+/// Laeufer-Kennung, referenziert u.a. in RunDescriptor (Struktur 7.42) und
 /// jeder Msg (Struktur 4.1). Die Norm legt den Namen fest, nicht die
 /// interne Darstellung; String ist die freizuegigste, unpraejudizierte Wahl.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
 pub struct RunId(pub String);
 
-/// "Identitaet und Kalibrierstatus der verwendeten Uhr" (Struktur 6.10).
-/// Form nicht normativ festgelegt; opaker Bezeichner.
+/// "Identitaet und Kalibrierstatus der verwendeten Uhr" (Struktur 6.13).
+/// Form nicht normativ festgelegt; opaker Bezeichner. Volatil (Definition
+/// 6.5, "DualTime.clock_ref") - geht nicht in eine Objekt-ID ein.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]
 pub struct ClockRef(pub String);
 
-/// DualTime nach Struktur 6.10.
+/// DualTime nach Struktur 6.13. Volatil sind tau_e, clock_ref und
+/// uncertainty_ns (Definition 6.5); tau_i ist es ausdruecklich NICHT
+/// (Kausalzaehler, je run_id deterministisch und identitaetsbildend).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct DualTime {
     /// Lamport-artiger Kausalzaehler, streng monoton je run_id.
@@ -57,9 +60,9 @@ pub struct DualTime {
 }
 
 /// Verweis auf ein TraceSegment. TraceSegment ist inhaltsadressiert
-/// (segment_digest: Digest, Struktur 7.30); ein Verweis darauf ist damit
+/// (segment_digest: Digest, Struktur 7.38); ein Verweis darauf ist damit
 /// folgerichtig selbst ein Digest, analog zur Objekt-ID-Bildung aus
-/// Definition 6.5. Diese Abbildung ist eine Implementierungsentscheidung
+/// Definition 6.6. Diese Abbildung ist eine Implementierungsentscheidung
 /// im verbleibenden Raum, kein woertliches Zitat.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 #[serde(transparent)]

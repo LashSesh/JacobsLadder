@@ -1,9 +1,9 @@
-//! Schnittstelle 9.18 (M22-Ports): `close_cell`, `close_all_18`, `descend`,
+//! Schnittstelle 9.19 (M22-Ports): `close_cell`, `close_all_18`, `descend`,
 //! `holonomy`.
 //!
 //! Diese vier bleiben dokumentierte Modulgrenzen (`unimplemented!`) statt
 //! einer vorgetaeuschten Berechnung: I2 ist einvernehmlich auf
-//! Adressgrammatik, Platzierungsregel (Regel 9.9, siehe `placement`),
+//! Adressgrammatik, Platzierungsregel (Regel 9.10, siehe `placement`),
 //! Close360/Close720 (siehe psk-closure) und IR-Codec-Rundreise begrenzt.
 //! Konkret fehlt fuer diese vier je eine normativ vorausgesetzte Grundlage,
 //! die es vor ihrer eigenen Phase nicht gibt (Regel 32.2,
@@ -14,18 +14,18 @@
 //!   voraus; "Kanten portkompatibel" setzt die Auswertung der
 //!   Sorten-Port-Matrix (architecture/sort_registry.yaml) gegen einen
 //!   konkreten Graphen voraus, die hier noch nicht verdrahtet ist.
-//! - `descend` (Skalenabstieg, Definition 9.16): setzt die im
-//!   RuntimeManifest deklarierte Tiefenschranke N voraus (Invariante 9.17),
+//! - `descend` (Skalenabstieg, Definition 9.17): setzt die im
+//!   RuntimeManifest deklarierte Tiefenschranke N voraus (Invariante 9.18),
 //!   die es vor einem realen RuntimeManifest (M04) nicht gibt.
-//! - `holonomy` (Definition 9.13): setzt Phi (M09, Linsenanwendung) und
+//! - `holonomy` (Definition 9.14): setzt Phi (M09, Linsenanwendung) und
 //!   den Transport-Operator T_{iota_a iota_b} voraus; keines der
 //!   bestehenden Register definiert deren Berechnung.
 
 use psk_types::objects::M13Address;
 use psk_types::CellId;
 
-/// IRGraph aus Schnittstelle 9.18 - der Graph-Teil eines IRBundle
-/// (Struktur 7.16, OBJ-IRB).
+/// IRGraph aus Schnittstelle 9.19 - der Graph-Teil eines IRBundle
+/// (Struktur 7.19, OBJ-IRB).
 pub type IRGraph = psk_types::objects::Graph;
 
 /// Vertrag 9.7 (Zellclosure): die fuenf Bedingungen woertlich als Felder.
@@ -50,7 +50,7 @@ impl CellReport {
     }
 }
 
-/// Definition 9.13: akkumulierte Rahmenaenderung entlang einer Chartroute.
+/// Definition 9.14: akkumulierte Rahmenaenderung entlang einer Chartroute.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Transport(pub Vec<u8>);
 
@@ -64,9 +64,9 @@ pub fn close_all_18(_graph: &IRGraph) -> Vec<CellReport> {
 }
 
 pub fn descend(_addr: &M13Address) -> M13Address {
-    unimplemented!("Skalenabstieg setzt RuntimeManifest.max_depth voraus (Invariante 9.17)")
+    unimplemented!("Skalenabstieg setzt RuntimeManifest.max_depth voraus (Invariante 9.18)")
 }
 
 pub fn holonomy(_route: &[M13Address]) -> Transport {
-    unimplemented!("Definition 9.13 setzt Phi/Transport aus M09 voraus")
+    unimplemented!("Definition 9.14 setzt Phi/Transport aus M09 voraus")
 }

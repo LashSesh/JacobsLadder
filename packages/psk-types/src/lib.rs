@@ -1,8 +1,11 @@
 //! Geteilte Basistypen der PSK-Referenzimplementierung: `ModuleId`,
 //! `PortId`, `PskError` (generiert aus den Registern in `architecture/`
 //! und `constitution/`), die Nachrichtenhuelle `Msg` nach Struktur 4.1,
-//! sowie `objects::SortId` und die 25 kanonischen Objektstrukturen aus
-//! Kapitel 7 (WP02, generiert aus `architecture/object_schemas.yaml`).
+//! sowie `objects::SortId` und `objects::OBJECT_COUNT` kanonische
+//! Objektstrukturen aus Kapitel 7 (WP02, generiert aus
+//! `architecture/object_schemas.yaml`). Absichtlich keine Zahl hier in
+//! Prosa - sie driftete bereits dreimal (siehe `OBJECT_COUNT`s eigener
+//! Kommentar in tools/psk-codegen/src/objects.rs).
 //!
 //! Ownership (Vertrag 3.4): dass alle Struktur-Definitionen lexikalisch in
 //! diesem einen Paket liegen, ist eine Cargo-Organisationsentscheidung, keine
@@ -22,18 +25,43 @@ pub mod payloads {
     include!(concat!(env!("OUT_DIR"), "/payloads.rs"));
 }
 
+pub mod automata {
+    //! Die sieben Automaten aus constitution/state_machines.yaml (Kapitel 13),
+    //! generiert von tools/psk-codegen.
+    //!
+    //! Sie liegen wie `objects` zentral in psk-types, weil mehrere Module
+    //! denselben Automaten lesen (Kapitel 13 ordnet den Automaten kein
+    //! Modul zu, und FSM-OBJECT bzw. FSM-EFFECT laufen ausdruecklich ueber
+    //! mehrere Module hinweg). Wer eine Transition ausloesen DARF, ist
+    //! davon unberuehrt - das bleibt Ownership-Frage der Module, nicht
+    //! eine Frage des Ablageorts (siehe Modulkopf).
+    include!(concat!(env!("OUT_DIR"), "/automata.rs"));
+}
+
+pub mod passes {
+    //! Die geschlossene Passfolge C1..C11 (Definition 11.1), die vier
+    //! Emissionsklassen (Definition 11.17) und die sieben Vorbedingungen
+    //! von EXECUTABLE - generiert aus architecture/pass_registry.yaml.
+    //!
+    //! Nur die Bezeichner und ihre Ordnung; die Ausfuehrung der Paesse
+    //! liegt bei den jeweils zustaendigen Modulen.
+    include!(concat!(env!("OUT_DIR"), "/passes.rs"));
+}
+
 pub mod objects {
-    //! `SortId` (19 Sorten) und die 25 kanonischen Objektstrukturen aus
-    //! Kapitel 7 / 21.5 / 22.5, generiert aus `architecture/sort_registry.yaml`
-    //! und `architecture/object_schemas.yaml`.
-    #![allow(non_snake_case)] // Feldnamen I_C/I_A/I_M/I_t sind woertlich aus Regel 6.7.
+    //! `SortId` (19 Sorten) und `OBJECT_COUNT` kanonische Objektstrukturen
+    //! aus Kapitel 7 / 21.5 / 22.5, generiert aus
+    //! `architecture/sort_registry.yaml` und `architecture/object_schemas.yaml`.
+    #![allow(non_snake_case)] // Feldnamen I_C/I_A/I_M/I_t sind woertlich aus Regel 6.10.
     include!(concat!(env!("OUT_DIR"), "/sort_id.rs"));
+    include!(concat!(env!("OUT_DIR"), "/closed_vocabularies.rs"));
     include!(concat!(env!("OUT_DIR"), "/object_structs.rs"));
 }
 
 pub use digest::{Digest, DigestParseError};
 pub use m13_address::{
-    CellId, CellKind, M13AddressError, M13NodeId, ParsedM13Address, ScaleAncestor,
+    format as format_m13_address, parse as parse_m13_address, CellId, CellKind, M13AddressError,
+    M13NodeId, ParsedM13Address, ScaleAncestor,
 };
 pub use msg::{ClockRef, DualTime, MessageType, Msg, RunId, SchemaId, Signature, TraceRef, Ulid};
 pub use object_id::{ObjectId, ObjectIdParseError};

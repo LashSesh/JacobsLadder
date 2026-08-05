@@ -1,7 +1,7 @@
 //! Versiegelt architecture.lock.json, constitution.lock.json und PSK.lock
-//! mit den nach Algorithmus 6.1 / Definition 6.6 / Regel 6.7 tatsaechlich
+//! mit den nach Algorithmus 6.1 / Definition 6.9 / Regel 6.10 tatsaechlich
 //! berechneten Werten (I_A, I_C). I_M und I_t bleiben null - sie setzen
-//! einen realen Build- bzw. Laufzeitzustand voraus (Regel 6.7: I_M =
+//! einen realen Build- bzw. Laufzeitzustand voraus (Regel 6.10: I_M =
 //! H(Code||Schemas||Compiler||Profil), I_t = H(Can(Sigma_t))), den es vor
 //! einem echten Build/Lauf nicht gibt.
 //!
@@ -22,6 +22,7 @@ const ARCHITECTURE_FILES_YAML: &[&str] = &[
     "sort_registry.yaml",
     "object_registry.yaml",
     "object_schemas.yaml",
+    "volatile_fields.yaml",
     "lifecycle_registry.yaml",
     "m13_topology.yaml",
     "pass_registry.yaml",
@@ -33,6 +34,7 @@ const ARCHITECTURE_FILES_YAML: &[&str] = &[
     "ra_tests.yaml",
     "refinement_map.yaml",
     "obligations.yaml",
+    "capability_matrix.yaml",
 ];
 
 const ARCHITECTURE_SCHEMAS: &[&str] = &[
@@ -41,6 +43,7 @@ const ARCHITECTURE_SCHEMAS: &[&str] = &[
     "schemas/sort_registry.schema.json",
     "schemas/object_registry.schema.json",
     "schemas/object_schemas.schema.json",
+    "schemas/volatile_fields.schema.json",
     "schemas/lifecycle_registry.schema.json",
     "schemas/m13_topology.schema.json",
     "schemas/pass_registry.schema.json",
@@ -52,6 +55,7 @@ const ARCHITECTURE_SCHEMAS: &[&str] = &[
     "schemas/ra_tests.schema.json",
     "schemas/refinement_map.schema.json",
     "schemas/obligations.schema.json",
+    "schemas/capability_matrix.schema.json",
 ];
 
 fn workspace_root() -> PathBuf {
@@ -171,5 +175,5 @@ fn main() {
     psk_lock["architecture_id"] = Value::String(ia.to_string());
     write_json(&psk_lock_path, &psk_lock);
     println!("PSK.lock: I_C = {ic}, I_A = {ia}");
-    println!("(I_M, I_t bleiben null: setzen einen realen Build/Lauf voraus, Regel 6.7)");
+    println!("(I_M, I_t bleiben null: setzen einen realen Build/Lauf voraus, Regel 6.10)");
 }

@@ -1,5 +1,5 @@
 //! Can() nach Algorithmus 6.1: parse YAML/JSON, kanonisiere, serialisiere
-//! kompakt. Definition 6.5 (Objekt-ID), Definition 6.6 (Kollektionsdigest).
+//! kompakt. Definition 6.6 (Objekt-ID), Definition 6.9 (Kollektionsdigest).
 //!
 //! ## Geltungsbereich (bewusste Abgrenzung, nicht stillschweigend verkuerzt)
 //!
@@ -9,7 +9,7 @@
 //! JSON-Schema `format`) zu Hause, weil sie Feldbedeutung voraussetzen, die
 //! ein generischer Kanonisierer nicht hat:
 //! - "Zeitzonen-lose Zeitstempel" — ob ein String ueberhaupt ein Zeitstempel
-//!   ist (und ob ihm ein "Z"-Suffix fehlt, Struktur 6.10 tau_e), ist eine
+//!   ist (und ob ihm ein "Z"-Suffix fehlt, Struktur 6.13 tau_e), ist eine
 //!   Schemafrage, keine generische YAML/JSON-Eigenschaft.
 //! - "Sprachtags ohne BCP-47-Form" — ebenso schemaabhaengig.
 //!
@@ -25,6 +25,20 @@
 //! als Ganzzahl anerkannt ("ganzzahlig wo exakt", Algorithmus 6.1); jede
 //! sonstige Gleitkommazahl erzeugt PSK-E102, unabhaengig davon, ob sie bei
 //! anderer Betrachtung "exakt genug" erscheinen mag.
+//!
+//! ## Zwei getrennte Digestpfade (v1.0.5, Definition 6.5-6.8)
+//!
+//! Can() allein bildet `record_digest(o) = H(Can(o))` (Definition 6.7) -
+//! ueber das VOLLSTAENDIGE Objekt einschliesslich seiner volatilen Felder
+//! (z.B. DualTime.tau_e, die Wanduhr). Das ist absichtlich NICHT die
+//! Objekt-ID: Definition 6.6 verlangt `id(o) = psk:s:H(Can(pi_vol(o)))`,
+//! wobei `pi_vol` (Definition 6.5, `identity_projection()` unten) die in
+//! architecture/volatile_fields.yaml gefuehrten Felder vorher rekursiv
+//! entfernt. Ohne diese Trennung ginge z.B. die Wanduhr in die Objekt-ID
+//! ein, und zwei inhaltsgleiche Laeufe erhielten verschiedene IDs -
+//! Invariante 6.8 verbietet genau das ("gleiche Eingaben + gleicher
+//! RunDescriptor => gleiche Objekt-ID; abweichende record_digests sind
+//! zulaessig und kein Replaydefekt"). Verstoss erzeugt PSK-E015.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -57,19 +71,116 @@ pub enum CanonValue {
 pub struct CanonicalBytes(pub Vec<u8>);
 
 impl CanonicalBytes {
-    /// H(Can(f)) — die Digest-Haelfte von Definition 6.5/6.6/Regel 6.7.
+    /// H(Can(f)) — die Digest-Haelfte von Definition 6.6/6.7/6.9/Regel 6.10.
     pub fn digest(&self) -> Digest {
         Digest::sha256(&self.0)
     }
 }
 
-/// Can(bytes, media) -> CanonicalBytes, Algorithmus 6.1.
+/// Can(bytes, media) -> CanonicalBytes, Algorithmus 6.1. Kanonisiert das
+/// VOLLSTAENDIGE Objekt (keine Feldentfernung) - Grundlage von
+/// record_digest (Definition 6.7) und der Kollektionsdigests fuer
+/// Registerdateien (Definition 6.9), die keine volatilen Felder tragen.
+/// Fuer die Objekt-ID kanonischer Kapitel-7-Objekte NICHT direkt verwenden
+/// - siehe `identity_projection()`.
 pub fn can(bytes: &[u8], media: Media) -> Result<CanonicalBytes, PskError> {
     let text = std::str::from_utf8(bytes).map_err(|_| PskError::CanonicalizationFailed)?;
     let raw = parse(text, media)?;
     let normalized = normalize(raw)?;
     let json = serialize_compact(&normalized);
     Ok(CanonicalBytes(json.into_bytes()))
+}
+
+include!(concat!(env!("OUT_DIR"), "/volatile_fields.rs"));
+
+/// Prueft, ob `path` (die Kette der Objektschluessel von der Wurzel bis
+/// zum aktuellen Feld, einschliesslich) mit dem Suffix eines Musters
+/// uebereinstimmt - siehe Modulkopf von volatile_fields.rs. Ein
+/// einsegmentiges Muster wie "tau_e" matcht daher an jeder Tiefe; ein
+/// mehrsegmentiges wie ["claim","text"] verlangt uebereinstimmende
+/// unmittelbare Elternschaft.
+fn path_matches(path: &[String], pattern: &VolatileFieldPattern) -> bool {
+    let n = pattern.path.len();
+    if path.len() < n {
+        return false;
+    }
+    let suffix = &path[path.len() - n..];
+    let parents_match = suffix
+        .iter()
+        .zip(pattern.path.iter())
+        .take(n - 1)
+        .all(|(actual, expected)| actual == expected);
+    if !parents_match {
+        return false;
+    }
+    let last = suffix[n - 1].as_str();
+    let last_pattern = pattern.path[n - 1];
+    if pattern.prefix {
+        last.starts_with(last_pattern)
+    } else {
+        last == last_pattern
+    }
+}
+
+fn field_is_excluded(path: &[String]) -> bool {
+    VOLATILE_FIELDS
+        .iter()
+        .chain(NON_CANONICAL_FIELDS.iter())
+        .any(|p| path_matches(path, p))
+}
+
+/// pi_vol (Definition 6.5): entfernt die in architecture/volatile_fields.yaml
+/// gefuehrten Felder (beide Gruppen: volatile UND non_canonical, v1.0.6
+/// Fehlerkorrektur Punkt 8 - ein Mechanismus fuer beide) rekursiv aus einem
+/// bereits normalisierten Wertbaum.
+fn strip_volatile(v: &mut CanonValue) {
+    let mut path = Vec::new();
+    strip_volatile_at(v, &mut path);
+}
+
+fn strip_volatile_at(v: &mut CanonValue, path: &mut Vec<String>) {
+    match v {
+        CanonValue::Object(map) => {
+            let keys: Vec<String> = map.keys().cloned().collect();
+            for k in keys {
+                path.push(k.clone());
+                if field_is_excluded(path) {
+                    map.remove(&k);
+                } else if let Some(val) = map.get_mut(&k) {
+                    strip_volatile_at(val, path);
+                }
+                path.pop();
+            }
+        }
+        CanonValue::Array(items) => {
+            for item in items.iter_mut() {
+                strip_volatile_at(item, path);
+            }
+        }
+        CanonValue::Null | CanonValue::Bool(_) | CanonValue::Int(_) | CanonValue::String(_) => {}
+    }
+}
+
+/// Can(pi_vol(o)) — die Identitaetsprojektion aus Definition 6.5, Grundlage
+/// der Objekt-ID (Definition 6.6: id(o) = psk:s:H(Can(pi_vol(o)))). Entfernt
+/// volatile Felder VOR der Kanonisierung, nicht danach: Can() selbst bleibt
+/// dadurch weiterhin formatagnostisch und feldunwissend (siehe Modulkopf).
+pub fn identity_projection(bytes: &[u8], media: Media) -> Result<CanonicalBytes, PskError> {
+    let text = std::str::from_utf8(bytes).map_err(|_| PskError::CanonicalizationFailed)?;
+    let raw = parse(text, media)?;
+    let mut normalized = normalize(raw)?;
+    strip_volatile(&mut normalized);
+    let json = serialize_compact(&normalized);
+    Ok(CanonicalBytes(json.into_bytes()))
+}
+
+/// record_digest(o) = H(Can(o)) (Definition 6.7): sichert die Integritaet
+/// der vollstaendig gespeicherten Bytes einschliesslich der volatilen
+/// Felder. NICHT identitaetsbildend und NIE Eingabe einer Gate-Entscheidung
+/// (Invariante 6.8) - nur `object_id()` ueber `identity_projection()` DARF
+/// das.
+pub fn record_digest(bytes: &[u8], media: Media) -> Result<Digest, PskError> {
+    Ok(can(bytes, media)?.digest())
 }
 
 fn parse(text: &str, media: Media) -> Result<RawValue, PskError> {
@@ -292,12 +403,17 @@ fn write_json_string(s: &str, out: &mut String) {
     out.push('"');
 }
 
-/// Definition 6.5 (Objekt-ID): id(o) = psk:s:H(Can(o)).
+/// Definition 6.6 (Objekt-ID): id(o) = psk:s:H(Can(pi_vol(o))). Der
+/// Aufrufer MUSS `canonical` ueber `identity_projection()` gebildet haben,
+/// NICHT ueber `can()` — sonst ginge ein volatiles Feld (z.B.
+/// DualTime.tau_e) faelschlich in die ID ein (Definition 6.5, Invariante
+/// 6.8). Diese Funktion selbst formatiert nur; sie kann nicht erzwingen,
+/// mit welchen Bytes sie aufgerufen wird.
 pub fn object_id(sort: &str, canonical: &CanonicalBytes) -> String {
     format!("psk:{sort}:{}", canonical.digest())
 }
 
-/// Definition 6.6 (Kollektionsdigest): I = H(concat_k(name(f_k) || 0x00 ||
+/// Definition 6.9 (Kollektionsdigest): I = H(concat_k(name(f_k) || 0x00 ||
 /// H(Can(f_k)) || LF)). `files` MUSS bereits in der normativen Reihenfolge
 /// vorliegen (ordnungssemantische Liste, Definition 10.5) — diese Funktion
 /// sortiert nicht um.
@@ -398,9 +514,171 @@ mod tests {
 
     #[test]
     fn object_id_format() {
-        let v = can(br#"{"a":1}"#, Media::Json).unwrap();
+        let v = identity_projection(br#"{"a":1}"#, Media::Json).unwrap();
         let id = object_id("S-IDT", &v);
         assert!(id.starts_with("psk:S-IDT:"));
         assert_eq!(id.len(), "psk:S-IDT:".len() + 64);
+    }
+
+    #[test]
+    fn identity_projection_strips_tau_e_clock_ref_uncertainty_ns() {
+        // Definition 6.5: DualTime.tau_e/clock_ref/uncertainty_ns sind
+        // volatil. Zwei "Laeufe", die sich NUR in der Wanduhr
+        // unterscheiden, muessen dieselbe Identitaetsprojektion ergeben.
+        let run_a = br#"{"time":{"tau_i":7,"tau_e":"2026-01-01T00:00:00Z","clock_ref":"host-a","uncertainty_ns":500}}"#;
+        let run_b = br#"{"time":{"tau_i":7,"tau_e":"2027-06-15T12:30:00Z","clock_ref":"host-b","uncertainty_ns":999}}"#;
+        let id_a = identity_projection(run_a, Media::Json).unwrap();
+        let id_b = identity_projection(run_b, Media::Json).unwrap();
+        assert_eq!(
+            id_a, id_b,
+            "Invariante 6.8: gleiche tau_i, verschiedene Wanduhr => gleiche Identitaetsprojektion"
+        );
+        assert_eq!(
+            String::from_utf8(id_a.0).unwrap(),
+            r#"{"time":{"tau_i":7}}"#
+        );
+    }
+
+    #[test]
+    fn record_digest_differs_while_object_id_matches() {
+        // Kern von Invariante 6.8: "abweichende record_digests sind
+        // zulaessig und kein Replaydefekt", solange die Objekt-ID (ueber
+        // pi_vol) uebereinstimmt.
+        let run_a = br#"{"time":{"tau_i":1,"tau_e":"2026-01-01T00:00:00Z"}}"#;
+        let run_b = br#"{"time":{"tau_i":1,"tau_e":"2099-12-31T23:59:59Z"}}"#;
+
+        let oid_a = object_id("S-IDT", &identity_projection(run_a, Media::Json).unwrap());
+        let oid_b = object_id("S-IDT", &identity_projection(run_b, Media::Json).unwrap());
+        assert_eq!(oid_a, oid_b, "Objekt-ID darf nicht von tau_e abhaengen");
+
+        let rd_a = record_digest(run_a, Media::Json).unwrap();
+        let rd_b = record_digest(run_b, Media::Json).unwrap();
+        assert_ne!(
+            rd_a, rd_b,
+            "record_digest DARF sich unterscheiden (Definition 6.7) - das ist kein Defekt"
+        );
+    }
+
+    #[test]
+    fn tau_i_is_never_stripped() {
+        // Definition 6.5, letzter Satz: "tau_i ist DARF NICHT volatil".
+        let src = br#"{"tau_i": 42}"#;
+        let out = identity_projection(src, Media::Json).unwrap();
+        assert_eq!(String::from_utf8(out.0).unwrap(), r#"{"tau_i":42}"#);
+    }
+
+    #[test]
+    fn not_removed_register_entries_never_match_an_exclusion_pattern() {
+        // Regressionswaechter: architecture/volatile_fields.yaml fuehrt
+        // tau_i explizit unter not_removed. Wuerde irgendein
+        // volatile/non_canonical-Muster tau_i faelschlich treffen, waere
+        // das ein Widerspruch im generierten Code selbst.
+        for entry in NOT_REMOVED {
+            let mut path: Vec<String> = entry.path.iter().map(|s| s.to_string()).collect();
+            // Ein einzelnes Segment wie "tau_i" matcht an jeder Tiefe -
+            // ein einelementiger Pfad genuegt, um field_is_excluded zu pruefen.
+            if path.is_empty() {
+                path.push(entry.source.to_string());
+            }
+            assert!(
+                !field_is_excluded(&path),
+                "not_removed-Eintrag '{}' wird faelschlich ausgeschlossen",
+                entry.source
+            );
+        }
+    }
+
+    #[test]
+    fn violation_error_code_is_psk_e015() {
+        assert_eq!(VOLATILE_VIOLATION_ERROR, "PSK-E015");
+    }
+
+    #[test]
+    fn non_canonical_claim_text_is_stripped_from_identity_but_kept_in_record() {
+        // Axiom 7.8: "Das Feld claim.text geht nicht in Can ein; es wird
+        // von pi_vol als non_canonical entfernt und ist damit weder
+        // identitaetsbildend noch Gate-Eingabe. Im record_digest bleibt es
+        // enthalten." Zwei ThoughtBodies, die sich NUR im Prosatext
+        // unterscheiden, sind identitaetsgleich.
+        let a = br#"{"claim":{"formal":"F","text":"Ein Satz."},"lineage":"l"}"#;
+        let b = br#"{"claim":{"formal":"F","text":"Ein voellig anderer Satz."},"lineage":"l"}"#;
+
+        let id_a = identity_projection(a, Media::Json).unwrap();
+        let id_b = identity_projection(b, Media::Json).unwrap();
+        assert_eq!(id_a, id_b, "claim.text darf nicht identitaetsbildend sein");
+        assert_eq!(
+            String::from_utf8(id_a.0).unwrap(),
+            r#"{"claim":{"formal":"F"},"lineage":"l"}"#
+        );
+
+        assert_ne!(
+            record_digest(a, Media::Json).unwrap(),
+            record_digest(b, Media::Json).unwrap(),
+            "im record_digest bleibt claim.text enthalten"
+        );
+    }
+
+    #[test]
+    fn multi_segment_pattern_requires_matching_parent() {
+        // "ThoughtBody.claim.text" trifft nur ein "text" UNTER "claim" -
+        // ein gleichnamiges Feld anderswo bleibt erhalten. Sonst wuerde
+        // ein einzelnes Registermuster unbeabsichtigt den halben Baum
+        // leeren.
+        let src = br#"{"claim":{"text":"weg"},"note":{"text":"bleibt"}}"#;
+        let out = identity_projection(src, Media::Json).unwrap();
+        assert_eq!(
+            String::from_utf8(out.0).unwrap(),
+            r#"{"claim":{},"note":{"text":"bleibt"}}"#
+        );
+    }
+
+    #[test]
+    fn both_exclusion_groups_share_one_mechanism() {
+        // v1.0.6 Fehlerkorrektur Punkt 8: "Es existiert kein zweiter
+        // Ausschlusspfad neben diesem Register." Beide Gruppen wirken in
+        // derselben Projektion, nicht in getrennten Durchlaeufen.
+        assert!(!VOLATILE_FIELDS.is_empty());
+        assert!(!NON_CANONICAL_FIELDS.is_empty());
+        let src = br#"{"tau_e":"volatil","claim":{"text":"non_canonical","formal":"bleibt"}}"#;
+        let out = identity_projection(src, Media::Json).unwrap();
+        assert_eq!(
+            String::from_utf8(out.0).unwrap(),
+            r#"{"claim":{"formal":"bleibt"}}"#
+        );
+    }
+
+    #[test]
+    fn wildcard_prefix_pattern_strips_view_star_fields() {
+        // "*.view_*": jedes Feld mit Praefix "view_" ist volatil.
+        let src = br#"{"view_frame": "a", "view_reason": "b", "kept": 1}"#;
+        let out = identity_projection(src, Media::Json).unwrap();
+        assert_eq!(String::from_utf8(out.0).unwrap(), r#"{"kept":1}"#);
+    }
+
+    #[test]
+    fn exact_wildcard_type_hint_fields_are_stripped() {
+        // "*.runtime_metrics" und "*.persona_projection": exakter
+        // Feldname, beliebiger (dokumentarischer) Typkontext.
+        let src = br#"{"runtime_metrics": {"cpu": 1}, "persona_projection": "x", "kept": true}"#;
+        let out = identity_projection(src, Media::Json).unwrap();
+        assert_eq!(String::from_utf8(out.0).unwrap(), r#"{"kept":true}"#);
+    }
+
+    #[test]
+    fn strip_volatile_recurses_into_arrays_and_nested_objects() {
+        let src = br#"{"items":[{"tau_e":"x","keep":1},{"tau_e":"y","keep":2}]}"#;
+        let out = identity_projection(src, Media::Json).unwrap();
+        assert_eq!(
+            String::from_utf8(out.0).unwrap(),
+            r#"{"items":[{"keep":1},{"keep":2}]}"#
+        );
+    }
+
+    #[test]
+    fn identity_projection_is_idempotent() {
+        let src = br#"{"tau_e":"x","tau_i":1,"a":2}"#;
+        let once = identity_projection(src, Media::Json).unwrap();
+        let twice = identity_projection(&once.0, Media::Json).unwrap();
+        assert_eq!(once, twice);
     }
 }

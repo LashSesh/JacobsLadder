@@ -1,13 +1,29 @@
 schema: psk.refinement-map/1.0
+# GENERIERT von tools/psk-codegen aus constitution/state_machines.yaml.
+# Nicht von Hand bearbeiten.
+#
 # Vertrag 23.4: Die Referenzimplementierung MUSS fuer jeden konkreten
 # Zustandsautomaten eine explizite, maschinenlesbare Abbildung in den
 # abstrakten Automaten aus Kapitel 13 dokumentieren. Unabgebildete
 # Transitionen sind blocking (I-ARCH-013, PO-REF-001, R-RA-010, T-REF-001).
 #
-# In Phase I0 existiert noch kein konkreter Automat. Die Datei traegt
-# deshalb die vollstaendige Zielstruktur und eine leere Abbildungsmenge.
-# Sie wird ab I1 mit jedem realisierten Automaten gefuellt; die
-# Deckungsrechnung unten ist die Pruefgroesse von T-REF-001.
+# Der konkrete Automat wird von demselben Generator aus derselben
+# Registerquelle erzeugt wie diese Abbildung. Die Abbildung ist deshalb die
+# Identitaet, und eine Abweichung zwischen konkret und abstrakt ist
+# konstruktiv ausgeschlossen statt nur nachtraeglich geprueft.
+#
+# Die RA-Erweiterungen (ra_extensions) sind NICHT enthalten: sie sind
+# gesondert gefuehrte Peripherie (Prinzip 4.3 C_PSK) und nur wirksam, wenn
+# ein DomainProfile sie einschaltet. Sie sind keine Kerntransitionen und
+# damit nicht Gegenstand der Kernabbildung.
+#
+# Kein "module"-Feld: die in Phase I0 skizzierte Eintragsform sah eines vor,
+# doch Kapitel 13 ordnet den Automaten keine Module zu, und zwei von ihnen
+# (object, effect) laufen ausdruecklich ueber mehrere Module hinweg -
+# FSM-OBJECT ist der Hauptautomat der gesamten Passfolge, FSM-EFFECT reicht
+# von M15 ueber M16 bis M18. Ein einzelnes Owner-Modul waere dort erfunden.
+# Vertrag 23.4 verlangt die Abbildung der TRANSITIONEN, keine
+# Modulzuordnung; das Feld entfaellt daher, statt geraten zu werden.
 
 abstract_machines: [runtime, object, thought, effect, field, capsule, token]
 abstract_source: constitution/state_machines.yaml
@@ -15,18 +31,135 @@ abstract_source: constitution/state_machines.yaml
 simulation_direction: forward          # Definition 23.3, konservative Verfeinerung
 preserved_by_abstraction_map: [gate, closure, trace, replay, identity, residue]
 
-mappings: []
-# Eintragsform ab I1:
-#   - concrete: {module: M__, machine: <name>, from: <state>, to: <state>,
-#                operator: <fn>}
-#     abstract: {machine: <abstract>, from: <state>, to: <state>,
-#                gate: <G-*|null>}
+mappings:
+  - concrete: {machine: runtime, from: BOOTING, to: BOUND, operator: bind_identity}
+    abstract: {machine: runtime, from: BOOTING, to: BOUND, gate: G-BOOT}
+  - concrete: {machine: runtime, from: BOUND, to: SHADOW, operator: enter_shadow}
+    abstract: {machine: runtime, from: BOUND, to: SHADOW, gate: G-PROFILE}
+  - concrete: {machine: runtime, from: BOUND, to: READY, operator: enter_ready}
+    abstract: {machine: runtime, from: BOUND, to: READY, gate: G-PROFILE}
+  - concrete: {machine: runtime, from: SHADOW, to: READY, operator: promote_profile}
+    abstract: {machine: runtime, from: SHADOW, to: READY, gate: G-PROFILE}
+  - concrete: {machine: runtime, from: READY, to: EXECUTING, operator: dispatch_tick}
+    abstract: {machine: runtime, from: READY, to: EXECUTING, gate: G-SCHEDULE}
+  - concrete: {machine: runtime, from: EXECUTING, to: RECONCILING, operator: await_receipt}
+    abstract: {machine: runtime, from: EXECUTING, to: RECONCILING, gate: G-OBSERVATION}
+  - concrete: {machine: runtime, from: RECONCILING, to: READY, operator: close_cycle}
+    abstract: {machine: runtime, from: RECONCILING, to: READY, gate: G-ACTUALIZATION}
+  - concrete: {machine: runtime, from: "*", to: HOLD, operator: hold}
+    abstract: {machine: runtime, from: "*", to: HOLD, gate: G-RESIDUE}
+  - concrete: {machine: runtime, from: HOLD, to: READY, operator: resume}
+    abstract: {machine: runtime, from: HOLD, to: READY, gate: G-RESUME}
+  - concrete: {machine: runtime, from: "*", to: QUARANTINE, operator: quarantine}
+    abstract: {machine: runtime, from: "*", to: QUARANTINE, gate: G-RESIDUE}
+  - concrete: {machine: runtime, from: "*", to: FAILED, operator: fail}
+    abstract: {machine: runtime, from: "*", to: FAILED, gate: null}
+  - concrete: {machine: runtime, from: "*", to: STOPPED, operator: shutdown}
+    abstract: {machine: runtime, from: "*", to: STOPPED, gate: G-SHUTDOWN}
+  - concrete: {machine: object, from: CREATED, to: TYPED, operator: type}
+    abstract: {machine: object, from: CREATED, to: TYPED, gate: null}
+  - concrete: {machine: object, from: TYPED, to: ANCHORED, operator: anchor}
+    abstract: {machine: object, from: TYPED, to: ANCHORED, gate: null}
+  - concrete: {machine: object, from: ANCHORED, to: PROJECTED, operator: project}
+    abstract: {machine: object, from: ANCHORED, to: PROJECTED, gate: null}
+  - concrete: {machine: object, from: PROJECTED, to: COMPILED, operator: compile}
+    abstract: {machine: object, from: PROJECTED, to: COMPILED, gate: null}
+  - concrete: {machine: object, from: COMPILED, to: VERIFIED, operator: verify}
+    abstract: {machine: object, from: COMPILED, to: VERIFIED, gate: G-CLOSURE}
+  - concrete: {machine: object, from: VERIFIED, to: RUNNABLE, operator: bind_gates}
+    abstract: {machine: object, from: VERIFIED, to: RUNNABLE, gate: G-EFFECT}
+  - concrete: {machine: object, from: RUNNABLE, to: EXECUTING, operator: execute}
+    abstract: {machine: object, from: RUNNABLE, to: EXECUTING, gate: null}
+  - concrete: {machine: object, from: EXECUTING, to: OBSERVED, operator: observe}
+    abstract: {machine: object, from: EXECUTING, to: OBSERVED, gate: G-OBSERVATION}
+  - concrete: {machine: object, from: OBSERVED, to: RECONCILED, operator: reconcile}
+    abstract: {machine: object, from: OBSERVED, to: RECONCILED, gate: G-ACTUALIZATION}
+  - concrete: {machine: object, from: RECONCILED, to: ARCHIVED, operator: archive}
+    abstract: {machine: object, from: RECONCILED, to: ARCHIVED, gate: null}
+  - concrete: {machine: object, from: "*", to: HOLD, operator: hold}
+    abstract: {machine: object, from: "*", to: HOLD, gate: G-RESIDUE}
+  - concrete: {machine: object, from: "*", to: RESIDUAL, operator: residualize}
+    abstract: {machine: object, from: "*", to: RESIDUAL, gate: G-RESIDUE}
+  - concrete: {machine: object, from: "*", to: QUARANTINE, operator: quarantine}
+    abstract: {machine: object, from: "*", to: QUARANTINE, gate: G-RESIDUE}
+  - concrete: {machine: object, from: "*", to: REJECTED, operator: reject}
+    abstract: {machine: object, from: "*", to: REJECTED, gate: null}
+  - concrete: {machine: thought, from: SPECIFIED, to: POSSIBLE, operator: classify_coherent}
+    abstract: {machine: thought, from: SPECIFIED, to: POSSIBLE, gate: G-REALITY-COHERENT}
+  - concrete: {machine: thought, from: POSSIBLE, to: SIMULATED, operator: simulate}
+    abstract: {machine: thought, from: POSSIBLE, to: SIMULATED, gate: G-SIMULATION}
+  - concrete: {machine: thought, from: POSSIBLE, to: SELECTED, operator: select_candidate}
+    abstract: {machine: thought, from: POSSIBLE, to: SELECTED, gate: G-SELECTION}
+  - concrete: {machine: thought, from: SELECTED, to: ATTEMPTED, operator: execute_effect}
+    abstract: {machine: thought, from: SELECTED, to: ATTEMPTED, gate: G-EFFECT}
+  - concrete: {machine: thought, from: ATTEMPTED, to: OBSERVED, operator: bind_external_record}
+    abstract: {machine: thought, from: ATTEMPTED, to: OBSERVED, gate: G-OBSERVATION}
+  - concrete: {machine: thought, from: OBSERVED, to: ACTUALIZED, operator: reconcile}
+    abstract: {machine: thought, from: OBSERVED, to: ACTUALIZED, gate: G-ACTUALIZATION}
+  - concrete: {machine: thought, from: "*", to: RESIDUE, operator: route_residue}
+    abstract: {machine: thought, from: "*", to: RESIDUE, gate: G-RESIDUE}
+  - concrete: {machine: thought, from: "*", to: RETRACTED, operator: retract}
+    abstract: {machine: thought, from: "*", to: RETRACTED, gate: G-RETRACTION}
+  - concrete: {machine: effect, from: DRAFT, to: GATED, operator: gate_plan}
+    abstract: {machine: effect, from: DRAFT, to: GATED, gate: G-EFFECT}
+  - concrete: {machine: effect, from: GATED, to: TOKENIZED, operator: issue_token}
+    abstract: {machine: effect, from: GATED, to: TOKENIZED, gate: G-EFFECT}
+  - concrete: {machine: effect, from: TOKENIZED, to: ATTEMPTED, operator: execute}
+    abstract: {machine: effect, from: TOKENIZED, to: ATTEMPTED, gate: null}
+  - concrete: {machine: effect, from: ATTEMPTED, to: RECORDED, operator: observe}
+    abstract: {machine: effect, from: ATTEMPTED, to: RECORDED, gate: G-OBSERVATION}
+  - concrete: {machine: effect, from: ATTEMPTED, to: UNKNOWN_EFFECT, operator: lose_receipt}
+    abstract: {machine: effect, from: ATTEMPTED, to: UNKNOWN_EFFECT, gate: null}
+  - concrete: {machine: effect, from: RECORDED, to: RECONCILED, operator: reconcile}
+    abstract: {machine: effect, from: RECORDED, to: RECONCILED, gate: G-ACTUALIZATION}
+  - concrete: {machine: effect, from: RECONCILED, to: ACTUALIZED, operator: promote_fact}
+    abstract: {machine: effect, from: RECONCILED, to: ACTUALIZED, gate: G-ACTUALIZATION}
+  - concrete: {machine: effect, from: ATTEMPTED, to: COMPENSATED, operator: compensate}
+    abstract: {machine: effect, from: ATTEMPTED, to: COMPENSATED, gate: G-EFFECT}
+  - concrete: {machine: effect, from: UNKNOWN_EFFECT, to: RECORDED, operator: independent_observe}
+    abstract: {machine: effect, from: UNKNOWN_EFFECT, to: RECORDED, gate: G-OBSERVATION}
+  - concrete: {machine: effect, from: "*", to: FAILED, operator: fail}
+    abstract: {machine: effect, from: "*", to: FAILED, gate: null}
+  - concrete: {machine: field, from: PROPOSED, to: ACTIVE, operator: activate}
+    abstract: {machine: field, from: PROPOSED, to: ACTIVE, gate: G-MORPH}
+  - concrete: {machine: field, from: ACTIVE, to: QUIESCENT, operator: quiesce}
+    abstract: {machine: field, from: ACTIVE, to: QUIESCENT, gate: null}
+  - concrete: {machine: field, from: ACTIVE, to: SPLIT_PENDING, operator: propose_split}
+    abstract: {machine: field, from: ACTIVE, to: SPLIT_PENDING, gate: G-MORPH}
+  - concrete: {machine: field, from: ACTIVE, to: MERGE_PENDING, operator: propose_merge}
+    abstract: {machine: field, from: ACTIVE, to: MERGE_PENDING, gate: G-MORPH}
+  - concrete: {machine: field, from: ACTIVE, to: FOLDED, operator: fold}
+    abstract: {machine: field, from: ACTIVE, to: FOLDED, gate: G-MORPH}
+  - concrete: {machine: field, from: QUIESCENT, to: RETIRED, operator: retire}
+    abstract: {machine: field, from: QUIESCENT, to: RETIRED, gate: null}
+  - concrete: {machine: field, from: "*", to: EXCISED, operator: excise}
+    abstract: {machine: field, from: "*", to: EXCISED, gate: G-EXCISION}
+  - concrete: {machine: capsule, from: SEALED, to: PERTURBED, operator: perturb}
+    abstract: {machine: capsule, from: SEALED, to: PERTURBED, gate: null}
+  - concrete: {machine: capsule, from: PERTURBED, to: RATCHETED, operator: ratchet}
+    abstract: {machine: capsule, from: PERTURBED, to: RATCHETED, gate: null}
+  - concrete: {machine: capsule, from: RATCHETED, to: RATCHETED, operator: ratchet}
+    abstract: {machine: capsule, from: RATCHETED, to: RATCHETED, gate: null}
+  - concrete: {machine: capsule, from: RATCHETED, to: SUPPORTED, operator: check_support}
+    abstract: {machine: capsule, from: RATCHETED, to: SUPPORTED, gate: null}
+  - concrete: {machine: capsule, from: SUPPORTED, to: CRYSTALLIZED, operator: crystallize}
+    abstract: {machine: capsule, from: SUPPORTED, to: CRYSTALLIZED, gate: G-CLOSURE}
+  - concrete: {machine: capsule, from: "*", to: RESIDUAL, operator: residualize}
+    abstract: {machine: capsule, from: "*", to: RESIDUAL, gate: G-RESIDUE}
+  - concrete: {machine: capsule, from: "*", to: QUARANTINED, operator: quarantine}
+    abstract: {machine: capsule, from: "*", to: QUARANTINED, gate: G-RESIDUE}
+  - concrete: {machine: token, from: ISSUED, to: CONSUMED, operator: consume_once}
+    abstract: {machine: token, from: ISSUED, to: CONSUMED, gate: null}
+  - concrete: {machine: token, from: ISSUED, to: EXPIRED, operator: expire}
+    abstract: {machine: token, from: ISSUED, to: EXPIRED, gate: null}
+  - concrete: {machine: token, from: ISSUED, to: INVALIDATED, operator: plan_changed}
+    abstract: {machine: token, from: ISSUED, to: INVALIDATED, gate: null}
+  - concrete: {machine: token, from: ISSUED, to: REVOKED, operator: revoke}
+    abstract: {machine: token, from: ISSUED, to: REVOKED, gate: null}
 
 coverage:
-  concrete_transitions: 0
-  mapped: 0
+  concrete_transitions: 62
+  mapped: 62
   unmapped: 0
-  complete: false                      # wird true, sobald concrete_transitions > 0 UND unmapped == 0.
-                                        # Bei 0 konkreten Transitionen ist "0 unmapped" nur vakuos wahr,
-                                        # nicht abgeschlossen (siehe tools/verify-refinement).
+  complete: true
 unmapped_is_blocking: true

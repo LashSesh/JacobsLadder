@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "psk.thought-body/1.0",
   "title": "ThoughtBody",
-  "description": "ThoughtBody (OBJ-THB), Struktur 7.7 (PSK-RA v1.0.2).",
+  "description": "ThoughtBody (OBJ-THB), Struktur 7.7 (PSK-RA v1.0.7).",
   "type": "object",
   "properties": {
     "schema": {

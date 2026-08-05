@@ -3,7 +3,7 @@ schema: psk.lifecycle-registry/1.0
 # Lebensdauer, Owner und Speicherklasse. Quelle der Lebensdauerklassen:
 # Definition 8.1. Die Tabelle in Kapitel 8 ist im Satz verrutscht und
 # wird nach Regel 1.5 (Registerprimat) nicht verwendet.
-count: 27
+count: 28
 lifetime_classes:
   - {id: L-TICK, duration: "ein Scheduler-Tick", rule: "Wird am Tickende verworfen; MUSS vollstaendig aus dem Trace rekonstruierbar sein."}
   - {id: L-RUN, duration: "ein Lauf", rule: "Lebt bis ARCHIVED oder FAILED; wird im Replay Memory persistiert."}
@@ -17,6 +17,7 @@ objects:
   - {id: OBJ-THB, name: ThoughtBody, owner: M06, lifetime: L-RUN, memory: working}
   - {id: OBJ-FLD, name: FieldIdentity, owner: M08, lifetime: L-RUN, memory: working}
   - {id: OBJ-PRJ, name: FieldProjection, owner: M09, lifetime: L-TICK, memory: working}
+  - {id: OBJ-RCL, name: RealityClassification, owner: M07, lifetime: L-RUN, memory: canonical}
   - {id: OBJ-DEP, name: DependencyProfile, owner: M10, lifetime: L-RUN, memory: canonical}
   - {id: OBJ-IRB, name: IRBundle, owner: M23, lifetime: L-RUN, memory: working}
   - {id: OBJ-IRN, name: IRNode, owner: M23, lifetime: L-RUN, memory: working}

@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.volatile_fields.yaml/1.0",
+  "title": "volatile_fields.yaml",
+  "description": "Strukturschema von architecture/volatile_fields.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "purpose": {
+      "type": "string"
+    },
+    "volatile": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    "non_canonical": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    "not_removed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path"
+        ]
+      }
+    },
+    "enforcement": {
+      "type": "object",
+      "properties": {
+        "gate_input_forbidden": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "error_on_violation": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "gate_input_forbidden",
+        "error_on_violation"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "purpose",
+    "volatile",
+    "non_canonical",
+    "not_removed",
+    "enforcement"
+  ]
+}

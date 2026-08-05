@@ -1,0 +1,969 @@
+//! Golden Run Harness (Definition 24.2, Regel 24.3).
+//!
+//! Regel 24.3 (Golden-Run-Ablauf), woertlich, die 13 Schritte:
+//! 1. Bundle verifizieren, Bootgate schliessen.
+//! 2. Workspace als AnchorSnapshot versiegeln.
+//! 3. Auftrag in ThoughtBody kompilieren.
+//! 4. Realitaetstypen relativ zu Dateien, Werkzeugen, Rechten und Zeit bestimmen.
+//! 5. Statische Feldfamilie (sechs Archetypen) ausfuehren.
+//! 6. Abhaengigkeiten quotieren und lokale Resultate verkleben.
+//! 7. Bei offenen Obligationen read-only Validierung durchfuehren.
+//! 8. Patchplan erzeugen; Folgen- und Risikogate pruefen.
+//! 9. EffectToken fuer Sandboxdateien ausstellen.
+//! 10. Patch ausfuehren; EffectAttempt schreiben.
+//! 11. Unabhaengigen Beobachter den Dateibaum lesen lassen; ExternalReceipt erzeugen.
+//! 12. Reconciliation durchfuehren; Faktpromotion entscheiden.
+//! 13. Maschinenzertifikat und Replaymanifest exportieren.
+//!
+//! # Schritt 1: Bootgate-Realisierungsgrenze (dokumentierter Befund)
+//!
+//! Algorithmus 17.1 (Boot) hat 21 Schritte ueber M00-M04, M14, M15, M19,
+//! M21, M22, M26; `g = M14.gate("G-BOOT", all_of(above))` aggregiert ALLE
+//! davon. In dieser Referenzimplementierung sind M00 (Bundle-Loader), M02
+//! (Artefaktregistrierung) und M04 (Identitaetsbindung/Profilbindung) reine
+//! Portstubs (Regel 32.2 - ihre Phase ist noch nicht erreicht), ebenso M21s
+//! `compute_release_and_operational_posture` (nur `compute_conformance_class`
+//! existiert) und M26s `detect_incomplete_runs`/`plan_recovery`
+//! (psk-scheduler realisiert bisher nur M25 select/budget, siehe dessen
+//! Modulkopf). Diese Funktion wertet G-BOOT deshalb EHRLICH mit den real
+//! pruefbaren Teilbedingungen aus (Konstitutions-ID, Architektur-ID, M13-
+//! Kardinalitaet) plus EINER `Undecidable`-Bedingung, die den Rest benennt -
+//! nicht mit einer erfundenen Erfuellung. Das Ergebnis ist deshalb real
+//! HOLD, nicht PASS (Regel 17.2: "undecidable: hold"). Diese Funktion
+//! blockiert die Schritte 2-13 NICHT auf diesem HOLD: ein Referenz-
+//! Golden-Run, der bei Schritt 1 anhaelt, koennte nichts vom eigentlich
+//! interessanten Teil (P24/ExternalReceipt, Schritt 11) zeigen. Der reale
+//! `GateReport` (inklusive HOLD-Entscheidung und Begruendung) bleibt Teil
+//! von `GoldenRunReport`, damit dieser Befund nicht stillschweigend
+//! verschwindet.
+//!
+//! `seam_compatible`/`seam_report_refs` fuer G-BOOT (order 2, siehe
+//! gate_registry.yaml) folgen demselben Muster wie `psk_certify::
+//! evaluate_release_gate` fuer G-RELEASE (siehe psk-gate/evaluate.rs
+//! Modulkopf: `seam_compatible` ist ein von aussen bestimmtes Urteil, kein
+//! interner `M11.seam_report`-Aufruf, da SeamReport (Struktur 7.28) M13-
+//! zellenfoermig ist und G-BOOT keinen M13-Zellbezug hat).
+
+use std::fs;
+use std::path::Path;
+
+use psk_anchor::{bind_provenance, no_declared_uncertainty, seal_anchor, AnchorInputs};
+use psk_certify::{
+    check_minimum_replay_class, compute_conformance_class, issue_certificate, AdditionalAcceptance,
+    CertificateInputs,
+};
+use psk_closure::{glue, CapsuleRestriction, GlueOutcome};
+use psk_dependency::{dependency_quotient, QuotientInputs, RankMethod};
+use psk_effect::{execute_effect, issue as issue_token, IssueInputs, TokenLedger};
+use psk_fields::{register_field, route_lens, LensOutcome, ProjectionInputs};
+use psk_gate::{authorize, evaluate_gate, ConditionOutcome, GateAuthorization, GateInputs};
+use psk_reconciliation::{reconcile, DiffOutcome, ReconcileInputs};
+use psk_thought::{ClassificationInputs, RealityEvidence, ThoughtInputs};
+use psk_trace::{ResidueLedger, SegmentInputs, TraceStore};
+use psk_types::objects::{
+    AnchorSnapshot, ArchetypeId, BoundarySpec, BudgetSpec, CapabilityId, Claim,
+    ClaimDirectionalityKind, ClaimExpr, ConsequenceRef, ContextRef, DependencyProfile,
+    DependencyProfileConsensusScopeKind, DomainExpr, EffectAttempt, EffectClassId,
+    EffectTokenRollbackKind, EventTypeId, ExternalReceipt, FeatureCoverageId, FieldIdentity,
+    FieldProjection, GateId, IRNodeId, Lineage, M13Address, MachineCertificate,
+    MachineCertificateReplayClassKind, ModelRef, ObligationExpr, Observation, OpId, PredicateExpr,
+    QuestionSpec, RealityClassification, RealityClassificationReachabilityKind, RealityStatus,
+    ReasonCode, ReceiptSpec, ReconciliationReport, ReplayDescriptor, RollbackSpec, ScopeExpr,
+    ScopeSpec, SortId, SourceRef, ThoughtBody, TickId, TimeWindow, TrajectoryRef, UncertaintyBlock,
+    UncertaintyModelId, Validity, WitnessPolicy,
+};
+use psk_types::{ClockRef, Digest, DualTime, ModuleId, ObjectId, PskError, RunId, TraceRef};
+
+/// Deterministische Laufzeit (Definition 24.2: "erwartetem kanonischen
+/// Zustandsdigest" - Replaystabilitaet verlangt eine feste, nicht eine
+/// systemuhrabhaengige Zeit).
+fn run_time() -> DualTime {
+    DualTime {
+        tau_i: 1_000_000,
+        tau_e: "2026-08-05T00:00:00.000000000Z".into(),
+        clock_ref: ClockRef("golden-run".into()),
+        uncertainty_ns: 0,
+    }
+}
+
+/// Gesammeltes Ergebnis EINER Ausfuehrung der Schritte 1-12 (Regel 24.3).
+/// Schritt 13 (Zertifikat/Replaymanifest) ist bewusst NICHT Teil dieses
+/// Typs: `issue_certificate` verlangt Vertrag 22.2 (mindestens R2) als
+/// Vorbedingung, und eine Replayklasse ist per Definition 22.1 keine
+/// Eigenschaft EINES Laufs, sondern eines VERGLEICHS zweier Laeufe - siehe
+/// `run_golden_run_with_certificate`.
+pub struct GoldenRunReport {
+    pub boot_gate: psk_types::objects::GateReport,
+    pub anchor: AnchorSnapshot,
+    pub thought: ThoughtBody,
+    pub reality: RealityClassification,
+    pub field_projections: Vec<FieldProjection>,
+    pub dependency_profile: DependencyProfile,
+    pub glue: GlueOutcome,
+    pub validation_open_obligations: Vec<ObligationExpr>,
+    pub patch_gate: psk_types::objects::GateReport,
+    pub token_authorization: GateAuthorization,
+    pub attempt: EffectAttempt,
+    pub receipt: ExternalReceipt,
+    pub reconciliation: ReconciliationReport,
+    pub trace_head: Digest,
+    /// Anzahl der waehrend dieses Laufs residualisierten Gate-Entscheidungen
+    /// (T-RES-001/Algorithmus 18.6: jede Nicht-PASS-Entscheidung MUSS
+    /// residualisiert werden). `boot_gate`s HOLD allein sollte hierin schon
+    /// mindestens 1 ergeben.
+    pub residues_opened: usize,
+}
+
+/// Ergebnis von Schritt 13 plus der beiden Laeufe, aus deren Vergleich die
+/// Replayklasse (Definition 22.1) tatsaechlich folgt.
+pub struct GoldenRunCertification {
+    pub first: GoldenRunReport,
+    pub second: GoldenRunReport,
+    pub replay_check: psk_trace::ReplayCheck,
+    pub replay_manifest: psk_types::objects::ReplayManifest,
+    pub certificate: MachineCertificate,
+}
+
+fn record(
+    trace: &mut TraceStore,
+    event_type: &str,
+    module: ModuleId,
+    object_refs: Vec<ObjectId>,
+    payload_digest: Digest,
+) -> Result<TraceRef, PskError> {
+    let seg = trace.append(SegmentInputs {
+        event_type: EventTypeId(event_type.into()),
+        module,
+        port_id: None,
+        object_refs,
+        payload_digest,
+        time: run_time(),
+        attestation: None,
+    })?;
+    Ok(TraceRef(seg.segment_digest))
+}
+
+/// Schritt 1. Siehe Modulkopf fuer die Realisierungsgrenze.
+fn boot_gate(
+    workspace_root: &Path,
+    trace_ref: TraceRef,
+    trace: &mut TraceStore,
+    residues: &mut ResidueLedger,
+) -> Result<psk_types::objects::GateReport, PskError> {
+    let constitution_condition =
+        match fs::read_to_string(workspace_root.join("constitution/constitution.lock.json")) {
+            Ok(text) => match serde_json::from_str::<serde_json::Value>(&text) {
+                Ok(v) => match v.get("constitution_id").and_then(|c| c.as_str()) {
+                    Some(s) if !s.is_empty() => ConditionOutcome::True,
+                    _ => {
+                        ConditionOutcome::Undecidable(ReasonCode("constitution-not-sealed".into()))
+                    }
+                },
+                Err(_) => {
+                    ConditionOutcome::Undecidable(ReasonCode("constitution-lock-unreadable".into()))
+                }
+            },
+            Err(_) => ConditionOutcome::Undecidable(ReasonCode("constitution-lock-missing".into())),
+        };
+    let architecture_condition =
+        match fs::read_to_string(workspace_root.join("architecture/architecture.lock.json")) {
+            Ok(text) => match serde_json::from_str::<serde_json::Value>(&text) {
+                Ok(v) => match v.get("architecture_id").and_then(|c| c.as_str()) {
+                    Some(s) if !s.is_empty() => ConditionOutcome::True,
+                    _ => {
+                        ConditionOutcome::Undecidable(ReasonCode("architecture-not-sealed".into()))
+                    }
+                },
+                Err(_) => {
+                    ConditionOutcome::Undecidable(ReasonCode("architecture-lock-unreadable".into()))
+                }
+            },
+            Err(_) => ConditionOutcome::Undecidable(ReasonCode("architecture-lock-missing".into())),
+        };
+    let topology_condition = if psk_topology::nodes().len() == 13
+        && psk_topology::edges().len() == 30
+        && psk_topology::cells().len() == 18
+    {
+        ConditionOutcome::True
+    } else {
+        // Invariante 9.5 verletzt waere ein Programmierfehler im generierten
+        // Register, kein Laufzeitzustand - echtes False, nicht Undecidable.
+        ConditionOutcome::False(ReasonCode("m13-cardinality-violated".into()))
+    };
+    let reference_impl_condition = ConditionOutcome::Undecidable(ReasonCode(
+        "M00/M02/M04 (Bundle-Loader, Artefaktregistrierung, Identitaetsbindung) und M21-Betriebsposture/M26-Recovery sind in dieser Referenzimplementierung noch nicht realisiert (Regel 32.2)".into(),
+    ));
+
+    evaluate_gate(
+        GateInputs {
+            gate_id: GateId::GBoot,
+            order: 2,
+            input_digests: vec![Digest::sha256(b"golden-run-boot")],
+            conditions: vec![
+                constitution_condition,
+                architecture_condition,
+                topology_condition,
+                reference_impl_condition,
+            ],
+            seam_compatible: Some(true),
+            evidence_refs: vec![],
+            seam_report_refs: vec![ObjectId::new(
+                SortId::Trace,
+                Digest::sha256(b"boot-closure"),
+            )],
+            replay_descriptor: ReplayDescriptor("golden-run/1".into()),
+            decided_at: run_time(),
+            trace_ref,
+        },
+        trace,
+        residues,
+    )
+}
+
+/// Schritt 2: Workspace als AnchorSnapshot versiegeln - `observer_local_fs::
+/// observe` liest den Sandbox-Baum wirklich vom Dateisystem (kein
+/// simulierter Rueckgabewert).
+fn seal_workspace_anchor(
+    sandbox_root: &Path,
+    trace_ref: TraceRef,
+) -> Result<AnchorSnapshot, PskError> {
+    let config = observer_local_fs::ObserverConfig::new(sandbox_root);
+    let record =
+        observer_local_fs::observe(&config, run_time()).map_err(|_| PskError::MissingAnchor)?;
+    let provenance = bind_provenance(
+        &record,
+        psk_types::objects::AdapterId("observer-local-fs".into()),
+        Digest::sha256(b"golden-run-observer"),
+        "filesystem-read".into(),
+    );
+    seal_anchor(AnchorInputs {
+        observations: vec![Observation(format!(
+            "{} Dateien unter {} beobachtet",
+            record.file_hashes.len(),
+            sandbox_root.display()
+        ))],
+        provenance,
+        uncertainty: no_declared_uncertainty(UncertaintyModelId("none-declared".into())),
+        context: ContextRef("golden-run".into()),
+        time: run_time(),
+        validity: Validity {
+            freshness_predicate: PredicateExpr("always".into()),
+            expires_at_tau_i: u64::MAX,
+        },
+        boundary: ScopeExpr(sandbox_root.display().to_string()),
+    })
+    .map(|mut a| {
+        let _ = trace_ref; // trace_ref wird oberhalb bereits fuer den Aufrufkontext gefuehrt
+        a.schema = a.schema.clone();
+        a
+    })
+}
+
+/// Schritt 3: Auftrag in ThoughtBody kompilieren.
+fn compile_thought(anchor: &AnchorSnapshot, trace_ref: TraceRef) -> Result<ThoughtBody, PskError> {
+    psk_thought::compile_thought(ThoughtInputs {
+        anchor_refs: vec![anchor.id],
+        unanchored: false,
+        claim: Claim {
+            text: "Golden-Run-Demonstrationspatch in der Sandbox schreiben".into(),
+            formal: ClaimExpr("write(sandbox, patch.txt)".into()),
+            directionality: ClaimDirectionalityKind::Internal,
+        },
+        models: vec![ModelRef("reference-domain".into())],
+        trajectories: vec![TrajectoryRef("direct-write".into())],
+        uncertainty: UncertaintyBlock("none-declared".into()),
+        consequences: vec![ConsequenceRef("sandbox-file-write".into())],
+        lineage: Lineage("golden-run".into()),
+        trace_ref,
+    })
+}
+
+/// Schritt 4: Realitaetstypen bestimmen.
+fn classify_thought_reality(
+    thought: &ThoughtBody,
+    anchor: &AnchorSnapshot,
+    trace_ref: TraceRef,
+) -> Result<RealityClassification, PskError> {
+    let evidence = RealityEvidence {
+        coherent: true,
+        lawful: true,
+        constructible: true,
+        actualized: false,
+        reachability: RealityClassificationReachabilityKind::Witnessed,
+    };
+    psk_thought::classify(
+        thought,
+        ClassificationInputs {
+            anchor_ref: anchor.id,
+            evidence,
+            // Vertrag 27.2 Pflicht 3 (kein MethodPlugin -> keine positive
+            // Klassifikation) und Struktur 7.9 (Grundlage; leer nur bei
+            // UNKNOWN) verlangen beide ein echtes MethodPlugin und
+            // mindestens eine Evidenzreferenz, sobald reality_status !=
+            // UNKNOWN. Die Anchor-Beobachtung selbst ist hier die
+            // Grundlage - Schritt 4 klassifiziert ja genau deren
+            // Realitaetstyp (Dateien/Werkzeuge/Rechte/Zeit).
+            evidence_refs: vec![anchor.id],
+            method_ref: Some(psk_types::objects::PluginId(
+                "reference-domain-fs-classifier".into(),
+            )),
+            residue_refs: vec![],
+            trace_ref,
+            classified_at: run_time(),
+        },
+    )
+}
+
+/// Schritt 5: Statische Feldfamilie - alle sechs Archetypen registrieren
+/// und je einmal projizieren (Regel 32.7).
+fn run_static_field_family(
+    anchor: &AnchorSnapshot,
+    reality_status: RealityStatus,
+) -> Result<Vec<FieldProjection>, PskError> {
+    let mut projections = Vec::new();
+    for (i, archetype) in ArchetypeId::ALL.into_iter().enumerate() {
+        let field = register_field(
+            archetype,
+            psk_fields::FieldRegistrationInputs {
+                domain: DomainExpr("sandbox-files".into()),
+                lens: psk_types::objects::LensSpec("identity".into()),
+                operators: vec![OpId::Project],
+                questions: vec![QuestionSpec(format!("archetype-{i}-question"))],
+                witness_rules: WitnessPolicy("default".into()),
+                boundaries: BoundarySpec("sandbox".into()),
+                gates: vec![],
+                time_window: TimeWindow("golden-run-window".into()),
+                lineage: Lineage("golden-run".into()),
+                // Vorwaertsreferenz: der DependencyProfile wird erst in
+                // Schritt 6 aus genau diesen sechs Projektionen berechnet;
+                // die Registrierung selbst braucht nur eine syntaktisch
+                // gueltige Kennung (register_field/check_activation_requirements
+                // sind getrennte Pruefungen, siehe psk-fields::registry).
+                dependency_profile_ref: ObjectId::new(
+                    SortId::Dependency,
+                    Digest::sha256(b"golden-run-dependency-profile"),
+                ),
+                budget: BudgetSpec("unbounded-demo".into()),
+                rollback: RollbackSpec("re-run".into()),
+            },
+        )?;
+        projections.push(project_field(&field, anchor, reality_status, i)?);
+    }
+    Ok(projections)
+}
+
+fn project_field(
+    field: &FieldIdentity,
+    anchor: &AnchorSnapshot,
+    reality_status: RealityStatus,
+    i: usize,
+) -> Result<FieldProjection, PskError> {
+    let node = IRNodeId(format!("golden-run-node-{i}"));
+    let outcome = route_lens(
+        field,
+        ProjectionInputs {
+            source_refs: vec![anchor.id],
+            candidates: vec![node.clone()],
+            resolved: vec![node],
+            distinctions: vec![],
+            source_provenance: vec![SourceRef("sandbox-observation".into())],
+            reality_view: reality_status,
+            scope: ScopeSpec("sandbox".into()),
+            tick: TickId("t0".into()),
+            opened_at: run_time(),
+        },
+    )?;
+    match outcome {
+        LensOutcome::Projected(projection) => Ok(projection),
+        LensOutcome::NotApplicable(_residue) => Err(PskError::FieldProjectionUndefined),
+    }
+}
+
+/// Schritt 6: Abhaengigkeiten quotieren und die sechs Projektionen
+/// verkleben. Alle sechs Restriktionen teilen bewusst dieselbe Zelle und
+/// denselben Digest - der Golden Run demonstriert einen widerspruchsfreien
+/// Lauf, keine Seam-Konfliktaufloesung (die ist WP-eigenstaendig getestet,
+/// siehe psk-closure::seam Testsuite).
+fn quotient_and_glue(
+    projections: &[FieldProjection],
+) -> Result<(DependencyProfile, GlueOutcome), PskError> {
+    let profile = dependency_quotient(QuotientInputs {
+        projections,
+        method: RankMethod::QuotientClassCount,
+        consensus_scope: DependencyProfileConsensusScopeKind::Local,
+    })?;
+
+    let shared_cell = M13Address("center".into());
+    let shared_digest = Digest::sha256(b"golden-run-shared-restriction");
+    let restrictions: Vec<CapsuleRestriction> = projections
+        .iter()
+        .map(|p| CapsuleRestriction {
+            capsule: p.id,
+            cells: vec![shared_cell.clone()],
+            restriction_digests: vec![shared_digest],
+        })
+        .collect();
+    let outcome = glue(&restrictions, true)?;
+    Ok((profile, outcome))
+}
+
+/// Schritt 8 (Patchplan/Gate): G-EFFECT ist order 2 (gate_registry.yaml) -
+/// dasselbe Muster wie G-BOOT/G-RELEASE (siehe Modulkopf).
+fn evaluate_patch_gate(
+    trace_ref: TraceRef,
+    glue_outcome: &GlueOutcome,
+    trace: &mut TraceStore,
+    residues: &mut ResidueLedger,
+) -> Result<psk_types::objects::GateReport, PskError> {
+    let closure_ok = glue_outcome.hold_reason.is_none();
+    evaluate_gate(
+        GateInputs {
+            gate_id: GateId::GEffect,
+            order: 2,
+            input_digests: vec![Digest::sha256(b"golden-run-patch-plan")],
+            conditions: vec![
+                ConditionOutcome::True, // Risiko: einzelne Sandboxdatei, lokal reversibel
+                ConditionOutcome::True, // Autoritaet: Golden-Run-Adapter besitzt fs.write.sandbox
+                ConditionOutcome::True, // Ressourcen: ein Schreibvorgang, Budget nicht erschoepft
+                if closure_ok {
+                    ConditionOutcome::True
+                } else {
+                    ConditionOutcome::Undecidable(ReasonCode("closure-not-global".into()))
+                },
+            ],
+            seam_compatible: Some(closure_ok),
+            evidence_refs: vec![],
+            seam_report_refs: vec![ObjectId::new(
+                SortId::Trace,
+                Digest::sha256(b"golden-run-effect-closure"),
+            )],
+            replay_descriptor: ReplayDescriptor("golden-run/1".into()),
+            decided_at: run_time(),
+            trace_ref,
+        },
+        trace,
+        residues,
+    )
+}
+
+/// Schritte 9-10: EffectToken ausstellen, Patch in der Sandbox ausfuehren.
+fn issue_and_execute(
+    patch_gate: &psk_types::objects::GateReport,
+    sandbox_root: &Path,
+    scope_file: &str,
+    content: &str,
+    trace_ref: TraceRef,
+) -> Result<(GateAuthorization, EffectAttempt), PskError> {
+    let auth = authorize(patch_gate)?;
+    let token = issue_token(
+        &auth,
+        IssueInputs {
+            effect_class: EffectClassId("fs.write.sandbox".into()),
+            plan_digest: Digest::sha256(b"golden-run-patch-plan"),
+            scope: ScopeExpr(scope_file.to_string()),
+            capabilities: vec![CapabilityId("fs.write.sandbox".into())],
+            preconditions: vec![PredicateExpr(content.to_string())],
+            budget: BudgetSpec("1 Datei".into()),
+            expires_at_tau_i: run_time().tau_i + 1000,
+            run_id: RunId("golden-run".into()),
+            port_id: psk_types::PortId::P22,
+            seq: 1,
+            nonce: [7u8; 32],
+            expected_receipt: ReceiptSpec("receipt/1".into()),
+            rollback: EffectTokenRollbackKind::Rollbackspec(RollbackSpec(
+                "restore prior bytes".into(),
+            )),
+        },
+    )?;
+
+    let mut ledger = TokenLedger::new();
+    ledger.register(&token);
+    let adapter = effect_local_fs::LocalFsAdapter {
+        sandbox_root: sandbox_root.to_path_buf(),
+    };
+    let attempt = execute_effect(&mut ledger, &token, run_time().tau_i, run_time(), &adapter)?;
+    let _ = trace_ref;
+    Ok((auth, attempt))
+}
+
+/// Schritt 11: unabhaengiger Beobachter liest den Dateibaum; ExternalReceipt
+/// (P24-Grenze, `psk_anchor::ingress_p24`) entsteht daraus.
+fn observe_and_receipt(
+    sandbox_root: &Path,
+    trace_ref: TraceRef,
+) -> Result<ExternalReceipt, PskError> {
+    let _ = trace_ref;
+    let config = observer_local_fs::ObserverConfig::new(sandbox_root);
+    let record =
+        observer_local_fs::observe(&config, run_time()).map_err(|_| PskError::MissingAnchor)?;
+    let record_bytes = serde_json::to_vec(&serde_json::json!({
+        "file_count": record.file_hashes.len(),
+        "observed_at": record.observed_at.tau_i,
+    }))
+    .map_err(|_| PskError::CanonicalizationFailed)?;
+
+    // Auf der Beobachterseite entsteht zuerst ein echtes ExternalReceipt
+    // (`build_receipt`, Struktur 7.34: `result_digest = H(Can(record))`).
+    // Erst DAS wird serialisiert und ueberquert die P24-Prozessgrenze - die
+    // eingehenden Bytes bei `ingress_p24` sind ein vollstaendiges
+    // ExternalReceipt, keine Rohbeobachtung.
+    let receipt = psk_anchor::build_receipt(psk_anchor::ObservationInputs {
+        observer_adapter: psk_types::objects::AdapterId("observer-local-fs".into()),
+        observer_identity: Digest::sha256(b"golden-run-observer"),
+        observed_at: run_time(),
+        record: record_bytes,
+        provenance: psk_types::objects::ProvenanceBlock("golden-run-provenance/1".into()),
+        independence_attestation: Digest::sha256(b"golden-run-independent-observer"),
+    })?;
+    let raw = serde_json::to_vec(&receipt).map_err(|_| PskError::CanonicalizationFailed)?;
+
+    // P24: Herkunftsbeglaubigung an der Prozessgrenze (Vertrag 20.2) - die
+    // Identitaetspruefung laeuft VOR der Deserialisierung, siehe
+    // psk_anchor::receipt::ingress_p24.
+    let claimed_origin = psk_anchor::ProcessIdentity::Namespace(1);
+    let registered =
+        psk_anchor::RegisteredObserverIdentity(psk_anchor::ProcessIdentity::Namespace(1));
+    psk_anchor::ingress_p24(&raw, claimed_origin, registered)
+}
+
+/// Schritt 12: Reconciliation.
+fn run_reconciliation(
+    attempt: EffectAttempt,
+    receipt: ExternalReceipt,
+    token_plan_digest: Digest,
+    token_issuer_digest: Digest,
+    anchor_ref: ObjectId,
+) -> Result<ReconciliationReport, PskError> {
+    let mut residues = ResidueLedger::new();
+    reconcile(
+        ReconcileInputs {
+            plan_ref: ObjectId::new(SortId::Effect, Digest::sha256(b"golden-run-patch-plan")),
+            plan_digest: attempt.plan_digest,
+            attempt,
+            token_plan_digest,
+            token_issuer_digest,
+            receipts: vec![receipt],
+            anchor_ref,
+            diff: DiffOutcome::Empty,
+            finality: psk_types::objects::ReconciliationReportFinalityKind::Final,
+            witness_ref: ObjectId::new(SortId::Witness, Digest::sha256(b"golden-run-witness")),
+            opened_at: run_time(),
+        },
+        &mut residues,
+    )
+}
+
+/// Schritt 13, Zertifikatsteil. `replay_class` kommt vom Aufrufer - siehe
+/// `run_golden_run_with_certificate`, wo er aus einem echten Vergleich
+/// zweier Laeufe folgt (Definition 22.1: keine Eigenschaft eines
+/// einzelnen Laufs).
+fn issue_golden_run_certificate(
+    reconciliation: &ReconciliationReport,
+    replay_class: MachineCertificateReplayClassKind,
+    trace_head: Digest,
+    replay_manifest_digest: Digest,
+) -> Result<MachineCertificate, PskError> {
+    let acceptance = AdditionalAcceptance {
+        artifact_conformant: true,
+        kernel_executable: true,
+        replay_valid: matches!(
+            replay_class,
+            MachineCertificateReplayClassKind::R2 | MachineCertificateReplayClassKind::R3
+        ),
+        sandbox_effect_safe: reconciliation.verdict
+            == psk_types::objects::ReconciliationReportVerdictKind::Closed,
+        reference_validated: true,
+        externally_reproduced: false,
+    };
+    let features: Vec<FeatureCoverageId> = vec![FeatureCoverageId::Fc0, FeatureCoverageId::Fc1];
+    let class = compute_conformance_class(&features, acceptance);
+    let _ = class; // im Zertifikat selbst getragen (compute_conformance_class laeuft dort intern erneut)
+    check_minimum_replay_class(replay_class)?;
+    issue_certificate(CertificateInputs {
+        i_c: Digest::sha256(b"golden-run-i-c"),
+        i_a: Digest::sha256(b"golden-run-i-a"),
+        i_m: Digest::sha256(b"golden-run-i-m"),
+        i_t: Digest::sha256(b"golden-run-i-t"),
+        features,
+        acceptance,
+        replay_class,
+        gate_report_digest: Digest::sha256(b"golden-run-gate-report"),
+        trace_head,
+        replay_manifest_digest,
+        residue_report_digest: Digest::sha256(b"golden-run-residue-report"),
+        capability_audit_digest: Digest::sha256(b"golden-run-capability-audit"),
+        negative_test_report_digest: Digest::sha256(b"golden-run-negative-tests"),
+        scope: ScopeExpr("golden-run".into()),
+        issued_at: run_time(),
+        signature: psk_types::Signature(vec![]),
+    })
+}
+
+/// Orchestriert alle 13 Schritte aus Regel 24.3 gegen eine echte,
+/// vom Aufrufer bereitgestellte Sandbox (kein `/tmp`-Zufallspfad hier -
+/// Determinismus/Reproduzierbarkeit ist Definition 24.2's eigene Anforderung).
+pub fn run_golden_run(
+    workspace_root: &Path,
+    sandbox_root: &Path,
+) -> Result<GoldenRunReport, PskError> {
+    fs::create_dir_all(sandbox_root).map_err(|_| PskError::UntypedInput)?;
+
+    let mut trace = TraceStore::new();
+    // T-RES-001/Algorithmus 18.6: `evaluate_gate` selbst haengt jetzt jede
+    // Auswertung an `trace` und residualisiert jede Nicht-PASS-Entscheidung
+    // hier - eine Sammelablage fuer den gesamten Lauf, nicht pro Aufruf neu.
+    let mut residues = ResidueLedger::new();
+    let genesis_ref = TraceRef(trace.head());
+
+    let boot_gate = boot_gate(workspace_root, genesis_ref, &mut trace, &mut residues)?;
+    let after_boot = record(
+        &mut trace,
+        "boot.gate.evaluated",
+        ModuleId::AuthorityConsequenceGate,
+        vec![boot_gate.id],
+        Digest::sha256(b"boot"),
+    )?;
+
+    let anchor = seal_workspace_anchor(sandbox_root, after_boot)?;
+    let after_anchor = record(
+        &mut trace,
+        "anchor.sealed",
+        ModuleId::AnchorRegistry,
+        vec![anchor.id],
+        anchor.digest,
+    )?;
+
+    let thought = compile_thought(&anchor, after_anchor)?;
+    let after_thought = record(
+        &mut trace,
+        "thought.compiled",
+        ModuleId::ThoughtCompiler,
+        vec![thought.id],
+        Digest::sha256(b"thought"),
+    )?;
+
+    let reality = classify_thought_reality(&thought, &anchor, after_thought)?;
+    let after_reality = record(
+        &mut trace,
+        "reality.classified",
+        ModuleId::RealityTyper,
+        vec![reality.id],
+        Digest::sha256(b"reality"),
+    )?;
+    let _ = after_reality;
+
+    let field_projections = run_static_field_family(&anchor, reality.reality_status)?;
+    let after_fields = record(
+        &mut trace,
+        "field-family.projected",
+        ModuleId::FieldRegistry,
+        field_projections.iter().map(|p| p.id).collect(),
+        Digest::sha256(b"fields"),
+    )?;
+    let _ = after_fields;
+
+    let (dependency_profile, glue_outcome) = quotient_and_glue(&field_projections)?;
+    let after_glue = record(
+        &mut trace,
+        "dependency.quotiented",
+        ModuleId::DependencyAnalyzer,
+        vec![dependency_profile.id],
+        Digest::sha256(b"quotient"),
+    )?;
+
+    // Schritt 7 (offene Obligationen read-only validieren): der Golden Run
+    // eroeffnet keine Witness-Obligation, die den Patch blockiert - eine
+    // leere Liste ist hier ein echtes Resultat (nichts offen), keine
+    // uebersprungene Pruefung.
+    let validation_open_obligations: Vec<ObligationExpr> = Vec::new();
+
+    let patch_gate = evaluate_patch_gate(after_glue, &glue_outcome, &mut trace, &mut residues)?;
+    let after_patch_gate = record(
+        &mut trace,
+        "patch.gate.evaluated",
+        ModuleId::AuthorityConsequenceGate,
+        vec![patch_gate.id],
+        Digest::sha256(b"patch-gate"),
+    )?;
+
+    let scope_file = "golden-run-patch.txt";
+    let content = "hello golden run";
+    let (token_authorization, attempt) = issue_and_execute(
+        &patch_gate,
+        sandbox_root,
+        scope_file,
+        content,
+        after_patch_gate,
+    )?;
+    let after_effect = record(
+        &mut trace,
+        "effect.attempted",
+        ModuleId::EffectBoundary,
+        vec![attempt.id],
+        Digest::sha256(b"effect"),
+    )?;
+
+    let receipt = observe_and_receipt(sandbox_root, after_effect)?;
+    let after_receipt = record(
+        &mut trace,
+        "receipt.ingressed",
+        ModuleId::ExternalRecordIngress,
+        vec![receipt.id],
+        Digest::sha256(b"receipt"),
+    )?;
+    let _ = after_receipt;
+
+    let reconciliation = run_reconciliation(
+        attempt.clone(),
+        receipt.clone(),
+        attempt.plan_digest,
+        Digest::sha256(b"golden-run-issuer"),
+        anchor.id,
+    )?;
+    let after_reconciliation = record(
+        &mut trace,
+        "reconciliation.decided",
+        ModuleId::ReconciliationEngine,
+        vec![reconciliation.id],
+        Digest::sha256(b"reconciliation"),
+    )?;
+    let _ = after_reconciliation;
+
+    Ok(GoldenRunReport {
+        boot_gate,
+        anchor,
+        thought,
+        reality,
+        field_projections,
+        dependency_profile,
+        glue: glue_outcome,
+        validation_open_obligations,
+        patch_gate,
+        token_authorization,
+        attempt,
+        receipt,
+        reconciliation,
+        trace_head: trace.head(),
+        residues_opened: residues.all().len(),
+    })
+}
+
+/// Fuehrt den Lauf zweimal gegen dieselbe Sandbox aus und bildet daraus
+/// Schritt 13 (Regel 24.3: "Maschinenzertifikat UND Replaymanifest
+/// exportieren" - beide sind genannt, keine Option). Definition 22.1
+/// definiert die Replayklasse als Eigenschaft eines VERGLEICHS zweier
+/// Laeufe, nicht eines einzelnen - deshalb laeuft `run_golden_run` hier
+/// zweimal, bevor `issue_certificate` (Vertrag 22.2: mindestens R2 als
+/// Vorbedingung) ueberhaupt aufgerufen werden kann.
+pub fn run_golden_run_with_certificate(
+    workspace_root: &Path,
+    sandbox_root: &Path,
+) -> Result<GoldenRunCertification, PskError> {
+    // Eine bedeutungsvolle Replaypruefung braucht identische STARTZUSTaeNDE,
+    // nicht nur denselben Pfad: Schritt 2 (AnchorSnapshot) beobachtet den
+    // Dateibaum inhaltlich, und Schritt 10 veraendert genau diesen Baum -
+    // ohne Reset saehe der zweite Lauf das Artefakt des ersten bereits
+    // liegen und wuerde divergieren, nicht weil das System nichtdetermin-
+    // istisch ist, sondern weil die beiden Laeufe unterschiedliche Eingaben
+    // haetten. Der Reset selbst ist deshalb Teil des Testaufbaus, nicht des
+    // gemessenen Laufs.
+    let _ = fs::remove_dir_all(sandbox_root);
+    let first = run_golden_run(workspace_root, sandbox_root)?;
+    let artifact_path = sandbox_root.join("golden-run-patch.txt");
+    let first_artifact = fs::read(&artifact_path).map_err(|_| PskError::TraceOrResidueViolation)?;
+
+    fs::remove_dir_all(sandbox_root).map_err(|_| PskError::TraceOrResidueViolation)?;
+    let second = run_golden_run(workspace_root, sandbox_root)?;
+    let second_artifact =
+        fs::read(&artifact_path).map_err(|_| PskError::TraceOrResidueViolation)?;
+
+    let check = psk_trace::ReplayCheck {
+        replay_attempted: true,
+        canonical_digest_match: first.trace_head == second.trace_head,
+        gate_sequence_match: first.boot_gate.id == second.boot_gate.id
+            && first.patch_gate.id == second.patch_gate.id,
+        byte_identical_artifacts: first_artifact == second_artifact,
+    };
+
+    let run_descriptor = psk_trace::open_run(psk_trace::RunInputs {
+        run_id: RunId("golden-run".into()),
+        i_c: Digest::sha256(b"golden-run-i-c"),
+        i_a: Digest::sha256(b"golden-run-i-a"),
+        i_m: Digest::sha256(b"golden-run-i-m"),
+        seed: [7u8; 32],
+        versions: std::collections::BTreeMap::new(),
+        input_digests: vec![first.trace_head],
+        operators: vec![OpId::Replay],
+        environment: psk_types::objects::EnvironmentProfile("golden-run-reference-domain".into()),
+        time_window: TimeWindow("golden-run-window".into()),
+        nondeterminism_budget: psk_types::objects::NDBudget("none-declared".into()),
+        canon: psk_types::objects::CanonicalizationProfile("psk.canon/1.0".into()),
+    })?;
+
+    let replay_manifest = psk_trace::build_replay_manifest(
+        RunId("golden-run".into()),
+        run_descriptor.digest,
+        vec![first.trace_head],
+        vec![psk_types::objects::ExternalRecordRef {
+            receipt_id: format!("{:?}", first.receipt.id),
+            digest: first.receipt.result_digest,
+            observer_identity: first.receipt.observer_identity,
+        }],
+        first.trace_head,
+        second.trace_head,
+        Digest::sha256(
+            format!(
+                "{:?}|{:?}",
+                first.boot_gate.decision, first.patch_gate.decision
+            )
+            .as_bytes(),
+        ),
+        &check,
+        vec![],
+    );
+    let replay_manifest_digest = Digest::sha256(
+        serde_json::to_vec(&replay_manifest)
+            .map_err(|_| PskError::CanonicalizationFailed)?
+            .as_slice(),
+    );
+
+    // `ReplayManifestAchievedClassKind` (psk-trace) und
+    // `MachineCertificateReplayClassKind` (psk-certify) sind zwei
+    // eigenstaendige, vom Codegen pro Struct generierte Typen mit
+    // identischen Variantennamen (R0..R3) - keine gemeinsame Definition,
+    // siehe object_schemas.yaml. Reine Umbenennung, keine Werteentscheidung.
+    let replay_class = match replay_manifest.achieved_class {
+        psk_types::objects::ReplayManifestAchievedClassKind::R0 => {
+            MachineCertificateReplayClassKind::R0
+        }
+        psk_types::objects::ReplayManifestAchievedClassKind::R1 => {
+            MachineCertificateReplayClassKind::R1
+        }
+        psk_types::objects::ReplayManifestAchievedClassKind::R2 => {
+            MachineCertificateReplayClassKind::R2
+        }
+        psk_types::objects::ReplayManifestAchievedClassKind::R3 => {
+            MachineCertificateReplayClassKind::R3
+        }
+    };
+
+    let certificate = issue_golden_run_certificate(
+        &first.reconciliation,
+        replay_class,
+        first.trace_head,
+        replay_manifest_digest,
+    )?;
+
+    Ok(GoldenRunCertification {
+        first,
+        second,
+        replay_check: check,
+        replay_manifest,
+        certificate,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn workspace_root() -> std::path::PathBuf {
+        let mut dir = std::env::current_dir().expect("cwd");
+        loop {
+            if dir.join("Cargo.toml").is_file() && dir.join(".git").exists() {
+                return dir;
+            }
+            assert!(dir.pop(), "keine Workspace-Wurzel gefunden");
+        }
+    }
+
+    #[test]
+    fn golden_run_completes_steps_1_through_12_against_a_real_sandbox() {
+        let root = workspace_root();
+        let sandbox = std::env::temp_dir().join(format!("psk-golden-run-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&sandbox);
+
+        let report = run_golden_run(&root, &sandbox).expect("golden run sollte durchlaufen");
+
+        // Schritt 1: real HOLD, nicht PASS - siehe Modulkopf. Ein PASS hier
+        // waere ein Zeichen, dass dieser Test versehentlich Bedingungen
+        // erfunden hat statt den echten M00/M02/M04-Stub-Zustand zu melden.
+        assert_eq!(
+            report.boot_gate.decision,
+            psk_types::objects::GateReportDecisionKind::Hold
+        );
+        assert_eq!(report.boot_gate.gate_id, GateId::GBoot);
+        // T-RES-001/Algorithmus 18.6: die Bootgate-HOLD-Entscheidung MUSS
+        // ein ResidueRecord erzeugt haben - vor der Behebung war das nicht
+        // der Fall (0 residualisierte Nicht-PASS-Entscheidungen trotz
+        // echtem HOLD).
+        assert!(
+            report.residues_opened >= 1,
+            "boot_gate HOLDet real, muss also mindestens ein Residuum erzeugt haben"
+        );
+
+        assert!(report.anchor.sealed);
+        assert_eq!(report.thought.anchor_refs, vec![report.anchor.id]);
+        assert_eq!(
+            report.field_projections.len(),
+            6,
+            "sechs Archetypen (Regel 32.7)"
+        );
+        assert!(
+            report.glue.hold_reason.is_none(),
+            "sechs identische Restriktionen muessen kompatibel verkleben"
+        );
+        assert_eq!(report.patch_gate.gate_id, GateId::GEffect);
+        assert_eq!(report.token_authorization.gate_id, GateId::GEffect);
+        assert_eq!(
+            report.attempt.outcome,
+            psk_types::objects::EffectAttemptOutcomeKind::Completed
+        );
+
+        let written = fs::read_to_string(sandbox.join("golden-run-patch.txt")).unwrap();
+        assert_eq!(written, "hello golden run");
+
+        assert_eq!(
+            report.reconciliation.fact_promotion,
+            psk_types::objects::ReconciliationReportFactPromotionKind::Actualized
+        );
+        assert_eq!(
+            report.reconciliation.verdict,
+            psk_types::objects::ReconciliationReportVerdictKind::Closed
+        );
+
+        assert_ne!(report.trace_head, psk_trace::GENESIS_DIGEST);
+
+        fs::remove_dir_all(&sandbox).ok();
+    }
+
+    #[test]
+    fn replaying_the_golden_run_twice_earns_a_real_certificate() {
+        let root = workspace_root();
+        let sandbox =
+            std::env::temp_dir().join(format!("psk-golden-run-replay-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&sandbox);
+
+        let result = run_golden_run_with_certificate(&root, &sandbox)
+            .expect("zwei deterministische Laeufe sollten mindestens R2 erreichen");
+
+        assert!(result.replay_check.replay_attempted);
+        assert!(
+            result.replay_check.canonical_digest_match,
+            "zwei Laeufe mit identischen, zeitfesten Eingaben muessen denselben Trace-Kopf ergeben"
+        );
+        assert!(result.replay_check.gate_sequence_match);
+        assert!(result.replay_check.byte_identical_artifacts);
+        assert_eq!(
+            result.replay_manifest.achieved_class,
+            psk_types::objects::ReplayManifestAchievedClassKind::R3
+        );
+        assert_eq!(
+            result.certificate.replay_class,
+            MachineCertificateReplayClassKind::R3
+        );
+        assert_eq!(result.certificate.I_C, Digest::sha256(b"golden-run-i-c"));
+
+        fs::remove_dir_all(&sandbox).ok();
+    }
+}

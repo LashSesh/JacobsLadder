@@ -7,6 +7,7 @@ publish = false
 
 [dependencies]
 psk-types = { path = "../psk-types" }
+psk-trace = { path = "../psk-trace" }
 
 [build-dependencies]
 psk-codegen = { path = "../../tools/psk-codegen" }

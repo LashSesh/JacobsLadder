@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "psk.architecture-register.capability_matrix.yaml/1.0",
+  "title": "capability_matrix.yaml",
+  "description": "Strukturschema von architecture/capability_matrix.yaml, abgeleitet aus dem verifizierten Registerinhalt (PSK-RA v1.0.3, Struktur 25.3).",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "holders": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "scope": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "holders",
+          "scope"
+        ]
+      }
+    },
+    "denials": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "holder": {
+            "type": "string"
+          },
+          "capability": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "holder",
+          "capability",
+          "reason"
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "capabilities",
+    "denials"
+  ]
+}

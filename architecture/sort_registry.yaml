@@ -49,3 +49,111 @@ forbidden_relations:
   - [S-EFF, S-RCP, produced_by] # Effektor erzeugt keinen eigenen Receipt
   - [S-RES, S-STA, silently_closes]
   - [S-IDT, S-CAP, any] # Identitaet erzeugt keine Faehigkeit
+
+# Vertrag 27.2 (Domaenengelieferte opake Eingaben), v1.0.7: genau drei
+# Typen sind im Kern absichtlich ohne Grammatik. Sie MUESSEN opake
+# Newtypes bleiben - ein geschlossenes Enum waere hier der Fehler, nicht
+# die Korrektur. Dieser Eintrag steht bewusst neben closed_vocabularies:
+# beide Listen zusammen sagen fuer jeden blossen Bezeichner, ob seine
+# Wertemenge geschlossen oder bewusst offen ist, damit weder das eine
+# noch das andere versehentlich unterstellt wird.
+domain_supplied_opaque:
+  source: "Vertrag 27.2 (Domaenengelieferte opake Eingaben)"
+  note: "Geliefert ueber DomainProfile oder MethodPlugin, im Kern nur
+    typisiert weitergereicht. Ausdruecklich KEINE offenen
+    Implementierungsverpflichtungen im Sinne von OBL-001-OBL-007 -
+    Invariante 33.8 bleibt unberuehrt. Die Entscheidung ist getroffen und
+    lautet: extern."
+  duties:
+    - "Reinheit: Auswertung MUSS reine Funktion ihrer deklarierten Eingaben
+       sein. Uhr, Zufall und Umgebung nur ueber den RunDescriptor, sonst PSK-E015."
+    - "Deklaration: das Ergebnis MUSS ueber determinism im Plug-in-Manifest
+       deklariert sein. recorded_external verlangt einen Aussenrecord, keine
+       Wiederholung der Berechnung."
+    - "Keine Vorgabewahl: ein fehlendes oder nicht anwendbares Plug-in erzeugt
+       UNKNOWN beziehungsweise ein Residuum. Ein Default-Zweig auf einen
+       positiven Status ist ein Konformitaetsdefekt."
+  types:
+    - {id: LensSpec, meaning: "Aufloesungssemantik einer Spektrallinse", module: M09}
+    - {id: PredicateExpr, meaning: "Frischepraedikate", module: M05}
+    - {id: RealityEvidence, meaning: "Evidenzform des Reality Typing", module: M07}
+
+# Geschlossene Wertemengen. Sie erscheinen in object_schemas.yaml nur als
+# Typname (z.B. "type: RealityStatus") und waeren ohne diesen Eintrag als
+# freie Zeichenkette generiert worden - eine geschlossene Menge DARF aber
+# nicht erweiterbar sein.
+#
+# `values` nennt die Werte hier; `values_from` verweist stattdessen auf das
+# Register, das sie bereits fuehrt. Der Verweis ist dort Pflicht, wo die
+# Menge schon anderswo maschinenlesbar steht: zwei Listen desselben
+# Inhalts sind zwei Stellen, an denen es kuenftig auseinanderlaeuft.
+closed_vocabularies:
+  - id: RealityStatus
+    source: "Definition 5.7 (Realitaetsstatus als Typ)"
+    note: "UNKNOWN ist ein wirksamer Status mit Promotionssperre, kein fehlender Wert."
+    values: [COHERENT, LAWFUL, REACHABLE, CONSTRUCTIBLE, ACTUALIZED, UNKNOWN]
+  - id: FactStatus
+    source: "Definition 5.8 (Faktizitaetsleiter)"
+    note: "Wertgleich mit der Zustandsmenge von FSM-THOUGHT (Automat 13.6);
+      das Werk fuehrt beide getrennt, daher hier ebenfalls ein eigener Typ."
+    values: [SPECIFIED, POSSIBLE, SIMULATED, SELECTED, ATTEMPTED, OBSERVED,
+             ACTUALIZED, RESIDUE, RETRACTED]
+  - id: ArchetypeId
+    source: "Struktur 7.12 (FieldIdentity), Feld archetype; Regel 32.7
+      (Feldfamilie der Referenzdomaene)"
+    note: "Struktur 7.12 traegt die Werte nur als Kommentar
+      ('# explorer|falsifier|constructor|historian|auditor|integrator'),
+      keine formale Mengenklammer wie bei RealityStatus/FactStatus - aber
+      Regel 32.7 ist ausdruecklich 'genau sechs statische Feldidentitaeten'
+      und nennt dieselben sechs Rollen (deutsch: Explorer/Historiker/
+      Falsifikator/Konstrukteur/Auditor/Integrator). Ohne diesen Eintrag
+      waere archetype eine freie Zeichenkette generiert worden - fuer eine
+      Menge, die das Werk selbst als abschliessend bezeichnet, unzulaessig."
+    values: [explorer, historian, falsifier, constructor, auditor, integrator]
+
+  # --- Nachtrag aus der systematischen Pruefung nach dem ArchetypeId-Fund ---
+  # Dieselbe Fehlerklasse, in fuenf weiteren Faellen. Bei den ersten drei
+  # liegt die Menge bereits maschinenlesbar in einem anderen Register; sie
+  # wird deshalb per values_from referenziert, nicht abgeschrieben.
+  - id: OpId
+    source: "Definition 12.1 (Instruktionsmenge): '|O| = 23. Die Menge ist abgeschlossen.'"
+    note: "Die 23 ISA-Instruktionen. Bis hierher generierte
+      object_schemas.yaml OBJ-FLD.operators als [freie Zeichenkette] - ein
+      Feld, das laut Struktur 7.12 ausdruecklich 'Teilmenge der ISA' ist."
+    values_from: {register: isa_registry, path: "instructions[].op"}
+  - id: GateId
+    source: "Invariante 18.5 (Gateabschluss): 'Die Gatemenge ist abgeschlossen.'"
+    note: "Invariante 18.5 weiter: 'Ein Uebergang mit unbekanntem Gate erzeugt
+      PSK-E007.' Ein freier String kann genau das nicht verhindern."
+    values_from: {register: gate_registry, path: "gates[].id"}
+  - id: RelationSortId
+    source: "Regel 10.6 (Sorten-Port-Matrix): 'Die Matrix Pport ist im Register B
+      vollstaendig aufgefuehrt. Eine nicht eingetragene Kombination erzeugt PSK-E001.'"
+    note: "Die Relationsnamen der Portmatrix. forbidden_relations gehoert
+      NICHT dazu: 'produced_by' und 'silently_closes' sind dort gerade als
+      unzulaessig gefuehrt."
+    values_from: {register: sort_registry, path: "port_matrix[].2"}
+  - id: ProfileId
+    source: "Definition 28.1 (Vier Betriebsprofile), Regel 28.2 (Profiluebergang):
+      'readonly -> shadow -> sandbox -> reference'"
+    note: "Struktur 7.1 (RuntimeManifest) fuehrt die vier Werte schon als
+      Kommentar am Feld profile, ohne dass sie bindend wurden."
+    values: [readonly, shadow, sandbox, reference]
+  - id: FeatureCoverageId
+    source: "Regel 23.1 (Eine Konformanzleiter): 'Die Merkmalsstufen der
+      Gesamtspezifikation werden als abgeleiteter Deckungsvektor
+      FC = (FC0, ..., FC8) gefuehrt.'"
+    note: "Steht in Struktur 7.44 (MachineCertificate) als 'type: [FC0..FC8]'.
+      Diese Notation ist kein Listentyp ueber einem Bezeichner, sondern ein
+      Bereich; der Codegen las sie als Bezeichner 'FC0..FC8' und erzeugte
+      Vec<FC0FC8> ueber freien Zeichenketten - einen Vektor beliebiger
+      Laenge statt eines Deckungsvektors fester Laenge neun."
+    values: [FC0, FC1, FC2, FC3, FC4, FC5, FC6, FC7, FC8]
+  - id: ValidationOrderingId
+    source: "Struktur 21.5 (ValidationPlan), Feld ordering; Regel 21.6
+      (Validierungsprioritaet)"
+    note: "Einelementige Menge: das Werk nennt genau einen zulaessigen Wert
+      ('ordering: by_information_gain_per_cost'), und Regel 21.6 schreibt
+      die Ordnung vollstaendig vor. Als freie Zeichenkette generiert waere
+      jede andere Sortierung typkonform gewesen."
+    values: [by_information_gain_per_cost]

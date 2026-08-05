@@ -4,6 +4,10 @@
 
 mod canon;
 
-pub use canon::{can, collection_digest, object_id, CanonValue, CanonicalBytes, Media};
+pub use canon::{
+    can, collection_digest, identity_projection, object_id, record_digest, CanonValue,
+    CanonicalBytes, Media, VolatileFieldPattern, NON_CANONICAL_FIELDS, NOT_REMOVED,
+    VOLATILE_FIELDS, VOLATILE_VIOLATION_ERROR,
+};
 
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));

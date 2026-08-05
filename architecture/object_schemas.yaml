@@ -1,13 +1,16 @@
 schema: psk.object-schemas/1.0
-# Volle Feldstrukturen der kanonischen Objekte aus PSK-RA v1.0.3, Struktur
-# 7.1-7.41 (Kapitel 7) sowie Struktur 21.5 (ValidationPlan, Kapitel 21) und
+# Volle Feldstrukturen der kanonischen Objekte aus PSK-RA v1.0.8, Struktur
+# 7.1-7.47 (Kapitel 7) sowie Struktur 21.5 (ValidationPlan, Kapitel 21) und
 # Struktur 22.5 (ReplayManifest, Kapitel 22) - diese zwei liegen ausserhalb
 # Kapitel 7, definieren aber ebenfalls OBJ-VAL/OBJ-RPM aus object_registry.yaml.
 #
-# Von den 27 Eintraegen in object_registry.yaml haben 26 eine explizite
-# Feldstruktur: die urspruenglichen 25 plus OBJ-PRJ (FieldProjection),
-# das in v1.0.3 nachgetragen wurde (Fehlerkorrektur v1.0.3, Punkt 4;
-# Struktur 7.11, Regel 7.12/7.13). Nur OBJ-VIW (ViewArtifact) bleibt ohne
+# Von den 28 Eintraegen in object_registry.yaml haben 27 eine explizite
+# Feldstruktur: die urspruenglichen 25, OBJ-PRJ (FieldProjection,
+# nachgetragen in v1.0.3, Fehlerkorrektur Punkt 4; Struktur 7.13, Regel
+# 7.14/7.15/7.16) und OBJ-RCL (RealityClassification, nachgetragen in
+# v1.0.7, Fehlerkorrektur Punkt 10; Struktur 7.9, Regel 7.10). Beide waren
+# jeweils schon vorher im Objektregister und an einem Port gefuehrt, nur
+# ohne Felder. Nur OBJ-VIW (ViewArtifact) bleibt ohne
 # Feldstruktur: es traegt seit v1.0.3 explizit canonical:false in
 # object_registry.yaml und faellt nach I-ARCH-015 aus der Kanonisierung -
 # der Registereintrag dient Ownership und Lebensdauer, nicht der
@@ -18,7 +21,34 @@ schema: psk.object-schemas/1.0
 # Objekt als eigener nested_struct-Verweis). optional=true entspricht
 # einem "?" im Quelltext. Kommentare aus dem Quelltext sind als "note"
 # uebernommen, nicht ergaenzt.
-count: 26
+count: 27
+
+# Struktur 7.25 (Matrix und Scaled), v1.0.8 (Fehlerkorrektur Punkt 12/13):
+# "Beide Typen sind intern berechnet, nicht domaenengeliefert, und gehen in
+# einen kanonischen Digest ein. Ihre Kodierung MUSS daher festgelegt sein."
+# Anders als LensSpec/PredicateExpr/RealityEvidence (Vertrag 27.2) sind das
+# KEINE domaenengelieferten opaken Eingaben - die Unterscheidung, die der
+# Nutzer nach dem ersten Matrix-Befund gezogen hat: Matrix wird von M10
+# SELBST berechnet, DependencyProfile ist memory:canonical, und ohne feste
+# Kodierung ergeben zwei Implementierungen fuer denselben Inhalt
+# verschiedene Digests - dieselbe Fehlerklasse wie tau_e vor v1.0.5.
+#
+# shared_structs (anders als nested_structs) werden GENAU EINMAL erzeugt
+# und von mehreren Objekten referenziert: Scaled tritt in FieldIdentity,
+# DependencyProfile und ValidationPlan.Step auf, Matrix zweimal allein in
+# DependencyProfile. Ein nested_struct je Objekt haette denselben Namen
+# mehrfach definiert.
+shared_structs:
+  Scaled:
+    - {name: schema, type: "psk.scaled/1.0"}
+    - {name: numerator, type: integer}
+    - {name: scale, type: integer, note: "Wert = numerator / 10^scale, scale >= 0. Vertrag 6.3 verbietet Gleitkomma ohne exakte Dezimaldarstellung - Scaled ist der einzige nichtganzzahlige Typ des Werkes."}
+  Matrix:
+    - {name: schema, type: "psk.matrix/1.0"}
+    - {name: axis, type: "[SourceRef]", note: "Zeilen- UND Spaltenachse, identisch (Regel 7.26)"}
+    - {name: scale, type: integer, note: "gemeinsamer Nenner aller Zellen"}
+    - {name: values, type: "[[integer]]", note: "quadratisch, |axis| x |axis|; Zelle (i,j) = values[i][j] / 10^scale"}
+
 objects:
   - id: OBJ-RTM
     name: RuntimeManifest
@@ -109,9 +139,39 @@ objects:
         - {name: formal, type: ClaimExpr, note: "kanonischer Zustand"}
         - {name: directionality, type: "internal | external"}
 
+  - id: OBJ-RCL
+    name: RealityClassification
+    struktur: "7.9"
+    schema_id: psk.reality-classification/1.0
+    note: "Nachgetragen in v1.0.7 (Fehlerkorrektur Punkt 10). Das Objekt war
+      schon vorher Exklusivbesitz von M07 und Nutzlast von P09, besass aber
+      in keinem Register eine Feldstruktur."
+    rules:
+      - {id: "Regel 7.10", title: "Klassifikation ist ein eigenes Objekt",
+          statement: "M07 DARF NICHT in den ThoughtBody schreiben. Die
+            Klassifikation verlaesst M07 ausschliesslich als
+            RealityClassification ueber P09. Das Feld reachability traegt die
+            fuer das Praedikat imaginary verlangte Unterscheidung: refuted
+            setzt bezeugte Nichterreichbarkeit voraus, unexamined fuehrt zu
+            UNKNOWN und DARF NICHT zu IMAGINARY. Ein Verfahren ohne
+            UNKNOWN-Ausgang ist nicht konform."}
+    fields:
+      - {name: schema, type: "psk.reality-classification/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: thought_ref, type: ObjectId, note: "klassifizierter ThoughtBody, unveraendert"}
+      - {name: anchor_ref, type: ObjectId, note: "Anker, relativ zu dem klassifiziert wird"}
+      - {name: reality_status, type: RealityStatus, note: "genau ein Wert der geschlossenen Menge"}
+      - {name: facticity, type: FactStatus, note: "genau ein Wert der geschlossenen Menge"}
+      - {name: reachability, type: "witnessed | refuted | unexamined"}
+      - {name: evidence_refs, type: "[ObjectId]", note: "Grundlage; leer nur bei UNKNOWN"}
+      - {name: method_ref, type: PluginId, optional: true, note: "MethodPlugin, falls verwendet"}
+      - {name: residue_refs, type: "[ObjectId]"}
+      - {name: trace_ref, type: TraceRef}
+      - {name: classified_at, type: DualTime}
+
   - id: OBJ-FLD
     name: FieldIdentity
-    struktur: "7.10"
+    struktur: "7.12"
     schema_id: psk.field-identity/1.0
     fields:
       - {name: schema, type: "psk.field-identity/1.0"}
@@ -130,25 +190,33 @@ objects:
       - {name: dependency_profile_ref, type: ObjectId}
       - {name: budget, type: BudgetSpec}
       - {name: rollback, type: RollbackSpec}
-      - {name: marginal_gain, type: Decimal, note: "zuletzt gemessener Wert von Delta-G"}
+      - {name: marginal_gain, type: Scaled, note: "zuletzt gemessener Wert von Delta-G"}
 
   - id: OBJ-PRJ
     name: FieldProjection
-    struktur: "7.11"
+    struktur: "7.13"
     schema_id: psk.field-projection/1.0
     note: "Nachgetragen in v1.0.3 (Fehlerkorrektur Punkt 4). Kein Randfall:
       Eingang der Kernproduktionen ((ThoughtBody, FieldIdentity) => FieldProjection,
       {FieldProjection}_compat => ScopedCognitionGraph), fliesst ueber P13,
-      Eingang von M10 und M11."
+      Eingang von M10 und M11. v1.0.6 (Fehlerkorrektur Punkt 7): Feld
+      undefined_reason ersatzlos entfallen, Regel 7.14 geteilt - der Fall
+      der nicht anwendbaren Linse steht jetzt in Regel 7.15 und erzeugt gar
+      keine Projektion."
     rules:
-      - {id: "Regel 7.12", title: "Projektion promoviert nicht",
+      - {id: "Regel 7.14", title: "Projektion promoviert nicht",
           statement: "Eine FieldProjection ist eine Sicht, kein Fakt. reality_status
             und facticity des Urbildes DARF NICHT durch eine Projektion veraendert
             werden; die Sorten-Port-Matrix verbietet die Relation (S-PRJ, S-RCN)
-            vollstaendig. Ist die Linse auf das Urbild nicht anwendbar, so MUSS
-            undefined_reason gesetzt, visible leer und PSK-E013 emittiert werden;
-            eine leere Projektion ohne Begruendung ist ein Konformitaetsdefekt."}
-      - {id: "Regel 7.13", title: "Occlusion ist explizit",
+            vollstaendig."}
+      - {id: "Regel 7.15", title: "Nicht anwendbare Linse erzeugt keine Projektion",
+          statement: "Ist die Spektrallinse auf die Sortenmenge des Urbildes nicht
+            anwendbar, so entsteht DARF NICHT eine FieldProjection. Statt dessen
+            MUSS M09 einen ResidueRecord des Typs scope erzeugen und PSK-E013
+            emittieren; dies ist die in Vertrag C5 verlangte Form. Eine
+            FieldProjection mit leerem visible ist unzulaessig: Es gibt keine
+            leere Projektion, sondern nur eine ausgebliebene."}
+      - {id: "Regel 7.16", title: "Occlusion ist explizit",
           statement: "occluded MUSS vollstaendig gefuehrt werden. Was eine Linse
             nicht aufloest, ist ein bezeugter Nichtbefund und DARF NICHT als
             Abwesenheit gewertet werden; andernfalls greift PSK-E005."}
@@ -159,17 +227,16 @@ objects:
       - {name: source_refs, type: "[ObjectId]", note: "ThoughtBody bzw. IR-Knoten des Urbildes"}
       - {name: lens_ref, type: LensSpec, note: "Pi_lambda, wie zum Zeitpunkt der Anwendung gebunden"}
       - {name: scope, type: ScopeSpec, note: "Geltungsbereich; erweitert sich nie ohne Gate"}
-      - {name: visible, type: "[IRNodeId]", note: "was die Linse aufloest"}
+      - {name: visible, type: "[IRNodeId]", note: "was die Linse aufloest; nie leer (Regel 7.15)"}
       - {name: occluded, type: "[IRNodeId]", note: "was sie nachweislich nicht aufloest"}
       - {name: distinctions, type: "[DistinctionSpec]", note: "intern erzeugte Unterscheidungen"}
-      - {name: source_provenance, type: "[SourceId]", note: "Grundlage des Abhaengigkeitsquotienten (M10)"}
+      - {name: source_provenance, type: "[SourceRef]", note: "Grundlage des Abhaengigkeitsquotienten (M10); v1.0.8 (Fehlerkorrektur Punkt 14) auf SourceRef vereinheitlicht - SourceId existiert nicht mehr"}
       - {name: reality_view, type: RealityStatus, note: "Sicht, nicht Promotion"}
       - {name: tick, type: TickId, note: "L-TICK: gilt genau fuer diesen Takt"}
-      - {name: undefined_reason, type: string, optional: true, note: "gesetzt gdw. Projektion nicht anwendbar"}
 
   - id: OBJ-IRB
     name: IRBundle
-    struktur: "7.16"
+    struktur: "7.19"
     schema_id: psk.ir/1.0
     fields:
       - {name: schema, type: "psk.ir/1.0"}
@@ -194,7 +261,7 @@ objects:
 
   - id: OBJ-IRN
     name: IRNode
-    struktur: "7.17"
+    struktur: "7.20"
     fields:
       - {name: id, type: ObjectId}
       - {name: sort, type: SortId, note: "genau eine Primaersorte"}
@@ -211,7 +278,7 @@ objects:
 
   - id: OBJ-IRE
     name: IREdge
-    struktur: "7.17"
+    struktur: "7.20"
     fields:
       - {name: id, type: ObjectId}
       - {name: source, type: ObjectId}
@@ -226,7 +293,7 @@ objects:
 
   - id: OBJ-CAP
     name: CandidateCapsule
-    struktur: "7.18"
+    struktur: "7.21"
     schema_id: psk.candidate-capsule/1.0
     fields:
       - {name: schema, type: "psk.candidate-capsule/1.0"}
@@ -244,7 +311,7 @@ objects:
 
   - id: OBJ-EVD
     name: EvidenceObject
-    struktur: "7.20"
+    struktur: "7.23"
     schema_id: psk.evidence/1.0
     fields:
       - {name: schema, type: "psk.evidence/1.0"}
@@ -262,7 +329,7 @@ objects:
 
   - id: OBJ-DEP
     name: DependencyProfile
-    struktur: "7.21"
+    struktur: "7.24"
     schema_id: psk.dependency-profile/1.0
     fields:
       - {name: schema, type: "psk.dependency-profile/1.0"}
@@ -270,14 +337,14 @@ objects:
       - {name: sources, type: "[SourceRef]", note: "Daten, Modell, Prompt, Sonde, Kalibrierung"}
       - {name: witness_matrix, type: Matrix, note: W}
       - {name: dependency_matrix, type: Matrix, note: D}
-      - {name: effective_rank, type: Decimal, note: "r_eff = RankEff(W, D)"}
+      - {name: effective_rank, type: Scaled, note: "r_eff = RankEff(W, D)"}
       - {name: method, type: RankMethodId, note: "deklarierte Schaetzmethode"}
       - {name: quotient_classes, type: "[[ObjectId]]", note: "F / ~_D"}
       - {name: consensus_scope, type: "local | cluster | system | external"}
 
   - id: OBJ-SEA
     name: SeamReport
-    struktur: "7.23"
+    struktur: "7.28"
     fields:
       - {name: id, type: ObjectId}
       - {name: overlap, type: "[ObjectId, ObjectId]"}
@@ -289,7 +356,7 @@ objects:
 
   - id: OBJ-OBS
     name: ObstructionRecord
-    struktur: "7.23"
+    struktur: "7.28"
     fields:
       - {name: id, type: ObjectId}
       - {name: kind, type: "seam | order | identity | time | resource | capability | calibration"}
@@ -301,7 +368,7 @@ objects:
 
   - id: OBJ-GAT
     name: GateReport
-    struktur: "7.25"
+    struktur: "7.30"
     schema_id: psk.gate-report/1.0
     fields:
       - {name: schema, type: "psk.gate-report/1.0"}
@@ -320,7 +387,7 @@ objects:
 
   - id: OBJ-TOK
     name: EffectToken
-    struktur: "7.26"
+    struktur: "7.31"
     schema_id: psk.effect-token/1.0
     fields:
       - {name: schema, type: "psk.effect-token/1.0"}
@@ -342,7 +409,7 @@ objects:
 
   - id: OBJ-ATT
     name: EffectAttempt
-    struktur: "7.28"
+    struktur: "7.33"
     fields:
       - {name: id, type: ObjectId}
       - {name: token_ref, type: ObjectId}
@@ -357,7 +424,7 @@ objects:
 
   - id: OBJ-RCP
     name: ExternalReceipt
-    struktur: "7.28"
+    struktur: "7.33"
     fields:
       - {name: id, type: ObjectId}
       - {name: observer_adapter, type: AdapterId, note: "MUSS != EffectAttempt.adapter"}
@@ -370,7 +437,7 @@ objects:
 
   - id: OBJ-RCN
     name: ReconciliationReport
-    struktur: "7.30"
+    struktur: "7.35"
     schema_id: psk.reconciliation/1.0
     fields:
       - {name: schema, type: "psk.reconciliation/1.0"}
@@ -388,7 +455,7 @@ objects:
 
   - id: OBJ-TRC
     name: TraceSegment
-    struktur: "7.33"
+    struktur: "7.38"
     schema_id: psk.trace-segment/1.0
     fields:
       - {name: schema, type: "psk.trace-segment/1.0"}
@@ -405,7 +472,7 @@ objects:
 
   - id: OBJ-RES
     name: ResidueRecord
-    struktur: "7.35"
+    struktur: "7.40"
     schema_id: psk.residue/1.0
     fields:
       - {name: schema, type: "psk.residue/1.0"}
@@ -423,7 +490,7 @@ objects:
 
   - id: OBJ-RUN
     name: RunDescriptor
-    struktur: "7.37"
+    struktur: "7.42"
     schema_id: psk.run-descriptor/1.0
     fields:
       - {name: schema, type: "psk.run-descriptor/1.0"}
@@ -443,7 +510,7 @@ objects:
 
   - id: OBJ-EXC
     name: ExcisionCertificate
-    struktur: "7.39"
+    struktur: "7.44"
     schema_id: psk.excision/1.0
     fields:
       - {name: schema, type: "psk.excision/1.0"}
@@ -460,7 +527,7 @@ objects:
 
   - id: OBJ-CRT
     name: MachineCertificate
-    struktur: "7.41"
+    struktur: "7.46"
     schema_id: psk.machine-certificate/1.0
     fields:
       - {name: schema, type: "psk.machine-certificate/1.0"}
@@ -469,7 +536,10 @@ objects:
       - {name: I_M, type: Digest}
       - {name: I_t, type: Digest}
       - {name: conformance_class, type: "C0 | C1 | C2 | C3 | C4 | C5"}
-      - {name: feature_coverage, type: "[FC0..FC8]", note: "abgeleiteter Deckungsvektor"}
+      - {name: feature_coverage, type: "[FeatureCoverageId]", note: "abgeleiteter
+          Deckungsvektor FC = (FC0, ..., FC8), Regel 23.1. Quelltextnotation ist
+          '[FC0..FC8]' - ein Bereich, kein Bezeichner; als Bezeichner gelesen
+          erzeugte er einen Vektor beliebiger Laenge ueber freien Zeichenketten."}
       - {name: replay_class, type: "R0 | R1 | R2 | R3"}
       - {name: gate_report_digest, type: Digest}
       - {name: trace_head, type: Digest}
@@ -489,12 +559,13 @@ objects:
       - {name: target_refs, type: "[ObjectId]"}
       - {name: open_obligations, type: "[ObligationExpr]"}
       - {name: steps, type: "[Step]", nested_struct: Step}
-      - {name: ordering, type: "by_information_gain_per_cost", note: "deterministisch, stabil sortiert"}
+      - {name: ordering, type: ValidationOrderingId, note: "Struktur 21.5 nennt
+          genau einen zulaessigen Wert; deterministisch, stabil sortiert"}
       - {name: stop_condition, type: "obligations_closed | budget_exhausted | no_positive_gain"}
     nested_structs:
       Step:
         - {name: probe, type: ProbeSpec}
-        - {name: expected_information_gain, type: Decimal}
+        - {name: expected_information_gain, type: Scaled}
         - {name: cost, type: BudgetSpec}
         - {name: capability, type: CapabilityId, optional: true}
         - {name: read_only, type: bool}

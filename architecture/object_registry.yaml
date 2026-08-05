@@ -6,6 +6,7 @@ objects:
   - {id: OBJ-THB, name: ThoughtBody, owner: M06, lifetime: L-RUN, memory: working}
   - {id: OBJ-FLD, name: FieldIdentity, owner: M08, lifetime: L-RUN, memory: working}
   - {id: OBJ-PRJ, name: FieldProjection, owner: M09, lifetime: L-TICK, memory: working}
+  - {id: OBJ-RCL, name: RealityClassification, owner: M07, lifetime: L-RUN, memory: canonical}
   - {id: OBJ-DEP, name: DependencyProfile, owner: M10, lifetime: L-RUN, memory: canonical}
   - {id: OBJ-IRB, name: IRBundle, owner: M23, lifetime: L-RUN, memory: working}
   - {id: OBJ-IRN, name: IRNode, owner: M23, lifetime: L-RUN, memory: working}

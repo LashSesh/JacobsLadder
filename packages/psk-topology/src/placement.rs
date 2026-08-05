@@ -1,4 +1,4 @@
-//! Regel 9.9 (Platzierungsregel): M22 platziert jeden IR-Knoten
+//! Regel 9.10 (Platzierungsregel): M22 platziert jeden IR-Knoten
 //! deterministisch. Implementiert die Punkte 1-5 woertlich; Punkt 4
 //! (zellgebundene Sorten) verlangt die bereits bekannte Traegerzelle vom
 //! Aufrufer (`EdgeContext.bound_cell`), da "die Zelle, die den geprueften
@@ -16,9 +16,9 @@ use psk_types::{CellId, CellKind, ParsedM13Address, PskError};
 /// festlegt.
 #[derive(Debug, Clone, Default)]
 pub struct EdgeContext {
-    /// Regel 9.9 Punkt 5: "sofern nicht durch eine Kante bereits erzwungen".
+    /// Regel 9.10 Punkt 5: "sofern nicht durch eine Kante bereits erzwungen".
     pub forced_k: Option<u8>,
-    /// Regel 9.9 Punkt 4: fuer S-WIT/S-GAT/S-TRC/S-RES diejenige Zelle
+    /// Regel 9.10 Punkt 4: fuer S-WIT/S-GAT/S-TRC/S-RES diejenige Zelle
     /// (z.B. "c3"), die den bereits geprueften Knoten traegt.
     pub bound_cell: Option<&'static str>,
     /// Bereits belegte Zellen derselben Klasse in diesem Platzierungslauf -
@@ -27,7 +27,7 @@ pub struct EdgeContext {
 }
 
 /// Ergebnis einer Platzierung: die Adresse plus die Folge sondierter
-/// k-Werte (fuer den CellReport-Vermerk, Regel 9.9 letzter Satz).
+/// k-Werte (fuer den CellReport-Vermerk, Regel 9.10 letzter Satz).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlacementOutcome {
     pub address: M13Address,
@@ -54,14 +54,14 @@ fn kind_of(prefix: char) -> CellKind {
     }
 }
 
-/// k0 = H(Can(node)) mod 6 (Regel 9.9 Punkt 5).
+/// k0 = H(Can(node)) mod 6 (Regel 9.10 Punkt 5).
 fn digest_k(node: &IRNode) -> Result<u8, PskError> {
     let json = serde_json::to_vec(node).map_err(|_| PskError::CanonicalizationFailed)?;
     let canon = can(&json, Media::Json).map_err(|_| PskError::CanonicalizationFailed)?;
     Ok(canon.digest().mod_small(6) as u8)
 }
 
-/// Regel 9.9: platziert `node` deterministisch in eine M13Address.
+/// Regel 9.10: platziert `node` deterministisch in eine M13Address.
 pub fn place(node: &IRNode, ctx: &EdgeContext) -> Result<PlacementOutcome, PskError> {
     let class = node.sort.cell_class();
 
@@ -134,8 +134,8 @@ mod tests {
             sort,
             context: psk_types::objects::ContextRef("ctx".into()),
             lineage: psk_types::objects::Lineage("lin".into()),
-            reality_status: psk_types::objects::RealityStatus("coherent".into()),
-            facticity: psk_types::objects::FactStatus("observed".into()),
+            reality_status: psk_types::objects::RealityStatus::Coherent,
+            facticity: psk_types::objects::FactStatus::Observed,
             anchor_refs: vec![],
             witness_refs: vec![],
             residue_refs: vec![],
@@ -156,7 +156,7 @@ mod tests {
 
     #[test]
     fn identity_context_and_branch_map_to_center() {
-        // Regel 9.9 Punkt 1: S-IDT, S-CTX, S-BRN -> Delta_c.
+        // Regel 9.10 Punkt 1: S-IDT, S-CTX, S-BRN -> Delta_c.
         for sort in [SortId::Identity, SortId::Context, SortId::Branch] {
             let node = sample_node(sort, "center-case");
             let outcome = place(&node, &EdgeContext::default()).unwrap();
@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn cell_bound_sort_uses_context_cell_verbatim() {
-        // Regel 9.9 Punkt 4: S-WIT ist zellgebunden, nicht frei platzierbar.
+        // Regel 9.10 Punkt 4: S-WIT ist zellgebunden, nicht frei platzierbar.
         let node = sample_node(SortId::Witness, "witness");
         let ctx = EdgeContext {
             bound_cell: Some("b5"),
