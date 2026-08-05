@@ -7,7 +7,7 @@
 //! Felder - ein Objekt kann aber nicht ueber sein eigenes, gerade erst zu
 //! bestimmendes Ergebnis hashen. Die Aufloesung folgt demselben Muster wie
 //! TraceSegment.segment_digest ("H(Can(alle VORSTEHENDEN Felder))", Struktur
-//! 7.33): `id` und `digest` werden ueber alle UEBRIGEN Felder gebildet,
+//! 7.36): `id` und `digest` werden ueber alle UEBRIGEN Felder gebildet,
 //! danach erst eingesetzt. `sealed` ist dabei ebenfalls ausgenommen - es
 //! ist ein Lebenszyklusstatus ("true nach Versiegelung"), kein Inhalt.
 
@@ -96,9 +96,13 @@ pub fn seal_anchor(inputs: AnchorInputs) -> Result<AnchorSnapshot, PskError> {
 
 /// Vertrag 11.6 (C3): "Verletzte Ankerfrische erzeugt HOLD und
 /// ReanchorRequest." Ausgewertet wird ausschliesslich das strukturierte
-/// Feld `expires_at_tau_i`; `freshness_predicate` (PredicateExpr) bleibt
-/// unausgewertet, da das Werk fuer PredicateExpr an keiner Stelle eine
-/// Grammatik definiert (kein erfundener Auswertungsmechanismus).
+/// Feld `expires_at_tau_i`. `freshness_predicate` (PredicateExpr) bleibt
+/// hier unausgewertet, und das ist seit v1.0.7 die deklarierte Ordnung,
+/// keine Luecke: Vertrag 27.2 (Domaenengelieferte opake Eingaben) fuehrt
+/// PredicateExpr ausdruecklich als einen der drei Typen, die "im Kern
+/// absichtlich ohne Grammatik" sind - geliefert ueber DomainProfile oder
+/// MethodPlugin, im Kern nur typisiert weitergereicht. Ein hier erfundener
+/// Auswertungsmechanismus waere ein Konformitaetsdefekt, kein Fortschritt.
 pub fn is_fresh(validity: &Validity, now_tau_i: u64) -> bool {
     now_tau_i < validity.expires_at_tau_i
 }

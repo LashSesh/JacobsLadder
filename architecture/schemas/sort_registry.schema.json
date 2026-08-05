@@ -54,6 +54,119 @@
           "type": "string"
         }
       }
+    },
+    "domain_supplied_opaque": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string"
+        },
+        "duties": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "meaning": {
+                "type": "string"
+              },
+              "module": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "meaning",
+              "module"
+            ]
+          }
+        }
+      },
+      "required": [
+        "source",
+        "note",
+        "duties",
+        "types"
+      ]
+    },
+    "closed_vocabularies": {
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "values": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "note",
+              "values"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              },
+              "values_from": {
+                "type": "object",
+                "properties": {
+                  "register": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "register",
+                  "path"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "note",
+              "values_from"
+            ]
+          }
+        ]
+      }
     }
   },
   "required": [
@@ -61,6 +174,8 @@
     "count",
     "sorts",
     "port_matrix",
-    "forbidden_relations"
+    "forbidden_relations",
+    "domain_supplied_opaque",
+    "closed_vocabularies"
   ]
 }

@@ -1,8 +1,8 @@
 {
-  "architecture_id": "89ce5c3530010f3588901653f6bf1ed8997b5537ab8887185d4263f6a19dce37",
+  "architecture_id": "5c4fea5cbf65ab24ecee3027bc616507f1b6ba99e2cac2deb14559233b536bc4",
   "computed_by": "M01.collection_digest(canon.architecture_registers), Boot-Schritt 10 (Algorithmus 17.1); IA = H(Can(architecture/*)) nach Definition 1.6 und Regel 6.10",
   "filled_in_phase": "I1 (WP01, Bundle Compiler)",
-  "note": "Versiegelt ueber die 17 YAML-Register und die 17 zugehoerigen Registerschemas (34 Dateien). v1.0.6: volatile_fields.yaml traegt jetzt zwei Gruppen unter einer Projektion (volatile + non_canonical, Fehlerkorrektur Punkt 8); FieldProjection hat undefined_reason verloren und Regel 7.12 ist geteilt (Fehlerkorrektur Punkt 7). architecture_id ist bis zum naechsten lock-gen-Lauf auf null gesetzt und wird darueber neu versiegelt.",
+  "note": "Versiegelt ueber die 18 YAML-Register und die 18 zugehoerigen Registerschemas (36 Dateien). v1.0.10: capability_matrix.yaml ergaenzt (Struktur 19.4 - Kapitel-19.2-Capabilitymatrix, bis dahin nur im Fliesstext, kein Register; Grundlage fuer GateAuthorization/T-SEC-001). architecture_id ist bis zum naechsten lock-gen-Lauf auf null gesetzt und wird darueber neu versiegelt.",
   "parent_constitution_id": "declared_ancestor unreachable, see constitution/constitution.lock.json (OBL-009)",
   "pending_since_phase": "I0",
   "schema": "psk.architecture-lock/1.0",
@@ -24,6 +24,7 @@
     "ra_tests.yaml",
     "refinement_map.yaml",
     "obligations.yaml",
+    "capability_matrix.yaml",
     "schemas/module_map.schema.json",
     "schemas/port_registry.schema.json",
     "schemas/sort_registry.schema.json",
@@ -40,6 +41,7 @@
     "schemas/ra_requirements.schema.json",
     "schemas/ra_tests.schema.json",
     "schemas/refinement_map.schema.json",
-    "schemas/obligations.schema.json"
+    "schemas/obligations.schema.json",
+    "schemas/capability_matrix.schema.json"
   ]
 }

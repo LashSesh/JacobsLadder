@@ -13,9 +13,19 @@ use serde::Deserialize;
 
 mod objects;
 pub use objects::{
-    generate_object_structs, generate_sort_id_enum, load_object_schemas, load_sort_registry,
-    ObjectEntry, ObjectSchemas, SortEntry, SortRegistry,
+    generate_closed_vocabularies, generate_object_structs, generate_sort_id_enum,
+    load_object_schemas, load_sort_registry, ClosedVocabulary, ObjectEntry, ObjectSchemas,
+    SortEntry, SortRegistry,
 };
+
+/// Die Namen der geschlossenen Wertemengen aus sort_registry.yaml - fuer
+/// `generate_object_structs`, damit dort kein konkurrierender Newtype entsteht.
+pub fn closed_vocabulary_names(reg: &SortRegistry) -> BTreeSet<String> {
+    reg.closed_vocabularies
+        .iter()
+        .map(|v| v.id.clone())
+        .collect()
+}
 
 mod topology;
 pub use topology::{generate_m13_topology, load_m13_topology, M13Topology};
@@ -330,13 +340,47 @@ pub fn generate_error_enum(cat: &ErrorCatalog) -> String {
             variant, e.domain
         ));
     }
-    out.push_str("        }\n    }\n");
+    out.push_str("        }\n    }\n\n");
+
+    out.push_str("    /// Umkehrung von `code()`. Noetig, weil EffectAttempt.error\n");
+    out.push_str("    /// (Struktur 7.31) einen Fehlercode als Feldwert traegt: die\n");
+    out.push_str("    /// Drahtform ist der stabile Code, nicht der Variantenname.\n");
+    out.push_str("    pub fn from_code(code: &str) -> Option<PskError> {\n        match code {\n");
+    for e in cat
+        .canonical
+        .iter()
+        .chain(cat.architecture_extension.iter())
+    {
+        out.push_str(&format!(
+            "            \"{}\" => Some(PskError::{}),\n",
+            e.code,
+            snake_to_pascal(&e.name)
+        ));
+    }
+    out.push_str("            _ => None,\n        }\n    }\n");
     out.push_str("}\n\n");
 
     out.push_str("impl std::fmt::Display for PskError {\n");
     out.push_str("    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {\n");
     out.push_str("        write!(f, \"{}\", self.code())\n    }\n}\n\n");
-    out.push_str("impl std::error::Error for PskError {}\n");
+    out.push_str("impl std::error::Error for PskError {}\n\n");
+
+    out.push_str("/// Drahtform: der stabile Code (Invariante 29.4), nicht der\n");
+    out.push_str("/// Variantenname.\nimpl serde::Serialize for PskError {\n");
+    out.push_str(
+        "    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {\n",
+    );
+    out.push_str("        s.serialize_str(self.code())\n    }\n}\n\n");
+    out.push_str("impl<'de> serde::Deserialize<'de> for PskError {\n");
+    out.push_str(
+        "    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {\n",
+    );
+    out.push_str("        let s = <String as serde::Deserialize>::deserialize(d)?;\n");
+    out.push_str("        PskError::from_code(&s)\n");
+    out.push_str(
+        "            .ok_or_else(|| serde::de::Error::custom(format!(\"unbekannter Fehlercode: {s}\")))\n",
+    );
+    out.push_str("    }\n}\n");
     out
 }
 

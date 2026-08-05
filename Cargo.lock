@@ -154,6 +154,7 @@ name = "effect-local-fs"
 version = "0.0.0"
 dependencies = [
  "psk-codegen",
+ "psk-effect",
  "psk-types",
 ]
 
@@ -786,8 +787,11 @@ dependencies = [
 name = "psk-adversarial"
 version = "0.0.0"
 dependencies = [
+ "psk-canon",
  "psk-codegen",
  "psk-types",
+ "psk-witness",
+ "serde_json",
 ]
 
 [[package]]
@@ -817,6 +821,8 @@ name = "psk-certify"
 version = "0.0.0"
 dependencies = [
  "psk-codegen",
+ "psk-gate",
+ "psk-trace",
  "psk-types",
 ]
 
@@ -824,16 +830,24 @@ dependencies = [
 name = "psk-cli"
 version = "0.0.0"
 dependencies = [
+ "observer-local-fs",
+ "psk-anchor",
  "psk-codegen",
+ "psk-conformance",
  "psk-types",
+ "verify-architecture",
+ "verify-bundle",
+ "verify-refinement",
 ]
 
 [[package]]
 name = "psk-closure"
 version = "0.0.0"
 dependencies = [
+ "psk-canon",
  "psk-codegen",
  "psk-types",
+ "serde_json",
 ]
 
 [[package]]
@@ -848,8 +862,28 @@ dependencies = [
 name = "psk-conformance"
 version = "0.0.0"
 dependencies = [
+ "effect-local-fs",
+ "jsonschema",
+ "observer-local-fs",
+ "psk-anchor",
+ "psk-canon",
+ "psk-certify",
+ "psk-closure",
  "psk-codegen",
+ "psk-dependency",
+ "psk-effect",
+ "psk-fields",
+ "psk-gate",
+ "psk-reconciliation",
+ "psk-thought",
+ "psk-topology",
+ "psk-trace",
  "psk-types",
+ "psk-witness",
+ "serde_json",
+ "serde_yaml",
+ "verify-architecture",
+ "verify-bundle",
 ]
 
 [[package]]
@@ -864,32 +898,46 @@ dependencies = [
 name = "psk-dependency"
 version = "0.0.0"
 dependencies = [
+ "psk-canon",
  "psk-codegen",
  "psk-types",
+ "serde_json",
 ]
 
 [[package]]
 name = "psk-effect"
 version = "0.0.0"
 dependencies = [
+ "psk-canon",
  "psk-codegen",
+ "psk-gate",
  "psk-types",
+ "serde_json",
 ]
 
 [[package]]
 name = "psk-fields"
 version = "0.0.0"
 dependencies = [
+ "psk-canon",
  "psk-codegen",
+ "psk-gate",
+ "psk-trace",
  "psk-types",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
 name = "psk-gate"
 version = "0.0.0"
 dependencies = [
+ "psk-canon",
  "psk-codegen",
+ "psk-trace",
  "psk-types",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -915,6 +963,7 @@ name = "psk-observe"
 version = "0.0.0"
 dependencies = [
  "psk-codegen",
+ "psk-trace",
  "psk-types",
 ]
 
@@ -922,8 +971,12 @@ dependencies = [
 name = "psk-reconciliation"
 version = "0.0.0"
 dependencies = [
+ "psk-anchor",
+ "psk-canon",
  "psk-codegen",
+ "psk-trace",
  "psk-types",
+ "serde_json",
 ]
 
 [[package]]
@@ -938,8 +991,10 @@ dependencies = [
 name = "psk-thought"
 version = "0.0.0"
 dependencies = [
+ "psk-canon",
  "psk-codegen",
  "psk-types",
+ "serde_json",
 ]
 
 [[package]]
@@ -956,8 +1011,10 @@ dependencies = [
 name = "psk-trace"
 version = "0.0.0"
 dependencies = [
+ "psk-canon",
  "psk-codegen",
  "psk-types",
+ "serde_json",
 ]
 
 [[package]]
@@ -973,8 +1030,10 @@ dependencies = [
 name = "psk-witness"
 version = "0.0.0"
 dependencies = [
+ "psk-canon",
  "psk-codegen",
  "psk-types",
+ "serde_json",
 ]
 
 [[package]]
@@ -1523,6 +1582,10 @@ dependencies = [
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "verify-modtree"
+version = "0.0.0"
 
 [[package]]
 name = "verify-refinement"

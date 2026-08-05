@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "psk.anchor-snapshot/1.0",
   "title": "AnchorSnapshot",
-  "description": "AnchorSnapshot (OBJ-ANC), Struktur 7.4 (PSK-RA v1.0.2).",
+  "description": "AnchorSnapshot (OBJ-ANC), Struktur 7.4 (PSK-RA v1.0.7).",
   "type": "object",
   "properties": {
     "schema": {

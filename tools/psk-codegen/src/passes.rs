@@ -17,6 +17,17 @@ pub struct PassRegistry {
     pub determinism: String,
     pub emission_classes: Vec<String>,
     pub executable_requires: Vec<String>,
+    /// Phasenkennung -> die zum Abschluss verlangten Paesse. BTreeMap, damit
+    /// die Ausgabe unabhaengig von der Reihenfolge im YAML deterministisch ist.
+    #[serde(default)]
+    pub phase_exit: std::collections::BTreeMap<String, PhaseExit>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct PhaseExit {
+    pub passes_required: Vec<String>,
+    #[allow(dead_code)]
+    pub statement: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -25,6 +36,9 @@ pub struct PassEntry {
     pub name: String,
     pub modules: Vec<String>,
     pub errors: Vec<String>,
+    /// Realisierungsphase laut Regel 32.2 (Phasenabhaengigkeit der Passfolge).
+    pub phase: String,
+    pub work_packages: Vec<String>,
 }
 
 pub fn load_pass_registry(root: &Path) -> PassRegistry {
@@ -139,8 +153,53 @@ pub fn generate_passes(reg: &PassRegistry) -> String {
 
     out.push_str("    /// Der unmittelbar folgende Pass, oder None nach C11.\n");
     out.push_str("    pub fn next(self) -> Option<PassId> {\n");
-    out.push_str("        PassId::ALL.get(self.index() + 1).copied()\n    }\n");
-    out.push_str("}\n\n");
+    out.push_str("        PassId::ALL.get(self.index() + 1).copied()\n    }\n\n");
+
+    out.push_str("    /// Die Realisierungsphase, ab der dieser Pass tragende\n");
+    out.push_str("    /// Module besitzt (Regel 32.2). Vorher MUSS er als Stufe\n");
+    out.push_str("    /// existieren und HOLD mit benannter Ursache emittieren;\n");
+    out.push_str("    /// ein EXECUTABLE vor I6 erzeugt PSK-E015.\n");
+    out.push_str("    pub const fn phase(self) -> &'static str {\n        match self {\n");
+    for p in &reg.passes {
+        out.push_str(&format!(
+            "            PassId::{} => \"{}\",\n",
+            p.id, p.phase
+        ));
+    }
+    out.push_str("        }\n    }\n\n");
+
+    out.push_str("    /// Die Work Packages, die diesen Pass tragen (Regel 32.2).\n");
+    out.push_str(
+        "    pub const fn work_packages(self) -> &'static [&'static str] {\n        match self {\n",
+    );
+    for p in &reg.passes {
+        let list = p
+            .work_packages
+            .iter()
+            .map(|w| format!("\"{w}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        out.push_str(&format!("            PassId::{} => &[{}],\n", p.id, list));
+    }
+    out.push_str("        }\n    }\n}\n\n");
+
+    // ---- Phasen-Exit ----
+    out.push_str("/// Die Paesse, die eine Phase zu ihrem Abschluss vollstaendig und\n");
+    out.push_str("/// deterministisch laufen lassen MUSS (Kapitel 32, Exit-Kriterium).\n");
+    out.push_str(&format!(
+        "pub const PHASE_EXIT: [(&str, &[PassId]); {}] = [\n",
+        reg.phase_exit.len()
+    ));
+    for (phase, exit) in &reg.phase_exit {
+        let list = exit
+            .passes_required
+            .iter()
+            .map(|p| format!("PassId::{p}"))
+            .collect::<Vec<_>>()
+            .join(", ");
+        out.push_str(&format!("    (\"{phase}\", &[{list}]),\n"));
+    }
+    out.push_str("];\n\n");
 
     // ---- EmissionClass ----
     out.push_str("/// Definition 11.17: Emission liegt in genau diesen vier Klassen.\n");

@@ -34,6 +34,7 @@ const ARCHITECTURE_FILES_YAML: &[&str] = &[
     "ra_tests.yaml",
     "refinement_map.yaml",
     "obligations.yaml",
+    "capability_matrix.yaml",
 ];
 
 const ARCHITECTURE_SCHEMAS: &[&str] = &[
@@ -54,6 +55,7 @@ const ARCHITECTURE_SCHEMAS: &[&str] = &[
     "schemas/ra_tests.schema.json",
     "schemas/refinement_map.schema.json",
     "schemas/obligations.schema.json",
+    "schemas/capability_matrix.schema.json",
 ];
 
 fn workspace_root() -> PathBuf {

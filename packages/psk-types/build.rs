@@ -43,9 +43,15 @@ fn main() {
         psk_codegen::generate_sort_id_enum(&sort_registry),
     )
     .unwrap();
+    let closed_vocabularies = psk_codegen::closed_vocabulary_names(&sort_registry);
+    fs::write(
+        out_dir.join("closed_vocabularies.rs"),
+        psk_codegen::generate_closed_vocabularies(&sort_registry, &root),
+    )
+    .unwrap();
     fs::write(
         out_dir.join("object_structs.rs"),
-        psk_codegen::generate_object_structs(&object_schemas),
+        psk_codegen::generate_object_structs(&object_schemas, &closed_vocabularies),
     )
     .unwrap();
 

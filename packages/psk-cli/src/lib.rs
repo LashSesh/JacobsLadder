@@ -1,4 +1,4 @@
-//! CLI-Vertrag (Struktur 27.5). Kein eigenes Modul.
+//! CLI-Vertrag (Struktur 27.6). Kein eigenes Modul.
 //! Portgrenzen generiert aus architecture/port_registry.yaml (Phase I0,
 //! Regel 32.1). Ausimplementierung folgt in der Phase, die das jeweilige
 //! Modul realisiert (Regel 32.2).

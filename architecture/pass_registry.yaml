@@ -1,16 +1,33 @@
 schema: psk.pass-registry/1.0
+# `phase` und `work_packages` je Pass aus Regel 32.2 (Phasenabhaengigkeit
+# der Passfolge), tabellarisch festgelegt seit v1.0.7 (Fehlerkorrektur
+# Punkt 9). Vorher stand die Zuordnung nur in Prosa, und das I3-Exit-
+# Kriterium verlangte C1-C9, obwohl I4 die Work Packages WP08 und WP10 -
+# und damit C6-C9 - ausdruecklich besitzt.
+#
+# Ein Pass, dessen Phase noch nicht erreicht ist, MUSS als Stufe
+# existieren, seine Vorbedingungen pruefen und HOLD mit benannter Ursache
+# emittieren. "Ein EXECUTABLE vor I6 ist ein Konformitaetsdefekt und
+# erzeugt PSK-E015" (Regel 32.2, Punkt 2).
 passes:
-  - {id: C1, name: CanonicalParse, modules: [M01, M06], errors: [PSK-E001]}
-  - {id: C2, name: TypeAndSortCheck, modules: [M03, M06], errors: [PSK-E001]}
-  - {id: C3, name: AnchorBinding, modules: [M05, M07], errors: [PSK-E002]}
-  - {id: C4, name: M13SyntaxPlacement, modules: [M22], errors: [PSK-E011]}
-  - {id: C5, name: FieldProjection, modules: [M08, M09], errors: [PSK-E013]}
-  - {id: C6, name: DependencyQuotient, modules: [M10], errors: [PSK-E006]}
-  - {id: C7, name: AdversarialCanonicalization, modules: [M24], errors: [PSK-E003]}
-  - {id: C8, name: SupportAndReachability, modules: [M24, M07], errors: [PSK-E004, PSK-E005]}
-  - {id: C9, name: ClosureAndGluing, modules: [M11, M22], errors: [PSK-E011]}
-  - {id: C10, name: GateAndCapabilityBinding, modules: [M14, M15], errors: [PSK-E007]}
-  - {id: C11, name: TraceReplayEmission, modules: [M19, M23], errors: [PSK-E015]}
+  - {id: C1, name: CanonicalParse, modules: [M01, M06], errors: [PSK-E001], phase: I3, work_packages: [WP03, WP05, WP06, WP07]}
+  - {id: C2, name: TypeAndSortCheck, modules: [M03, M06], errors: [PSK-E001], phase: I3, work_packages: [WP03, WP05, WP06, WP07]}
+  - {id: C3, name: AnchorBinding, modules: [M05, M07], errors: [PSK-E002], phase: I3, work_packages: [WP03, WP05, WP06, WP07]}
+  - {id: C4, name: M13SyntaxPlacement, modules: [M22], errors: [PSK-E011], phase: I3, work_packages: [WP03, WP05, WP06, WP07]}
+  - {id: C5, name: FieldProjection, modules: [M08, M09], errors: [PSK-E013], phase: I3, work_packages: [WP03, WP05, WP06, WP07]}
+  - {id: C6, name: DependencyQuotient, modules: [M10], errors: [PSK-E006], phase: I4, work_packages: [WP08]}
+  - {id: C7, name: AdversarialCanonicalization, modules: [M24], errors: [PSK-E003], phase: I4, work_packages: [WP10]}
+  - {id: C8, name: SupportAndReachability, modules: [M24, M07], errors: [PSK-E004, PSK-E005], phase: I4, work_packages: [WP10]}
+  - {id: C9, name: ClosureAndGluing, modules: [M11, M22], errors: [PSK-E011], phase: I4, work_packages: [WP08]}
+  - {id: C10, name: GateAndCapabilityBinding, modules: [M14, M15], errors: [PSK-E007], phase: I6, work_packages: [WP11]}
+  - {id: C11, name: TraceReplayEmission, modules: [M19, M23], errors: [PSK-E015], phase: I5, work_packages: [WP04]}
+# Exit-Kriterium je Phase, soweit es die Passfolge betrifft (Kapitel 32).
+phase_exit:
+  I3: {passes_required: [C1, C2, C3, C4, C5],
+       statement: "C1-C5 vollstaendig und deterministisch; ungueltige Kandidaten
+         erzeugen ausschliesslich Residuenobjekte. C6-C11 deklariert und HOLD."}
+  I4: {passes_required: [C6, C7, C8, C9],
+       statement: "Negativzeugen, Ratchet, Dependency Quotient und Closure laufen."}
 monotonicity: later_pass_may_not_silently_clear_earlier_error_class
 determinism: pure_function_of_declared_inputs_and_run_descriptor
 emission_classes: [EXECUTABLE, RESIDUAL, QUARANTINED, HOLD]

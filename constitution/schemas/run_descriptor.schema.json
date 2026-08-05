@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "psk.run-descriptor/1.0",
   "title": "RunDescriptor",
-  "description": "RunDescriptor (OBJ-RUN), Struktur 7.34 (PSK-RA v1.0.2).",
+  "description": "RunDescriptor (OBJ-RUN), Struktur 7.40 (PSK-RA v1.0.7).",
   "type": "object",
   "properties": {
     "schema": {

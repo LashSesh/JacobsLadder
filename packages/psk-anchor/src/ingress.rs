@@ -35,7 +35,7 @@ pub fn bind_provenance(
 }
 
 /// Struktur 7.4, Provenance.observer_identity: "MUSS != Effekt-
-/// Adapteridentitaet" (dieselbe Beobachtertrennung, die Invariante 7.29 fuer
+/// Adapteridentitaet" (dieselbe Beobachtertrennung, die Invariante 7.34 fuer
 /// ExternalReceipt.observer_identity vs. EffectAttempt.adapter verlangt).
 /// `effect_adapter_identity` ist `None`, solange M16 (WP12, Phase I6) keine
 /// Effektversuche erzeugt - dann ist die Bedingung vakuos erfuellt, nicht

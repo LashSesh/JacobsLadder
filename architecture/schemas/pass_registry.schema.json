@@ -30,15 +30,71 @@
             "items": {
               "type": "string"
             }
+          },
+          "phase": {
+            "type": "string"
+          },
+          "work_packages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "required": [
           "id",
           "name",
           "modules",
-          "errors"
+          "errors",
+          "phase",
+          "work_packages"
         ]
       }
+    },
+    "phase_exit": {
+      "type": "object",
+      "properties": {
+        "I3": {
+          "type": "object",
+          "properties": {
+            "passes_required": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "statement": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "passes_required",
+            "statement"
+          ]
+        },
+        "I4": {
+          "type": "object",
+          "properties": {
+            "passes_required": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "statement": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "passes_required",
+            "statement"
+          ]
+        }
+      },
+      "required": [
+        "I3",
+        "I4"
+      ]
     },
     "monotonicity": {
       "type": "string"
@@ -62,6 +118,7 @@
   "required": [
     "schema",
     "passes",
+    "phase_exit",
     "monotonicity",
     "determinism",
     "emission_classes",

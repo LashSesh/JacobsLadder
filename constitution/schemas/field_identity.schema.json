@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "psk.field-identity/1.0",
   "title": "FieldIdentity",
-  "description": "FieldIdentity (OBJ-FLD), Struktur 7.10 (PSK-RA v1.0.2).",
+  "description": "FieldIdentity (OBJ-FLD), Struktur 7.12 (PSK-RA v1.0.7).",
   "type": "object",
   "properties": {
     "schema": {

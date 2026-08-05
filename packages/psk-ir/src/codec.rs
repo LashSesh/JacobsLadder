@@ -3,7 +3,7 @@
 //! Definition 10.5 (Ordnungssemantische Listen): `normative_files`,
 //! `trajectories`, `allowed_next`, `transitions`, `observations`,
 //! `receipt_refs` DARF NICHT sortiert werden. IRBundle selbst fuehrt
-//! aktuell keines dieser Felder (Struktur 7.16), die Ausschlussliste steht
+//! aktuell keines dieser Felder (Struktur 7.19), die Ausschlussliste steht
 //! dennoch woertlich hier, damit ein spaeter hinzugefuegtes gleichnamiges
 //! Feld automatisch korrekt behandelt wird statt versehentlich sortiert.
 //!
@@ -169,8 +169,8 @@ mod tests {
             sort,
             context: psk_types::objects::ContextRef("ctx".into()),
             lineage: psk_types::objects::Lineage("lin".into()),
-            reality_status: psk_types::objects::RealityStatus("coherent".into()),
-            facticity: psk_types::objects::FactStatus("observed".into()),
+            reality_status: psk_types::objects::RealityStatus::Coherent,
+            facticity: psk_types::objects::FactStatus::Observed,
             anchor_refs: vec![],
             witness_refs: vec![],
             residue_refs: vec![],
@@ -189,7 +189,7 @@ mod tests {
             id: ObjectId::new(SortId::Trace, Digest::sha256(b"edge")),
             source: n_a.id,
             target: n_z.id,
-            relation_sort: psk_types::objects::RelationSortId("forks".into()),
+            relation_sort: psk_types::objects::RelationSortId::Forks,
             direction: IREdgeDirectionKind::Forward,
             preconditions: vec![psk_types::objects::PredicateExpr("true".into())],
             postconditions: vec![psk_types::objects::PredicateExpr("true".into())],

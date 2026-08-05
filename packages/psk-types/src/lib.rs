@@ -1,8 +1,11 @@
 //! Geteilte Basistypen der PSK-Referenzimplementierung: `ModuleId`,
 //! `PortId`, `PskError` (generiert aus den Registern in `architecture/`
 //! und `constitution/`), die Nachrichtenhuelle `Msg` nach Struktur 4.1,
-//! sowie `objects::SortId` und die 25 kanonischen Objektstrukturen aus
-//! Kapitel 7 (WP02, generiert aus `architecture/object_schemas.yaml`).
+//! sowie `objects::SortId` und `objects::OBJECT_COUNT` kanonische
+//! Objektstrukturen aus Kapitel 7 (WP02, generiert aus
+//! `architecture/object_schemas.yaml`). Absichtlich keine Zahl hier in
+//! Prosa - sie driftete bereits dreimal (siehe `OBJECT_COUNT`s eigener
+//! Kommentar in tools/psk-codegen/src/objects.rs).
 //!
 //! Ownership (Vertrag 3.4): dass alle Struktur-Definitionen lexikalisch in
 //! diesem einen Paket liegen, ist eine Cargo-Organisationsentscheidung, keine
@@ -46,11 +49,12 @@ pub mod passes {
 }
 
 pub mod objects {
-    //! `SortId` (19 Sorten) und die 25 kanonischen Objektstrukturen aus
-    //! Kapitel 7 / 21.5 / 22.5, generiert aus `architecture/sort_registry.yaml`
-    //! und `architecture/object_schemas.yaml`.
+    //! `SortId` (19 Sorten) und `OBJECT_COUNT` kanonische Objektstrukturen
+    //! aus Kapitel 7 / 21.5 / 22.5, generiert aus
+    //! `architecture/sort_registry.yaml` und `architecture/object_schemas.yaml`.
     #![allow(non_snake_case)] // Feldnamen I_C/I_A/I_M/I_t sind woertlich aus Regel 6.10.
     include!(concat!(env!("OUT_DIR"), "/sort_id.rs"));
+    include!(concat!(env!("OUT_DIR"), "/closed_vocabularies.rs"));
     include!(concat!(env!("OUT_DIR"), "/object_structs.rs"));
 }
 

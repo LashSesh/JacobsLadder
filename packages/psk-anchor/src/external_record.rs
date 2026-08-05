@@ -1,10 +1,12 @@
 //! ExternalRecord: das rohe Erzeugnis eines ObserverAdapter-Plugins
 //! (Definition 27.1), das M17 unvermischt aufnimmt und ueber P06 an M05
-//! weiterreicht (Regel 32.7, Kapitel 3.2 Zeile M17).
+//! weiterreicht (Regel 32.8, Kapitel 3.2 Zeile M17).
 //!
 //! ExternalRecord ist KEIN Kapitel-7-Objekt (object_registry.yaml fuehrt
 //! nur 27 kanonische Objekte, ExternalRecord ist keines davon) und hat
-//! deshalb keine Struktur-Nummer. Die Feldliste folgt woertlich Regel 32.7:
+//! deshalb keine Struktur-Nummer. Die Feldliste folgt woertlich Regel 32.8
+//! (Anker der Referenzdomaene; Regel 32.7 ist die Feldfamilie, sechs
+//! statische Archetypen - siehe psk-fields):
 //! "Der AnchorSnapshot bindet Dateihashes, Git-Commit, Zeitstempel, Rechte,
 //! Konfiguration und erlaubten Scope. Der Aussenrecord entsteht nach
 //! Ausfuehrung durch einen unabhaengigen Adapter, der den tatsaechlichen

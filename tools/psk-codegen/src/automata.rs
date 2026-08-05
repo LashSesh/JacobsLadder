@@ -308,8 +308,10 @@ pub fn generate_automata(doc: &StateMachinesDoc) -> String {
 
     out.push_str(
         r#"/// Ergebnis eines Transitionsversuchs. Ein Gate wird hier NICHT
-/// ausgewertet: die Gate-Entscheidung ist Sache von M14
-/// (Authority/Consequence Gate) und existiert erst mit WP11. Diese
+/// ausgewertet: die Gate-Entscheidung obliegt dem in
+/// architecture/gate_registry.yaml je Gate-ID eingetragenen `owner` (nicht
+/// einheitlich M14 - Gates sind ueber M07, M11, M14, M17-M21, M25, M26
+/// verteilt) und existiert erst, sobald dieses Modul realisiert ist. Diese
 /// Aufzaehlung haelt die Anforderung sichtbar, statt sie zu unterschlagen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StepOutcome<S> {
