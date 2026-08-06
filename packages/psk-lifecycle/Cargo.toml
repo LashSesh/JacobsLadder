@@ -7,6 +7,17 @@ publish = false
 
 [dependencies]
 psk-types = { path = "../psk-types" }
+psk-ipc = { path = "../psk-ipc" }
+
+[dev-dependencies]
+# Nur fuer tests/spawn_and_request.rs (Anfrage-/Antworttypen) -
+# psk-lifecycle selbst haengt zur Laufzeit NICHT von den Adaptercrates
+# ab; `spawn` nimmt jeden Pfad entgegen (siehe `sibling_binary_path`,
+# das die realen Binaries im Cargo-Ausgabeverzeichnis findet, ohne einen
+# Cargo-Abhaengigkeitsgraphen zu ihnen zu brauchen).
+psk-effect = { path = "../psk-effect" }
+psk-anchor = { path = "../psk-anchor" }
+serde_json = "1"
 
 [build-dependencies]
 psk-codegen = { path = "../../tools/psk-codegen" }

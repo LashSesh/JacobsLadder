@@ -1,6 +1,6 @@
 //! M18 ReconciliationEngine (Kapitel 20.2).
 //!
-//! Algorithmus 20.7 (Reconciliation), woertlich:
+//! Algorithmus 20.8 (Reconciliation), woertlich:
 //! ```text
 //! function reconcile(plan, attempt, receipts, anchor_post) -> ReconciliationReport:
 //!     require attempt.token_ref.plan_digest == H(Can(plan)) else FAIL(PSK-E008)
@@ -102,7 +102,7 @@ pub struct ReconcileInputs {
     pub diff: DiffOutcome,
     /// Struktur 7.35 fuehrt `finality` ohne Berechnungsvorschrift - der
     /// Text setzt es nur als Ergebnisfeld, leitet es nirgends her (anders
-    /// als `promotion`, das Algorithmus 20.7 vollstaendig festlegt).
+    /// als `promotion`, das Algorithmus 20.8 vollstaendig festlegt).
     /// Befund: von aussen entgegengenommen, nicht erfunden.
     pub finality: Finality,
     /// "ActualizationWitness bei ACTUALIZED" - kein Kapitel-7-Objekt
@@ -130,7 +130,7 @@ fn compute_identity(draft: &ReconciliationReport) -> Result<ObjectId, PskError> 
         .map_err(|_| PskError::CanonicalizationFailed)
 }
 
-/// M18: Algorithmus 20.7. `residues` ist das laufende Residuenledger
+/// M18: Algorithmus 20.8. `residues` ist das laufende Residuenledger
 /// (Regel 8.2 / Axiom 7.41 ueber P28, `from: "*"` - M18 ist keine
 /// Ausnahme); `residualize(diff)` (Explicable/Contradictory) oeffnet dort
 /// ein Residuum des Typs `reconciliation`.

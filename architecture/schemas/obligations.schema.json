@@ -470,6 +470,60 @@
               "resolution",
               "resolution_version"
             ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "fixed_by_architecture": {
+                "type": "object",
+                "properties": {
+                  "isolation": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "isolation"
+                ]
+              },
+              "domain_declared": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "test": {
+                "type": "null"
+              },
+              "blocking_from": {
+                "type": "string"
+              },
+              "resolution": {
+                "type": "null"
+              },
+              "resolution_version": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "statement",
+              "fixed_by_architecture",
+              "domain_declared",
+              "test",
+              "blocking_from",
+              "resolution",
+              "resolution_version"
+            ]
           }
         ]
       }

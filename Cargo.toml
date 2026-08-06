@@ -2,6 +2,7 @@
 resolver = "2"
 members = [
     "packages/psk-types",
+    "packages/psk-ipc",
     "packages/psk-canon",
     "packages/psk-contract",
     "packages/psk-topology",

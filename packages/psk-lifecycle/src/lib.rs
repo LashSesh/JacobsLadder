@@ -7,9 +7,15 @@
 //! 13.3 - kein Textzustandsuebergang), `recovery` (Algorithmus 17.6,
 //! Axiom 17.7 - kein Ausgang "nicht geschehen"), `boot_policy` (Regel
 //! 17.2, die vier festen Reaktionen). Algorithmus 17.1/17.4 (boot()/
-//! shutdown() als Ganzes) orchestrieren M00-M04, M14, M15, M19, M21, von
-//! denen ausserhalb dieses WP nur M19 real ist; diese Orchestrierung wird
-//! hier nicht nachgebildet (siehe Modulkopf von `recovery`).
+//! shutdown() als Ganzes) orchestrieren M00-M04, M14, M15, M19, M21 - die
+//! Orchestrierung selbst realisiert `psk-contract::boot` (Algorithmus
+//! 17.1, alle 21 Schritte), das M26s hier gefuehrte `boot_policy`/`runtime`
+//! bereits real verwendet.
+//!
+//! P24a (Prozesstopologie-Realisierung): `process` (M26, `proc.control` -
+//! spawnt Effekt-/Beobachterprozess als echte Kindprozesse, siehe dessen
+//! Modulkopf fuer die v1.0.13-Praezisierung von Vertrag
+//! Herkunftsbeglaubigung an der Prozessgrenze).
 
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
@@ -21,3 +27,6 @@ pub use recovery::{classify_open_effect, plan_recovery, EffectRecoveryState, Rec
 
 mod boot_policy;
 pub use boot_policy::{decide, BootOutcome, BootSituation};
+
+mod process;
+pub use process::{sibling_binary_path, ChildProcess};

@@ -1,4 +1,4 @@
-//! EffectAdapter, Sandbox (Schnittstelle 20.4, Regel 32.5 "danach in
+//! EffectAdapter, Sandbox (Schnittstelle 20.5, Regel 32.5 "danach in
 //! einer Sandbox mit reversiblen Dateioperationen").
 //!
 //! Reversibel: `apply` schreibt eine Datei und haelt ihren VORHERIGEN

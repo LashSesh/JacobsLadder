@@ -54,7 +54,7 @@ use psk_certify::{
 };
 use psk_closure::{glue, CapsuleRestriction, GlueOutcome};
 use psk_dependency::{dependency_quotient, QuotientInputs, RankMethod};
-use psk_effect::{execute_effect, issue as issue_token, IssueInputs, TokenLedger};
+use psk_effect::{issue as issue_token, IssueInputs, TokenLedger};
 use psk_fields::{register_field, route_lens, LensOutcome, ProjectionInputs};
 use psk_gate::{authorize, evaluate_gate, ConditionOutcome, GateAuthorization, GateInputs};
 use psk_reconciliation::{reconcile, DiffOutcome, ReconcileInputs};
@@ -72,7 +72,10 @@ use psk_types::objects::{
     ScopeExpr, ScopeSpec, SortId, SourceRef, ThoughtBody, TickId, TimeWindow, TrajectoryRef,
     UncertaintyBlock, UncertaintyModelId, Validity, WitnessPolicy,
 };
-use psk_types::{ClockRef, Digest, DualTime, ModuleId, ObjectId, PskError, RunId, TraceRef};
+use psk_types::{
+    ClockRef, Digest, DualTime, MessageType, ModuleId, Msg, ObjectId, PortId, PskError, RunId,
+    SchemaId, TraceRef, Ulid,
+};
 
 /// Deterministische Laufzeit (Definition 24.2: "erwartetem kanonischen
 /// Zustandsdigest" - Replaystabilitaet verlangt eine feste, nicht eine
@@ -128,6 +131,14 @@ pub struct GoldenRunCertification {
     pub replay_check: psk_trace::ReplayCheck,
     pub replay_manifest: psk_types::objects::ReplayManifest,
     pub certificate: MachineCertificate,
+    /// Laufzeit NUR des ersten Laufs (`first`), getrennt von der
+    /// Gesamtlaufzeit der Zertifizierung (die zusaetzlich den zweiten,
+    /// nur der Replaypruefung dienenden Lauf einschliesst). Aufrufer, die
+    /// "wie lange dauert EIN Validierungslauf" messen wollen (z.B.
+    /// `baselines::comparison`, das dieselbe Groesse gegen einzelne
+    /// Baseline-Laeufe stellt), brauchen diese Zahl statt der Gesamtzeit -
+    /// sonst waere der Vergleich 2 Kern-Laeufe gegen 1 Baseline-Lauf.
+    pub first_run_wall_clock: std::time::Duration,
 }
 
 fn record(
@@ -405,6 +416,13 @@ fn evaluate_patch_gate(
 }
 
 /// Schritte 9-10: EffectToken ausstellen, Patch in der Sandbox ausfuehren.
+/// Schritte 9-10, P22/P23 (v1.0.13/P24a): EffectToken/EffectAttempt ueber
+/// eine echte, von M26 gespawnte Prozessgrenze - dasselbe Muster wie
+/// `observe_and_receipt` bei P24. Die Kernel-Buchfuehrung
+/// (Ablauf-/Einmaligkeitspruefung, `TokenLedger`) bleibt lokal: sie ist
+/// eine Kernprozess-Zustaendigkeit, kein Adapterverhalten (siehe
+/// `psk_effect::process_protocol`s Modulkopf) - nur `adapter.apply`
+/// selbst (der tatsaechliche Dateizugriff) wandert in den Effektprozess.
 fn issue_and_execute(
     patch_gate: &psk_types::objects::GateReport,
     sandbox_root: &Path,
@@ -436,52 +454,95 @@ fn issue_and_execute(
 
     let mut ledger = TokenLedger::new();
     ledger.register(&token);
-    let adapter = effect_local_fs::LocalFsAdapter {
-        sandbox_root: sandbox_root.to_path_buf(),
+    psk_effect::check_not_expired(&token, run_time().tau_i)?;
+    ledger.consume_once(&token.idempotency_key)?;
+
+    let exe = psk_lifecycle::sibling_binary_path("effect-local-fs")?;
+    let mut child = psk_lifecycle::ChildProcess::spawn(
+        &exe,
+        &[sandbox_root.to_str().ok_or(PskError::UntypedInput)?],
+    )?;
+
+    let apply_payload = serde_json::to_vec(&psk_effect::EffectApplyRequest {
+        token: token.clone(),
+        started_at: run_time(),
+    })
+    .map_err(|_| PskError::CanonicalizationFailed)?;
+    let request = Msg {
+        msg_id: Ulid(1),
+        port_id: psk_types::PortId::P22,
+        r#type: MessageType::Request,
+        schema_id: SchemaId(psk_effect::SCHEMA_APPLY_REQUEST.to_string()),
+        producer: ModuleId::EffectTokenService,
+        consumer: ModuleId::EffectBoundary,
+        run_id: RunId("golden-run".into()),
+        seq: 1,
+        input_digests: vec![],
+        created_at: run_time(),
+        trace_parent: TraceRef(Digest::sha256(b"golden-run-apply-request")),
+        payload_digest: Digest::sha256(&apply_payload),
+        payload: apply_payload,
+        signature: None,
     };
-    let attempt = execute_effect(&mut ledger, &token, run_time().tau_i, run_time(), &adapter)?;
+    let response = child.request(&request)?;
+    let attempt: EffectAttempt =
+        serde_json::from_slice(&response.payload).map_err(|_| PskError::CanonicalizationFailed)?;
+    child.shutdown()?;
+
     let _ = trace_ref;
     Ok((auth, attempt))
 }
 
 /// Schritt 11: unabhaengiger Beobachter liest den Dateibaum; ExternalReceipt
-/// (P24-Grenze, `psk_anchor::ingress_p24`) entsteht daraus.
+/// (P24-Grenze) entsteht daraus.
+///
+/// P24a/P24b (v1.0.13): der Beobachter laeuft jetzt als echter, von M26
+/// (`psk_lifecycle::process`) gespawnter Kindprozess - nicht mehr
+/// in-process simuliert. Die Herkunftsbeglaubigung (Vertrag
+/// Herkunftsbeglaubigung an der Prozessgrenze) ist die exklusive Pipe zu
+/// genau diesem Kind (`ChildProcess::request`s privates `stdout`-Feld),
+/// nicht mehr ein Vergleich zweier hartkodierter `ProcessIdentity`-Werte -
+/// siehe `psk_anchor::ingress_p24_via_exclusive_pipe`s Modulkopf.
 fn observe_and_receipt(
     sandbox_root: &Path,
     trace_ref: TraceRef,
 ) -> Result<ExternalReceipt, PskError> {
     let _ = trace_ref;
-    let config = observer_local_fs::ObserverConfig::new(sandbox_root);
-    let record =
-        observer_local_fs::observe(&config, run_time()).map_err(|_| PskError::MissingAnchor)?;
-    let record_bytes = serde_json::to_vec(&serde_json::json!({
-        "file_count": record.file_hashes.len(),
-        "observed_at": record.observed_at.tau_i,
-    }))
-    .map_err(|_| PskError::CanonicalizationFailed)?;
+    let exe = psk_lifecycle::sibling_binary_path("observer-local-fs")?;
+    let mut child = psk_lifecycle::ChildProcess::spawn(
+        &exe,
+        &[sandbox_root.to_str().ok_or(PskError::UntypedInput)?],
+    )?;
 
-    // Auf der Beobachterseite entsteht zuerst ein echtes ExternalReceipt
-    // (`build_receipt`, Struktur 7.34: `result_digest = H(Can(record))`).
-    // Erst DAS wird serialisiert und ueberquert die P24-Prozessgrenze - die
-    // eingehenden Bytes bei `ingress_p24` sind ein vollstaendiges
-    // ExternalReceipt, keine Rohbeobachtung.
-    let receipt = psk_anchor::build_receipt(psk_anchor::ObservationInputs {
-        observer_adapter: psk_types::objects::AdapterId("observer-local-fs".into()),
-        observer_identity: Digest::sha256(b"golden-run-observer"),
+    let request_payload = serde_json::to_vec(&psk_anchor::ObserveReceiptRequest {
         observed_at: run_time(),
-        record: record_bytes,
+        observer_identity: Digest::sha256(b"golden-run-observer"),
         provenance: psk_types::objects::ProvenanceBlock("golden-run-provenance/1".into()),
         independence_attestation: Digest::sha256(b"golden-run-independent-observer"),
-    })?;
-    let raw = serde_json::to_vec(&receipt).map_err(|_| PskError::CanonicalizationFailed)?;
+    })
+    .map_err(|_| PskError::CanonicalizationFailed)?;
 
-    // P24: Herkunftsbeglaubigung an der Prozessgrenze (Vertrag 20.2) - die
-    // Identitaetspruefung laeuft VOR der Deserialisierung, siehe
-    // psk_anchor::receipt::ingress_p24.
-    let claimed_origin = psk_anchor::ProcessIdentity::Namespace(1);
-    let registered =
-        psk_anchor::RegisteredObserverIdentity(psk_anchor::ProcessIdentity::Namespace(1));
-    psk_anchor::ingress_p24(&raw, claimed_origin, registered)
+    let request = Msg {
+        msg_id: Ulid(1),
+        port_id: PortId::P24,
+        r#type: MessageType::Request,
+        schema_id: SchemaId(psk_anchor::SCHEMA_RECEIPT_REQUEST.to_string()),
+        producer: ModuleId::ReconciliationEngine,
+        consumer: ModuleId::ExternalRecordIngress,
+        run_id: RunId("golden-run".into()),
+        seq: 1,
+        input_digests: vec![],
+        created_at: run_time(),
+        trace_parent: TraceRef(Digest::sha256(b"golden-run-observe-request")),
+        payload_digest: Digest::sha256(&request_payload),
+        payload: request_payload,
+        signature: None,
+    };
+
+    let response = child.request(&request)?;
+    let receipt = psk_anchor::ingress_p24_via_exclusive_pipe(&response.payload);
+    child.shutdown()?;
+    receipt
 }
 
 /// Schritt 12: Reconciliation.
@@ -734,7 +795,9 @@ pub fn run_golden_run_with_certificate(
     // haetten. Der Reset selbst ist deshalb Teil des Testaufbaus, nicht des
     // gemessenen Laufs.
     let _ = fs::remove_dir_all(sandbox_root);
+    let first_start = std::time::Instant::now();
     let first = run_golden_run(workspace_root, sandbox_root)?;
+    let first_run_wall_clock = first_start.elapsed();
     let artifact_path = sandbox_root.join("golden-run-patch.txt");
     let first_artifact = fs::read(&artifact_path).map_err(|_| PskError::TraceOrResidueViolation)?;
 
@@ -826,6 +889,7 @@ pub fn run_golden_run_with_certificate(
         replay_check: check,
         replay_manifest,
         certificate,
+        first_run_wall_clock,
     })
 }
 

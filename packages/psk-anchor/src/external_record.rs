@@ -26,7 +26,7 @@
 use psk_types::Digest;
 
 /// Ein einzelner beobachteter Dateizustand ("Dateihashes").
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FileObservation {
     /// Pfad relativ zur beobachteten Wurzel - nie absolut, damit der
     /// Digest nicht vom Ablageort der Werkskopie abhaengt.
@@ -37,12 +37,15 @@ pub struct FileObservation {
 /// "Rechte": die fuer die Beobachtung tatsaechlich wirksamen
 /// Zugriffsrechte, so wie der Adapter sie vorgefunden hat - kein
 /// Capability-Grant, sondern ein beobachteter IST-Zustand.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ObservedPermissions {
     pub read_only: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// `Serialize`/`Deserialize` (P24a): ExternalRecord ueberquert bei P06
+/// (M17->M05) dieselbe reale Prozessgrenze wie ExternalReceipt bei P24 -
+/// dieselbe serde_json-Drahtform, kein Sonderfall.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ExternalRecord {
     /// "Dateihashes".
     pub file_hashes: Vec<FileObservation>,

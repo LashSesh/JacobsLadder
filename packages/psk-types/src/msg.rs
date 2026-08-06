@@ -10,7 +10,9 @@ use crate::{Digest, ModuleId, PortId};
 /// Speichertyp ist hier festgelegt; ein Generator (Uhr-Anbindung,
 /// Crockford-Base32-Textform) ist Laufzeitverhalten und folgt mit dem
 /// Modul, das msg_id tatsaechlich vergibt.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
 pub struct Ulid(pub u128);
 
 /// "type: MessageType # request | response | event | fault" (Struktur 4.1).
@@ -76,7 +78,14 @@ pub struct TraceRef(pub Digest);
 pub struct Signature(pub Vec<u8>);
 
 /// Msg nach Struktur 4.1.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// `Serialize`/`Deserialize` (P24a): die kanonische Drahtform fuer die
+/// Nachrichtenhuelle, sobald sie eine echte Prozessgrenze ueberquert - wie
+/// bei `ModuleId`/`PortId` (oben, ueber ihre kanonische String-Kennung)
+/// und `ExternalReceipt`/P24 (`serde_json::to_vec`/`from_slice`, bereits
+/// etabliert) keine neue Kodierung, sondern dieselbe serde_json-Form wie
+/// ueberall sonst in diesem Werk.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Msg {
     pub msg_id: Ulid,
     pub port_id: PortId,
@@ -100,4 +109,58 @@ pub struct Msg {
     /// sind, legt Kapitel 19 fest; die Durchsetzungspflicht selbst ist
     /// Laufzeitverhalten und hier nicht modelliert.
     pub signature: Option<Signature>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{ModuleId, PortId};
+
+    fn sample_msg() -> Msg {
+        Msg {
+            msg_id: Ulid(0x0123_4567_89ab_cdef_0123_4567_89ab_cdef),
+            port_id: PortId::P24,
+            r#type: MessageType::Event,
+            schema_id: SchemaId("psk.external-receipt/1.0".into()),
+            producer: ModuleId::ExternalRecordIngress,
+            consumer: ModuleId::ReconciliationEngine,
+            run_id: RunId("golden-run".into()),
+            seq: 1,
+            input_digests: vec![crate::Digest::sha256(b"input")],
+            created_at: DualTime {
+                tau_i: 1,
+                tau_e: "2026-08-05T00:00:00.000000000Z".into(),
+                clock_ref: ClockRef("test".into()),
+                uncertainty_ns: 0,
+            },
+            trace_parent: TraceRef(crate::Digest::sha256(b"trace")),
+            payload_digest: crate::Digest::sha256(b"payload"),
+            payload: b"hello ipc".to_vec(),
+            signature: None,
+        }
+    }
+
+    #[test]
+    fn msg_round_trips_through_json() {
+        let original = sample_msg();
+        let bytes = serde_json::to_vec(&original).expect("Msg muss serialisierbar sein");
+        let parsed: Msg = serde_json::from_slice(&bytes).expect("Msg muss deserialisierbar sein");
+        assert_eq!(original, parsed);
+    }
+
+    #[test]
+    fn port_id_and_module_id_use_their_canonical_string_id_on_the_wire() {
+        // Ueber echte Bytes, nicht `serde_json::to_value` direkt: Ulids u128
+        // uebersteigt den Zahlenbereich, den `serde_json::Value` ohne das
+        // Feature `arbitrary_precision` intern darstellen kann - dieselbe
+        // Serialisierung ueber `to_vec`/`from_slice` (die reale Drahtform)
+        // hat dieses Problem nicht, siehe `msg_round_trips_through_json`.
+        let bytes = serde_json::to_vec(&sample_msg()).unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(value["port_id"], "P24");
+        assert_eq!(value["producer"], "M17");
+        assert_eq!(value["consumer"], "M18");
+        // r#type: Rust-Rohbezeichner-Praefix darf nicht ins Feld durchschlagen.
+        assert_eq!(value["type"], "event");
+    }
 }

@@ -85,7 +85,7 @@ impl TokenLedger {
     }
 }
 
-/// Invariante 20.3, zweiter Teil ("nicht abgelaufen"): prueft
+/// Invariante 20.4, zweiter Teil ("nicht abgelaufen"): prueft
 /// `expires_at_tau_i` gegen den aktuellen Kausalzaehler. Der Kausalzaehler
 /// (DualTime.tau_i) kommt vom Aufrufer - M16 fuehrt keine eigene Uhr.
 pub fn check_not_expired(token: &EffectToken, current_tau_i: u64) -> Result<(), PskError> {
