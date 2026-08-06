@@ -20,6 +20,8 @@ psk-effect = { path = "../psk-effect" }
 psk-reconciliation = { path = "../psk-reconciliation" }
 psk-trace = { path = "../psk-trace" }
 psk-certify = { path = "../psk-certify" }
+psk-contract = { path = "../psk-contract" }
+psk-lifecycle = { path = "../psk-lifecycle" }
 effect-local-fs = { path = "../../adapters/effect-local-fs" }
 observer-local-fs = { path = "../../adapters/observer-local-fs" }
 verify-bundle = { path = "../../tools/verify-bundle" }

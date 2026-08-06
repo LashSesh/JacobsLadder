@@ -7,6 +7,15 @@ publish = false
 
 [dependencies]
 psk-types = { path = "../psk-types" }
+psk-canon = { path = "../psk-canon" }
+psk-topology = { path = "../psk-topology" }
+psk-trace = { path = "../psk-trace" }
+psk-effect = { path = "../psk-effect" }
+psk-certify = { path = "../psk-certify" }
+psk-gate = { path = "../psk-gate" }
+psk-lifecycle = { path = "../psk-lifecycle" }
+verify-bundle = { path = "../../tools/verify-bundle" }
+verify-architecture = { path = "../../tools/verify-architecture" }
 
 [build-dependencies]
 psk-codegen = { path = "../../tools/psk-codegen" }

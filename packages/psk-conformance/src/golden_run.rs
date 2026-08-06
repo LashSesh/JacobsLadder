@@ -15,34 +15,34 @@
 //! 12. Reconciliation durchfuehren; Faktpromotion entscheiden.
 //! 13. Maschinenzertifikat und Replaymanifest exportieren.
 //!
-//! # Schritt 1: Bootgate-Realisierungsgrenze (dokumentierter Befund)
+//! # Schritt 1: Bootgate, real (Algorithmus 17.1 vollstaendig realisiert)
 //!
 //! Algorithmus 17.1 (Boot) hat 21 Schritte ueber M00-M04, M14, M15, M19,
 //! M21, M22, M26; `g = M14.gate("G-BOOT", all_of(above))` aggregiert ALLE
-//! davon. In dieser Referenzimplementierung sind M00 (Bundle-Loader), M02
-//! (Artefaktregistrierung) und M04 (Identitaetsbindung/Profilbindung) reine
-//! Portstubs (Regel 32.2 - ihre Phase ist noch nicht erreicht), ebenso M21s
-//! `compute_release_and_operational_posture` (nur `compute_conformance_class`
-//! existiert) und M26s `detect_incomplete_runs`/`plan_recovery`
-//! (psk-scheduler realisiert bisher nur M25 select/budget, siehe dessen
-//! Modulkopf). Diese Funktion wertet G-BOOT deshalb EHRLICH mit den real
-//! pruefbaren Teilbedingungen aus (Konstitutions-ID, Architektur-ID, M13-
-//! Kardinalitaet) plus EINER `Undecidable`-Bedingung, die den Rest benennt -
-//! nicht mit einer erfundenen Erfuellung. Das Ergebnis ist deshalb real
-//! HOLD, nicht PASS (Regel 17.2: "undecidable: hold"). Diese Funktion
-//! blockiert die Schritte 2-13 NICHT auf diesem HOLD: ein Referenz-
-//! Golden-Run, der bei Schritt 1 anhaelt, koennte nichts vom eigentlich
-//! interessanten Teil (P24/ExternalReceipt, Schritt 11) zeigen. Der reale
-//! `GateReport` (inklusive HOLD-Entscheidung und Begruendung) bleibt Teil
-//! von `GoldenRunReport`, damit dieser Befund nicht stillschweigend
-//! verschwindet.
+//! davon. M00 (Bundle-Loader), M02 (Artefaktregistrierung) und M04
+//! (Identitaetsbindung/Profilbindung) sind seit `packages/psk-contract`
+//! real (`psk_contract::boot`, dort Algorithmus 17.1 Schritt fuer Schritt
+//! nachgebaut - siehe dessen Modulkopf fuer jede Realisierungsentscheidung
+//! und ihre Begruendung), ebenso M15s
+//! `register_only_versioned_operators_and_capabilities` (Schritt 17,
+//! psk-effect) und M21s `compute_release_and_operational_posture`
+//! (Schritt 18, psk-certify, Definition 31.3). Diese Funktion ruft
+//! `psk_contract::boot` gegen den echten Workspace-Root auf: fuer ein
+//! korrekt versiegeltes Bundle (constitution.lock.json/
+//! architecture.lock.json beide deckungsgleich mit dem selbst berechneten
+//! Digest) erreicht G-BOOT hier real PASS, nicht mehr strukturell HOLD -
+//! der erste Lauf in diesem Projekt, bei dem der Bootgate tatsaechlich
+//! besteht. Der volle `psk_contract::BootReport` (Identitaetsbindung,
+//! RuntimeManifest, Releaseposture) bleibt Teil von `GoldenRunReport`,
+//! nicht nur der aggregierte `GateReport`.
 //!
 //! `seam_compatible`/`seam_report_refs` fuer G-BOOT (order 2, siehe
 //! gate_registry.yaml) folgen demselben Muster wie `psk_certify::
 //! evaluate_release_gate` fuer G-RELEASE (siehe psk-gate/evaluate.rs
 //! Modulkopf: `seam_compatible` ist ein von aussen bestimmtes Urteil, kein
 //! interner `M11.seam_report`-Aufruf, da SeamReport (Struktur 7.28) M13-
-//! zellenfoermig ist und G-BOOT keinen M13-Zellbezug hat).
+//! zellenfoermig ist und G-BOOT keinen M13-Zellbezug hat) - beides wird
+//! jetzt innerhalb von `psk_contract::boot` selbst gesetzt, siehe dort.
 
 use std::fs;
 use std::path::Path;
@@ -54,7 +54,7 @@ use psk_certify::{
 };
 use psk_closure::{glue, CapsuleRestriction, GlueOutcome};
 use psk_dependency::{dependency_quotient, QuotientInputs, RankMethod};
-use psk_effect::{execute_effect, issue as issue_token, IssueInputs, TokenLedger};
+use psk_effect::{issue as issue_token, IssueInputs, TokenLedger};
 use psk_fields::{register_field, route_lens, LensOutcome, ProjectionInputs};
 use psk_gate::{authorize, evaluate_gate, ConditionOutcome, GateAuthorization, GateInputs};
 use psk_reconciliation::{reconcile, DiffOutcome, ReconcileInputs};
@@ -67,12 +67,15 @@ use psk_types::objects::{
     EffectTokenRollbackKind, EventTypeId, ExternalReceipt, FeatureCoverageId, FieldIdentity,
     FieldProjection, GateId, IRNodeId, Lineage, M13Address, MachineCertificate,
     MachineCertificateReplayClassKind, ModelRef, ObligationExpr, Observation, OpId, PredicateExpr,
-    QuestionSpec, RealityClassification, RealityClassificationReachabilityKind, RealityStatus,
-    ReasonCode, ReceiptSpec, ReconciliationReport, ReplayDescriptor, RollbackSpec, ScopeExpr,
-    ScopeSpec, SortId, SourceRef, ThoughtBody, TickId, TimeWindow, TrajectoryRef, UncertaintyBlock,
-    UncertaintyModelId, Validity, WitnessPolicy,
+    ProfileId, QuestionSpec, RealityClassification, RealityClassificationReachabilityKind,
+    RealityStatus, ReasonCode, ReceiptSpec, ReconciliationReport, ReplayDescriptor, RollbackSpec,
+    ScopeExpr, ScopeSpec, SortId, SourceRef, ThoughtBody, TickId, TimeWindow, TrajectoryRef,
+    UncertaintyBlock, UncertaintyModelId, Validity, WitnessPolicy,
 };
-use psk_types::{ClockRef, Digest, DualTime, ModuleId, ObjectId, PskError, RunId, TraceRef};
+use psk_types::{
+    ClockRef, Digest, DualTime, MessageType, ModuleId, Msg, ObjectId, PortId, PskError, RunId,
+    SchemaId, TraceRef, Ulid,
+};
 
 /// Deterministische Laufzeit (Definition 24.2: "erwartetem kanonischen
 /// Zustandsdigest" - Replaystabilitaet verlangt eine feste, nicht eine
@@ -93,7 +96,13 @@ fn run_time() -> DualTime {
 /// Eigenschaft EINES Laufs, sondern eines VERGLEICHS zweier Laeufe - siehe
 /// `run_golden_run_with_certificate`.
 pub struct GoldenRunReport {
+    /// Der aggregierte G-BOOT-`GateReport` - fuer ein korrekt versiegeltes
+    /// Bundle real `PASS` (siehe Modulkopf). Extrahiert aus `boot_report`
+    /// fuer Rueckwaertskompatibilitaet mit bestehenden Assertions.
     pub boot_gate: psk_types::objects::GateReport,
+    /// Der vollstaendige `psk_contract::boot()`-Ergebnistyp - Identitaets-
+    /// bindung, RuntimeManifest, Releaseposture, FSM-Zustand.
+    pub boot_report: psk_contract::BootReport,
     pub anchor: AnchorSnapshot,
     pub thought: ThoughtBody,
     pub reality: RealityClassification,
@@ -109,8 +118,8 @@ pub struct GoldenRunReport {
     pub trace_head: Digest,
     /// Anzahl der waehrend dieses Laufs residualisierten Gate-Entscheidungen
     /// (T-RES-001/Algorithmus 18.6: jede Nicht-PASS-Entscheidung MUSS
-    /// residualisiert werden). `boot_gate`s HOLD allein sollte hierin schon
-    /// mindestens 1 ergeben.
+    /// residualisiert werden). Bei einem PASS-Bootgate kann das durchaus 0
+    /// sein - siehe die beiden golden_run-Tests (PASS- und HOLD-Fall).
     pub residues_opened: usize,
 }
 
@@ -122,6 +131,14 @@ pub struct GoldenRunCertification {
     pub replay_check: psk_trace::ReplayCheck,
     pub replay_manifest: psk_types::objects::ReplayManifest,
     pub certificate: MachineCertificate,
+    /// Laufzeit NUR des ersten Laufs (`first`), getrennt von der
+    /// Gesamtlaufzeit der Zertifizierung (die zusaetzlich den zweiten,
+    /// nur der Replaypruefung dienenden Lauf einschliesst). Aufrufer, die
+    /// "wie lange dauert EIN Validierungslauf" messen wollen (z.B.
+    /// `baselines::comparison`, das dieselbe Groesse gegen einzelne
+    /// Baseline-Laeufe stellt), brauchen diese Zahl statt der Gesamtzeit -
+    /// sonst waere der Vergleich 2 Kern-Laeufe gegen 1 Baseline-Lauf.
+    pub first_run_wall_clock: std::time::Duration,
 }
 
 fn record(
@@ -143,77 +160,29 @@ fn record(
     Ok(TraceRef(seg.segment_digest))
 }
 
-/// Schritt 1. Siehe Modulkopf fuer die Realisierungsgrenze.
-fn boot_gate(
+/// Schritt 1. Siehe Modulkopf - ruft jetzt den vollstaendigen, realen
+/// `psk_contract::boot()` (Algorithmus 17.1, alle 21 Schritte) gegen den
+/// echten Workspace-Root auf. `store_root` ist bewusst NICHT
+/// `workspace_root`: Struktur 16.7s Store-Lock gehoert zu einer eigenen,
+/// veraenderlichen Laufzeitablage, nicht zum (weitgehend gelesenen)
+/// Bundle - siehe `psk_contract::BootInputs`s Modulkopf. Der Sandbox-Root
+/// ist bereits ein pro-Lauf eindeutiger Pfad und dient hier zugleich als
+/// Store-Root.
+fn run_boot(
     workspace_root: &Path,
+    store_root: &Path,
     trace_ref: TraceRef,
     trace: &mut TraceStore,
     residues: &mut ResidueLedger,
-) -> Result<psk_types::objects::GateReport, PskError> {
-    let constitution_condition =
-        match fs::read_to_string(workspace_root.join("constitution/constitution.lock.json")) {
-            Ok(text) => match serde_json::from_str::<serde_json::Value>(&text) {
-                Ok(v) => match v.get("constitution_id").and_then(|c| c.as_str()) {
-                    Some(s) if !s.is_empty() => ConditionOutcome::True,
-                    _ => {
-                        ConditionOutcome::Undecidable(ReasonCode("constitution-not-sealed".into()))
-                    }
-                },
-                Err(_) => {
-                    ConditionOutcome::Undecidable(ReasonCode("constitution-lock-unreadable".into()))
-                }
-            },
-            Err(_) => ConditionOutcome::Undecidable(ReasonCode("constitution-lock-missing".into())),
-        };
-    let architecture_condition =
-        match fs::read_to_string(workspace_root.join("architecture/architecture.lock.json")) {
-            Ok(text) => match serde_json::from_str::<serde_json::Value>(&text) {
-                Ok(v) => match v.get("architecture_id").and_then(|c| c.as_str()) {
-                    Some(s) if !s.is_empty() => ConditionOutcome::True,
-                    _ => {
-                        ConditionOutcome::Undecidable(ReasonCode("architecture-not-sealed".into()))
-                    }
-                },
-                Err(_) => {
-                    ConditionOutcome::Undecidable(ReasonCode("architecture-lock-unreadable".into()))
-                }
-            },
-            Err(_) => ConditionOutcome::Undecidable(ReasonCode("architecture-lock-missing".into())),
-        };
-    let topology_condition = if psk_topology::nodes().len() == 13
-        && psk_topology::edges().len() == 30
-        && psk_topology::cells().len() == 18
-    {
-        ConditionOutcome::True
-    } else {
-        // Invariante 9.5 verletzt waere ein Programmierfehler im generierten
-        // Register, kein Laufzeitzustand - echtes False, nicht Undecidable.
-        ConditionOutcome::False(ReasonCode("m13-cardinality-violated".into()))
-    };
-    let reference_impl_condition = ConditionOutcome::Undecidable(ReasonCode(
-        "M00/M02/M04 (Bundle-Loader, Artefaktregistrierung, Identitaetsbindung) und M21-Betriebsposture/M26-Recovery sind in dieser Referenzimplementierung noch nicht realisiert (Regel 32.2)".into(),
-    ));
-
-    evaluate_gate(
-        GateInputs {
-            gate_id: GateId::GBoot,
-            order: 2,
-            input_digests: vec![Digest::sha256(b"golden-run-boot")],
-            conditions: vec![
-                constitution_condition,
-                architecture_condition,
-                topology_condition,
-                reference_impl_condition,
-            ],
-            seam_compatible: Some(true),
-            evidence_refs: vec![],
-            seam_report_refs: vec![ObjectId::new(
-                SortId::Trace,
-                Digest::sha256(b"boot-closure"),
-            )],
-            replay_descriptor: ReplayDescriptor("golden-run/1".into()),
-            decided_at: run_time(),
+) -> Result<psk_contract::BootReport, PskError> {
+    psk_contract::boot(
+        psk_contract::BootInputs {
+            bundle_root: workspace_root.to_path_buf(),
+            store_root: store_root.to_path_buf(),
+            profile: ProfileId::Reference,
+            bound_at: run_time(),
             trace_ref,
+            replay_descriptor: ReplayDescriptor("golden-run/1".into()),
         },
         trace,
         residues,
@@ -447,6 +416,13 @@ fn evaluate_patch_gate(
 }
 
 /// Schritte 9-10: EffectToken ausstellen, Patch in der Sandbox ausfuehren.
+/// Schritte 9-10, P22/P23 (v1.0.13/P24a): EffectToken/EffectAttempt ueber
+/// eine echte, von M26 gespawnte Prozessgrenze - dasselbe Muster wie
+/// `observe_and_receipt` bei P24. Die Kernel-Buchfuehrung
+/// (Ablauf-/Einmaligkeitspruefung, `TokenLedger`) bleibt lokal: sie ist
+/// eine Kernprozess-Zustaendigkeit, kein Adapterverhalten (siehe
+/// `psk_effect::process_protocol`s Modulkopf) - nur `adapter.apply`
+/// selbst (der tatsaechliche Dateizugriff) wandert in den Effektprozess.
 fn issue_and_execute(
     patch_gate: &psk_types::objects::GateReport,
     sandbox_root: &Path,
@@ -478,52 +454,95 @@ fn issue_and_execute(
 
     let mut ledger = TokenLedger::new();
     ledger.register(&token);
-    let adapter = effect_local_fs::LocalFsAdapter {
-        sandbox_root: sandbox_root.to_path_buf(),
+    psk_effect::check_not_expired(&token, run_time().tau_i)?;
+    ledger.consume_once(&token.idempotency_key)?;
+
+    let exe = psk_lifecycle::sibling_binary_path("effect-local-fs")?;
+    let mut child = psk_lifecycle::ChildProcess::spawn(
+        &exe,
+        &[sandbox_root.to_str().ok_or(PskError::UntypedInput)?],
+    )?;
+
+    let apply_payload = serde_json::to_vec(&psk_effect::EffectApplyRequest {
+        token: token.clone(),
+        started_at: run_time(),
+    })
+    .map_err(|_| PskError::CanonicalizationFailed)?;
+    let request = Msg {
+        msg_id: Ulid(1),
+        port_id: psk_types::PortId::P22,
+        r#type: MessageType::Request,
+        schema_id: SchemaId(psk_effect::SCHEMA_APPLY_REQUEST.to_string()),
+        producer: ModuleId::EffectTokenService,
+        consumer: ModuleId::EffectBoundary,
+        run_id: RunId("golden-run".into()),
+        seq: 1,
+        input_digests: vec![],
+        created_at: run_time(),
+        trace_parent: TraceRef(Digest::sha256(b"golden-run-apply-request")),
+        payload_digest: Digest::sha256(&apply_payload),
+        payload: apply_payload,
+        signature: None,
     };
-    let attempt = execute_effect(&mut ledger, &token, run_time().tau_i, run_time(), &adapter)?;
+    let response = child.request(&request)?;
+    let attempt: EffectAttempt =
+        serde_json::from_slice(&response.payload).map_err(|_| PskError::CanonicalizationFailed)?;
+    child.shutdown()?;
+
     let _ = trace_ref;
     Ok((auth, attempt))
 }
 
 /// Schritt 11: unabhaengiger Beobachter liest den Dateibaum; ExternalReceipt
-/// (P24-Grenze, `psk_anchor::ingress_p24`) entsteht daraus.
+/// (P24-Grenze) entsteht daraus.
+///
+/// P24a/P24b (v1.0.13): der Beobachter laeuft jetzt als echter, von M26
+/// (`psk_lifecycle::process`) gespawnter Kindprozess - nicht mehr
+/// in-process simuliert. Die Herkunftsbeglaubigung (Vertrag
+/// Herkunftsbeglaubigung an der Prozessgrenze) ist die exklusive Pipe zu
+/// genau diesem Kind (`ChildProcess::request`s privates `stdout`-Feld),
+/// nicht mehr ein Vergleich zweier hartkodierter `ProcessIdentity`-Werte -
+/// siehe `psk_anchor::ingress_p24_via_exclusive_pipe`s Modulkopf.
 fn observe_and_receipt(
     sandbox_root: &Path,
     trace_ref: TraceRef,
 ) -> Result<ExternalReceipt, PskError> {
     let _ = trace_ref;
-    let config = observer_local_fs::ObserverConfig::new(sandbox_root);
-    let record =
-        observer_local_fs::observe(&config, run_time()).map_err(|_| PskError::MissingAnchor)?;
-    let record_bytes = serde_json::to_vec(&serde_json::json!({
-        "file_count": record.file_hashes.len(),
-        "observed_at": record.observed_at.tau_i,
-    }))
-    .map_err(|_| PskError::CanonicalizationFailed)?;
+    let exe = psk_lifecycle::sibling_binary_path("observer-local-fs")?;
+    let mut child = psk_lifecycle::ChildProcess::spawn(
+        &exe,
+        &[sandbox_root.to_str().ok_or(PskError::UntypedInput)?],
+    )?;
 
-    // Auf der Beobachterseite entsteht zuerst ein echtes ExternalReceipt
-    // (`build_receipt`, Struktur 7.34: `result_digest = H(Can(record))`).
-    // Erst DAS wird serialisiert und ueberquert die P24-Prozessgrenze - die
-    // eingehenden Bytes bei `ingress_p24` sind ein vollstaendiges
-    // ExternalReceipt, keine Rohbeobachtung.
-    let receipt = psk_anchor::build_receipt(psk_anchor::ObservationInputs {
-        observer_adapter: psk_types::objects::AdapterId("observer-local-fs".into()),
-        observer_identity: Digest::sha256(b"golden-run-observer"),
+    let request_payload = serde_json::to_vec(&psk_anchor::ObserveReceiptRequest {
         observed_at: run_time(),
-        record: record_bytes,
+        observer_identity: Digest::sha256(b"golden-run-observer"),
         provenance: psk_types::objects::ProvenanceBlock("golden-run-provenance/1".into()),
         independence_attestation: Digest::sha256(b"golden-run-independent-observer"),
-    })?;
-    let raw = serde_json::to_vec(&receipt).map_err(|_| PskError::CanonicalizationFailed)?;
+    })
+    .map_err(|_| PskError::CanonicalizationFailed)?;
 
-    // P24: Herkunftsbeglaubigung an der Prozessgrenze (Vertrag 20.2) - die
-    // Identitaetspruefung laeuft VOR der Deserialisierung, siehe
-    // psk_anchor::receipt::ingress_p24.
-    let claimed_origin = psk_anchor::ProcessIdentity::Namespace(1);
-    let registered =
-        psk_anchor::RegisteredObserverIdentity(psk_anchor::ProcessIdentity::Namespace(1));
-    psk_anchor::ingress_p24(&raw, claimed_origin, registered)
+    let request = Msg {
+        msg_id: Ulid(1),
+        port_id: PortId::P24,
+        r#type: MessageType::Request,
+        schema_id: SchemaId(psk_anchor::SCHEMA_RECEIPT_REQUEST.to_string()),
+        producer: ModuleId::ReconciliationEngine,
+        consumer: ModuleId::ExternalRecordIngress,
+        run_id: RunId("golden-run".into()),
+        seq: 1,
+        input_digests: vec![],
+        created_at: run_time(),
+        trace_parent: TraceRef(Digest::sha256(b"golden-run-observe-request")),
+        payload_digest: Digest::sha256(&request_payload),
+        payload: request_payload,
+        signature: None,
+    };
+
+    let response = child.request(&request)?;
+    let receipt = psk_anchor::ingress_p24_via_exclusive_pipe(&response.payload);
+    child.shutdown()?;
+    receipt
 }
 
 /// Schritt 12: Reconciliation.
@@ -615,7 +634,14 @@ pub fn run_golden_run(
     let mut residues = ResidueLedger::new();
     let genesis_ref = TraceRef(trace.head());
 
-    let boot_gate = boot_gate(workspace_root, genesis_ref, &mut trace, &mut residues)?;
+    let boot_report = run_boot(
+        workspace_root,
+        sandbox_root,
+        genesis_ref,
+        &mut trace,
+        &mut residues,
+    )?;
+    let boot_gate = boot_report.gate_report.clone();
     let after_boot = record(
         &mut trace,
         "boot.gate.evaluated",
@@ -731,6 +757,7 @@ pub fn run_golden_run(
 
     Ok(GoldenRunReport {
         boot_gate,
+        boot_report,
         anchor,
         thought,
         reality,
@@ -768,7 +795,9 @@ pub fn run_golden_run_with_certificate(
     // haetten. Der Reset selbst ist deshalb Teil des Testaufbaus, nicht des
     // gemessenen Laufs.
     let _ = fs::remove_dir_all(sandbox_root);
+    let first_start = std::time::Instant::now();
     let first = run_golden_run(workspace_root, sandbox_root)?;
+    let first_run_wall_clock = first_start.elapsed();
     let artifact_path = sandbox_root.join("golden-run-patch.txt");
     let first_artifact = fs::read(&artifact_path).map_err(|_| PskError::TraceOrResidueViolation)?;
 
@@ -860,6 +889,7 @@ pub fn run_golden_run_with_certificate(
         replay_check: check,
         replay_manifest,
         certificate,
+        first_run_wall_clock,
     })
 }
 
@@ -877,6 +907,20 @@ mod tests {
         }
     }
 
+    fn copy_dir_all(src: &Path, dst: &Path) {
+        fs::create_dir_all(dst).unwrap();
+        for entry in fs::read_dir(src).unwrap() {
+            let entry = entry.unwrap();
+            let ty = entry.file_type().unwrap();
+            let dest_path = dst.join(entry.file_name());
+            if ty.is_dir() {
+                copy_dir_all(&entry.path(), &dest_path);
+            } else {
+                fs::copy(entry.path(), &dest_path).unwrap();
+            }
+        }
+    }
+
     #[test]
     fn golden_run_completes_steps_1_through_12_against_a_real_sandbox() {
         let root = workspace_root();
@@ -885,21 +929,32 @@ mod tests {
 
         let report = run_golden_run(&root, &sandbox).expect("golden run sollte durchlaufen");
 
-        // Schritt 1: real HOLD, nicht PASS - siehe Modulkopf. Ein PASS hier
-        // waere ein Zeichen, dass dieser Test versehentlich Bedingungen
-        // erfunden hat statt den echten M00/M02/M04-Stub-Zustand zu melden.
+        // Schritt 19: fuer ein korrekt versiegeltes, deckungsgleiches Bundle
+        // (der echte Workspace-Root) erreicht G-BOOT jetzt real PASS - der
+        // erste Lauf im Projekt, bei dem der Bootgate wirklich besteht statt
+        // strukturell zu HOLDen (psk_contract::boot, siehe golden_run.rs
+        // Modulkopf). Ein HOLD hier waere jetzt das Alarmsignal: es wuerde
+        // heissen, die reale Pruefung erkennt den eigenen, korrekt
+        // versiegelten Workspace nicht mehr als konform.
         assert_eq!(
             report.boot_gate.decision,
-            psk_types::objects::GateReportDecisionKind::Hold
+            psk_types::objects::GateReportDecisionKind::Pass
         );
         assert_eq!(report.boot_gate.gate_id, GateId::GBoot);
-        // T-RES-001/Algorithmus 18.6: die Bootgate-HOLD-Entscheidung MUSS
-        // ein ResidueRecord erzeugt haben - vor der Behebung war das nicht
-        // der Fall (0 residualisierte Nicht-PASS-Entscheidungen trotz
-        // echtem HOLD).
-        assert!(
-            report.residues_opened >= 1,
-            "boot_gate HOLDet real, muss also mindestens ein Residuum erzeugt haben"
+        assert_eq!(report.boot_report.state, psk_lifecycle::RuntimeState::Bound);
+        assert_eq!(
+            report.boot_report.posture,
+            psk_types::objects::Releaseposture::ConformantLimited
+        );
+        // T-RES-001/Algorithmus 18.6: da sowohl Bootgate als auch spaeter
+        // Patchgate (G-EFFECT) in diesem Szenario PASS erreichen, entsteht
+        // hier - richtigerweise - kein einziges Residuum. Siehe die
+        // Schwesterdatei psk-contract/src/boot.rs fuer den expliziten
+        // HOLD-Fall (unversiegeltes Bundle), der weiterhin mindestens ein
+        // Residuum erzeugt.
+        assert_eq!(
+            report.residues_opened, 0,
+            "ein vollstaendig PASSender Lauf darf nichts residualisieren"
         );
 
         assert!(report.anchor.sealed);
@@ -935,6 +990,53 @@ mod tests {
         assert_ne!(report.trace_head, psk_trace::GENESIS_DIGEST);
 
         fs::remove_dir_all(&sandbox).ok();
+    }
+
+    #[test]
+    fn boot_still_holds_for_a_bundle_whose_constitution_is_not_yet_sealed() {
+        // Regel 17.2s undecidable->hold-Pfad darf durch die M00/M02/M04-
+        // Realisierung nicht verschwinden - nur der DEFAULT-Fall (echter,
+        // versiegelter Workspace) aendert sich von HOLD auf PASS. Diese
+        // Kopie versiegelt eine echte, real schemakonforme Architektur,
+        // aber eine Konstitution ohne constitution_id - "noch nicht
+        // versiegelt", keine Digest-Divergenz.
+        let root = workspace_root();
+        let dir =
+            std::env::temp_dir().join(format!("psk-golden-run-unsealed-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        copy_dir_all(&root.join("architecture"), &dir.join("architecture"));
+        fs::create_dir_all(dir.join("constitution")).unwrap();
+        fs::write(
+            dir.join("constitution/constitution.lock.json"),
+            r#"{"constitution_id": null, "normative_files": []}"#,
+        )
+        .unwrap();
+        // implementation_id() braucht irgendein lesbares Cargo.lock unter
+        // bundle_root - Inhalt ist fuer diesen Test irrelevant, nur die
+        // Lesbarkeit.
+        fs::write(dir.join("Cargo.lock"), b"fake-lock-for-test").unwrap();
+
+        let mut trace = TraceStore::new();
+        let mut residues = ResidueLedger::new();
+        let trace_ref = TraceRef(trace.head());
+        let report = run_boot(&dir, &dir, trace_ref, &mut trace, &mut residues)
+            .expect("ein unversiegeltes, aber lesbares Bundle ist HOLD, kein harter Fehler");
+
+        assert_eq!(
+            report.gate_report.decision,
+            psk_types::objects::GateReportDecisionKind::Hold
+        );
+        assert_eq!(
+            report.state,
+            psk_lifecycle::RuntimeState::Booting,
+            "ohne PASS bleibt der FSM-Zustand BOOTING, nicht BOUND"
+        );
+        assert!(
+            !residues.all().is_empty(),
+            "die HOLD-Entscheidung muss weiterhin residualisiert werden (T-RES-001)"
+        );
+
+        fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

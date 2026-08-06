@@ -157,3 +157,27 @@ closed_vocabularies:
       die Ordnung vollstaendig vor. Als freie Zeichenkette generiert waere
       jede andere Sortierung typkonform gewesen."
     values: [by_information_gain_per_cost]
+  - id: Releaseposture
+    source: "Definition 31.3 (Releaseposture): 'Release in { REJECTED,
+      QUARANTINED, CONFORMANT_LIMITED, CONFORMANT_REFERENCE,
+      EXTERNALLY_VALIDATED }.'"
+    note: "Bootschritt 18 (Algorithmus 17.1), M21.compute_release_and_operational_posture().
+      Gefunden waehrend der M00/M02/M04-Boot-Realisierung: Kapitel 31 legt
+      diese Menge formal fest, aber object_schemas.yaml fuehrte bis hierher
+      keinen Objekttyp, der sie als Feld traegt - ohne diesen Eintrag waere
+      jeder Rueckgabewert von compute_release_and_operational_posture ein
+      freier String gewesen, fuer eine Menge, die das Werk selbst 'in {...}'
+      (abschliessend) schreibt, unzulaessig. Regel 31.1 (12 blockierende
+      Bedingungen) und Vertrag 31.4 (verified-Praedikat, sieben gemeinsam
+      vorliegende Pflichtberichte) beschreiben die VOLLE Release-Pruefung;
+      zur Bootzeit sind davon nur die Bootartefakte selbst pruefbar
+      (constitution/architecture versiegelt+deckungsgleich, Architekturschemas
+      konform, Identitaet gebunden) - Replaymanifest, Negativtestbericht,
+      Capability Audit, Refinementbericht und SBOM entstehen erst durch
+      einen tatsaechlichen Lauf bzw. Release und liegen bei boot() strukturell
+      noch nicht vor. compute_release_and_operational_posture() bildet deshalb
+      nur REJECTED/QUARANTINED/CONFORMANT_LIMITED auf Bootbasis ab;
+      CONFORMANT_REFERENCE (Vertrag 31.4 verified) und EXTERNALLY_VALIDATED
+      (C5) bleiben dem spaeteren, vollstaendigen Release-Pfad vorbehalten
+      (psk_certify::evaluate_release_gate/issue_certificate, WP15)."
+    values: [REJECTED, QUARANTINED, CONFORMANT_LIMITED, CONFORMANT_REFERENCE, EXTERNALLY_VALIDATED]

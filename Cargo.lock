@@ -155,6 +155,7 @@ version = "0.0.0"
 dependencies = [
  "psk-codegen",
  "psk-effect",
+ "psk-ipc",
  "psk-types",
 ]
 
@@ -715,6 +716,7 @@ version = "0.0.0"
 dependencies = [
  "psk-anchor",
  "psk-codegen",
+ "psk-ipc",
  "psk-types",
 ]
 
@@ -801,6 +803,7 @@ dependencies = [
  "psk-canon",
  "psk-codegen",
  "psk-types",
+ "serde",
  "serde_json",
 ]
 
@@ -870,10 +873,12 @@ dependencies = [
  "psk-certify",
  "psk-closure",
  "psk-codegen",
+ "psk-contract",
  "psk-dependency",
  "psk-effect",
  "psk-fields",
  "psk-gate",
+ "psk-lifecycle",
  "psk-reconciliation",
  "psk-thought",
  "psk-topology",
@@ -890,8 +895,17 @@ dependencies = [
 name = "psk-contract"
 version = "0.0.0"
 dependencies = [
+ "psk-canon",
+ "psk-certify",
  "psk-codegen",
+ "psk-effect",
+ "psk-gate",
+ "psk-lifecycle",
+ "psk-topology",
+ "psk-trace",
  "psk-types",
+ "verify-architecture",
+ "verify-bundle",
 ]
 
 [[package]]
@@ -912,6 +926,7 @@ dependencies = [
  "psk-codegen",
  "psk-gate",
  "psk-types",
+ "serde",
  "serde_json",
 ]
 
@@ -941,6 +956,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "psk-ipc"
+version = "0.0.0"
+dependencies = [
+ "psk-types",
+ "serde_json",
+]
+
+[[package]]
 name = "psk-ir"
 version = "0.0.0"
 dependencies = [
@@ -954,8 +977,12 @@ dependencies = [
 name = "psk-lifecycle"
 version = "0.0.0"
 dependencies = [
+ "psk-anchor",
  "psk-codegen",
+ "psk-effect",
+ "psk-ipc",
  "psk-types",
+ "serde_json",
 ]
 
 [[package]]
@@ -1023,6 +1050,7 @@ version = "0.0.0"
 dependencies = [
  "psk-codegen",
  "serde",
+ "serde_json",
  "sha2",
 ]
 

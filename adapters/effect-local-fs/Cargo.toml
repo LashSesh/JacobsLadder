@@ -5,9 +5,14 @@ edition.workspace = true
 rust-version.workspace = true
 publish = false
 
+[[bin]]
+name = "effect-local-fs"
+path = "src/main.rs"
+
 [dependencies]
 psk-types = { path = "../../packages/psk-types" }
 psk-effect = { path = "../../packages/psk-effect" }
+psk-ipc = { path = "../../packages/psk-ipc" }
 
 [build-dependencies]
 psk-codegen = { path = "../../tools/psk-codegen" }

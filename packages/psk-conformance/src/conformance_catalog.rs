@@ -28,6 +28,16 @@
 //!   NICHT ausgefuehrt (rustdoc extrahiert Doctests nur aus item-Doc-
 //!   Kommentaren auf tatsaechlich oeffentlichen, nicht testgated Items);
 //!   der Beweis gehoert deshalb an den Typ selbst, nicht hierher.
+//! - T-RES-001 (drop_nonpass_artifact -> FAIL): behoben und real getestet
+//!   in `psk-gate/src/evaluate.rs::tests` (`every_evaluation_appends_to_
+//!   trace_regardless_of_decision`, `non_pass_decisions_residualize`,
+//!   `pass_decisions_do_not_residualize`,
+//!   `residue_origin_module_is_derived_from_the_gates_registered_owner`).
+//!   `evaluate_gate` ruft seither selbst `M19.append`/`M19.residualize`
+//!   (Algorithmus 18.6) - urspruenglich hier unter (c) als Befund
+//!   dokumentiert, dann auf explizite Anweisung behoben statt nur
+//!   geflaggt; dieser Eintrag verschoben, statt die Vorfix-Begruendung
+//!   stehen zu lassen.
 //!
 //! ## (c) Derzeit nicht realisierbar (Befund, mit Begruendung)
 //! - T-ARCH-002 (zyklische Modulabhaengigkeit -> build_fail) und
@@ -38,9 +48,21 @@
 //!   Crates ausdrueckbar, ohne einen absichtlich kaputten Geschwister-
 //!   Workspace anzulegen - ausserhalb des Umfangs dieser Datei.
 //! - T-SEC-001 (Adapter schreibt ausserhalb des Tokenscopes ->
-//!   substratblockiert): verlangt echte Substraterzwingung (Vertrag 20.2);
-//!   dokumentierte Luecke seit WP12 (siehe psk-effect/src/boundary.rs
-//!   Modulkopf), kein OS-Mechanismus dafuer implementiert.
+//!   substratblockiert): verlangt echte Substraterzwingung (Vertrag
+//!   Capability-Erzwingung); dokumentierte Luecke seit WP12 (siehe
+//!   psk-effect/src/boundary.rs Modulkopf). Seit P24a praezisiert, nicht
+//!   geschlossen: `effect-local-fs` laeuft jetzt als echter, von M26
+//!   gespawnter Kindprozess, aber `LocalFsAdapter::apply` bildet
+//!   `sandbox_root.join(&token.scope.0)` weiterhin in Anwendungscode -
+//!   kein Chroot, keine ACL, kein Namespace/AppContainer begrenzt, WAS
+//!   dieser Prozess tatsaechlich schreiben darf. P24a loeste
+//!   Kommunikationsisolation (die exklusive Pipe, siehe
+//!   `psk_anchor::ingress_p24_via_exclusive_pipe`), nicht
+//!   Dateisystemisolation - das ist ein anderer Blocker, nicht derselbe
+//!   unter neuem Namen. Identisch mit OBL-010s offener Anforderung
+//!   (`architecture/obligations.yaml`: getrennte Benutzerkontexte/
+//!   Namespaces, blocking ab C4) - dieselbe Substratmassnahme wuerde
+//!   beides zugleich schliessen.
 //! - T-CONC-001 (nebenlaeufiger Stresstest) und T-OBSV-001 (mit/ohne
 //!   Profiling identischer Digest): beide verlangen Infrastruktur, die
 //!   nicht existiert - einen nebenlaeufigen Ausfuehrungsharness bzw. einen
@@ -87,22 +109,6 @@
 //!   fuer alle 27 - ein Sealing pro Objekt waere ein eigenes, groesseres
 //!   Vorhaben, hier nicht unternommen ohne explizite Freigabe. FAIL_PSK_E014
 //!   hat deshalb keinen Code-Pfad, der ihn tatsaechlich erzeugt.
-//! - T-RES-001 (drop_nonpass_artifact -> FAIL): Algorithmus 18.6 (Gate-
-//!   Auswertung) schreibt woertlich vor: "M19.append(report) // ueber P33,
-//!   synchron" und "if decision != PASS: M19.residualize(report)" als Teil
-//!   VON `evaluate_gate` selbst. `psk_gate::evaluate_gate` (psk-gate/src/
-//!   evaluate.rs) haengt nicht von psk-trace ab und tut keins von beidem -
-//!   bestaetigt durch direkte Pruefung: weder psk-fields::morphogenesis
-//!   noch psk-certify::certify (die einzigen Aufrufer ausser diesem Modul)
-//!   residualisieren einen HOLD/FAIL-GateReport nach dem Aufruf. Dieser
-//!   Golden Run zeigt das Symptom direkt: `boot_gate`s echtes HOLD
-//!   ueberlebt nur im TraceStore (per `record()`), nie als ResidueRecord.
-//!   Das ist eine echte Luecke gegenueber dem Algorithmus, nicht nur
-//!   gegenueber `M11.seam_report` (das bereits bewusst als Parameter
-//!   modelliert ist, siehe psk-gate/evaluate.rs Modulkopf) - eine Behebung
-//!   wuerde `evaluate_gate`s Signatur aendern (z.B. `&mut ResidueLedger`
-//!   aufnehmen) und alle drei Aufrufer anpassen; nicht unternommen ohne
-//!   Ruecksprache, da der Eingriff ueber diese Datei hinausreicht.
 
 #[cfg(test)]
 mod tests {

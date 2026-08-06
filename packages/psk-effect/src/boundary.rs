@@ -1,7 +1,7 @@
 //! M16 EffectBoundary (Kapitel 20).
 //!
 //! Definition 20.1 (Effektgrenze): "M16 ist die einzige Komponente mit
-//! ausgehenden Substratrechten." Schnittstelle 20.4 (Adapter) - `trait
+//! ausgehenden Substratrechten." Schnittstelle 20.5 (Adapter) - `trait
 //! EffectAdapter` fuehrt absichtlich KEINE `observe()`/`read_result()`/
 //! `confirm()`-Methoden (im Text ausdruecklich "VERBOTEN" markiert): sie
 //! fehlen hier nicht aus Nachlaessigkeit, sondern weil ein Typ, der
@@ -9,7 +9,7 @@
 //! Beobachtungsfaehigkeit erhalten KANN - es gibt keine Methode, ueber die
 //! er eine liefern koennte.
 //!
-//! Invariante 20.5 (Adaptertrennung): "Keine Codeeinheit DARF zugleich
+//! Invariante 20.6 (Adaptertrennung): "Keine Codeeinheit DARF zugleich
 //! EffectAdapter und ObserverAdapter implementieren. Die beiden Adapter
 //! MUSS getrennte Prozesse, getrennte Capabilities und getrennte
 //! Identitaeten besitzen." Die getrennten Prozesse sind bereits als
@@ -44,7 +44,7 @@ use psk_types::objects::{
 };
 use psk_types::{Digest, DualTime, PskError};
 
-/// Schnittstelle 20.4, `interface EffectAdapter`. Absichtlich OHNE
+/// Schnittstelle 20.5, `interface EffectAdapter`. Absichtlich OHNE
 /// `observe`/`read_result`/`confirm` - siehe Modulkopf.
 ///
 /// `apply` nimmt `started_at` als Parameter statt es selbst zu bestimmen:
@@ -63,7 +63,7 @@ pub trait EffectAdapter {
     fn is_reversible(&self, token: &EffectToken) -> bool;
 }
 
-/// Invariante 20.3 (Kein Effekt ohne Token): "ExecuteEffect(e) = 1 =>
+/// Invariante 20.4 (Kein Effekt ohne Token): "ExecuteEffect(e) = 1 =>
 /// Gate(e) = PASS UND TokenBound(e) = 1. Ein Adapteraufruf ohne
 /// gueltiges, nicht konsumiertes, nicht abgelaufenes Token erzeugt
 /// PSK-E008, fuehrt keinen Effekt aus und schreibt ein ResidueRecord."

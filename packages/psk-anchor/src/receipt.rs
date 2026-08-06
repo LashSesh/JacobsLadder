@@ -1,6 +1,6 @@
 //! M17 ExternalRecordIngress, ExternalReceipt-Teil (Struktur 7.34, P24).
 //!
-//! Schnittstelle 20.4 (Adapter), `interface ObserverAdapter`: "strikt
+//! Schnittstelle 20.5 (Adapter), `interface ObserverAdapter`: "strikt
 //! getrennte Implementierung ... fn observe(scope: ScopeExpr) ->
 //! ExternalReceipt ... VERBOTEN: apply(), compensate()." Der Trait gehoert
 //! hier (M17/psk-anchor), nicht bei M16/psk-effect - dieselbe Trennung wie
@@ -21,27 +21,46 @@
 //! verspaetet ... Eine Herkunftspruefung allein durch Feldvergleich
 //! innerhalb des empfangenen Objekts (observer_identity etc.) ist
 //! Konvention, keine Substraterzwingung, und erfuellt diesen Vertrag
-//! nicht."
+//! nicht." v1.0.13-Praezisierung, unmittelbar anschliessend: "Eine vom
+//! annehmenden Prozess selbst erzeugte, exklusive Kommunikationsleitung zu
+//! genau dem einen von ihm erzeugten Kindprozess (M26, proc.control) ist
+//! Prozessisolation im Sinne von Vertrag Capability-Erzwingung und
+//! erfuellt diesen Vertrag, unabhaengig davon, ob Sender und Empfaenger
+//! dieselbe Betriebssystem-Benutzerkennung tragen." (OBL-010 haelt die
+//! davon unabhaengige Regel-Einzelrechnerbetrieb-Anforderung getrennter
+//! Benutzerkontexte/Namespaces separat offen, blocking ab C4.)
 //!
-//! Befund (dokumentiert, nicht stillschweigend uebergangen): dieses Werk
-//! hat noch keinen realen IPC-Transport zwischen dem Beobachterprozess
-//! (`adapters/observer-local-fs`, seit WP05 ein eigener Prozess) und M17.
-//! `ProcessIdentity` unten ist deshalb NICHT selbst gemessen (keine echte
-//! PID/UID/Namespace-Abfrage) - sie wird als bereits von der
-//! Transportschicht ermittelter Wert entgegengenommen, genau wie
-//! `Signature` bei M21 (OBL-005: domaenenabhaengige Substratmechanismen
-//! sind erklaerte, nicht hier erfundene, Groessen). Was diese
-//! Implementierung TRAEGT, ist die vom Vertrag verlangte REIHENFOLGE:
-//! `ingress_p24` nimmt `raw: &[u8]` entgegen und ruft die
-//! Identitaetspruefung strukturell VOR jeder Deserialisierung auf - es
-//! gibt keinen Codepfad, der `raw` in ein `ExternalReceipt` verwandelt,
-//! ohne vorher `verify_process_origin` bestanden zu haben.
+//! Zwei Pfade realisieren Vertrag 20.2, fuer zwei verschiedene
+//! Erzwingungsarten:
+//!
+//! - `ingress_p24` - der urspruengliche, feldbasierte Vergleich.
+//!   `ProcessIdentity` ist NICHT selbst gemessen (keine echte PID/UID/
+//!   Namespace-Abfrage) - sie wird als bereits von der Transportschicht
+//!   ermittelter Wert entgegengenommen, genau wie `Signature` bei M21
+//!   (OBL-005: domaenenabhaengige Substratmechanismen sind erklaerte,
+//!   nicht hier erfundene, Groessen). Was diese Funktion TRAEGT, ist die
+//!   vom Vertrag verlangte REIHENFOLGE: sie nimmt `raw: &[u8]` entgegen
+//!   und ruft die Identitaetspruefung strukturell VOR jeder
+//!   Deserialisierung auf - es gibt keinen Codepfad, der `raw` in ein
+//!   `ExternalReceipt` verwandelt, ohne vorher `verify_process_origin`
+//!   bestanden zu haben.
+//! - `ingress_p24_via_exclusive_pipe` - P24a/P24b, real genutzt von
+//!   `psk-conformance::golden_run`. Keine Feldwerte zu vergleichen: `raw`
+//!   MUSS bereits ueber `psk_lifecycle::process::ChildProcess::request`
+//!   eingetroffen sein, dessen `stdout`-Handle PRIVAT ist - kein anderer
+//!   Codepfad des Kernprozesses kann Bytes einspeisen, die hier ankommen.
+//!   Die Erzwingung ist damit strukturell (Rusts Sichtbarkeitsregeln),
+//!   nicht eine zur Laufzeit vergleichbare Zusicherung - genau das
+//!   erlaubt die v1.0.13-Praezisierung ausdruecklich ("unabhaengig davon,
+//!   ob Sender und Empfaenger dieselbe Betriebssystem-Benutzerkennung
+//!   tragen"). Diese Funktion deserialisiert deshalb nur noch; die
+//!   Beglaubigung ist zum Zeitpunkt ihres Aufrufs bereits geschehen.
 
 use psk_canon::{can, Media};
 use psk_types::objects::{AdapterId, ExternalReceipt, ProvenanceBlock, ScopeExpr};
 use psk_types::{Digest, DualTime, PskError};
 
-/// Schnittstelle 20.4, `interface ObserverAdapter`. Absichtlich OHNE
+/// Schnittstelle 20.5, `interface ObserverAdapter`. Absichtlich OHNE
 /// `apply`/`compensate` - derselbe Grund wie `EffectAdapter`s fehlende
 /// Beobachtungsmethoden (psk-effect::boundary): der Trait kann strukturell
 /// nicht mehr, als das Werk erlaubt.
@@ -93,6 +112,21 @@ pub fn ingress_p24(
     registered: RegisteredObserverIdentity,
 ) -> Result<ExternalReceipt, PskError> {
     verify_process_origin(claimed_origin, registered, raw)?;
+    serde_json::from_slice(raw).map_err(|_| PskError::CanonicalizationFailed)
+}
+
+/// M17, P24-Ingress ueber Pipe-Exklusivitaet (v1.0.13-Praezisierung von
+/// Vertrag Herkunftsbeglaubigung an der Prozessgrenze) - siehe Modulkopf
+/// fuer die volle Begruendung. `raw` MUSS aus
+/// `psk_lifecycle::process::ChildProcess::request`s Antwort stammen;
+/// diese Funktion selbst erzwingt das nicht (das kann sie nicht - sie hat
+/// nur die Bytes), sondern deserialisiert, was der Aufrufer bereits ueber
+/// eine strukturell exklusive Verbindung erhalten hat. Fuer C0-C3 (OBL-010:
+/// "prozessisolierte, gleichkontextige Kommunikation") ist das die
+/// vollstaendige Erfuellung des Vertrags; ab C4 verlangt OBL-010
+/// zusaetzlich getrennte Benutzerkontexte/Namespaces, die `spawn` bisher
+/// nicht herstellt.
+pub fn ingress_p24_via_exclusive_pipe(raw: &[u8]) -> Result<ExternalReceipt, PskError> {
     serde_json::from_slice(raw).map_err(|_| PskError::CanonicalizationFailed)
 }
 
@@ -190,6 +224,22 @@ mod tests {
         let registered = RegisteredObserverIdentity(ProcessIdentity::UserContext(1000));
         let parsed = ingress_p24(&raw, ProcessIdentity::UserContext(1000), registered).unwrap();
         assert_eq!(parsed.id, receipt.id);
+    }
+
+    #[test]
+    fn exclusive_pipe_ingress_parses_without_any_identity_comparison() {
+        let receipt = sample_receipt();
+        let raw = serde_json::to_vec(&receipt).unwrap();
+        let parsed = ingress_p24_via_exclusive_pipe(&raw).unwrap();
+        assert_eq!(parsed.id, receipt.id);
+    }
+
+    #[test]
+    fn exclusive_pipe_ingress_still_fails_closed_on_malformed_bytes() {
+        assert_eq!(
+            ingress_p24_via_exclusive_pipe(b"not even valid json"),
+            Err(PskError::CanonicalizationFailed)
+        );
     }
 
     #[test]

@@ -9,6 +9,10 @@
 //! WP15 (I7): `receipt` (M17 - ExternalReceipt/ObserverAdapter, Struktur
 //! 7.34; P24-Ingress nach Vertrag 20.2, Herkunftsbeglaubigung an der
 //! Prozessgrenze VOR jeder Deserialisierung).
+//!
+//! P24a (Prozesstopologie-Realisierung): `observe_protocol` - P06/P24
+//! ueber eine echte Prozessgrenze (Msg-Rahmen via psk-ipc), aufgerufen
+//! sowohl vom `observer-local-fs`-Prozess als auch aus Tests in-process.
 
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
@@ -23,6 +27,12 @@ pub use ingress::{bind_provenance, check_observer_separation};
 
 mod receipt;
 pub use receipt::{
-    build_receipt, ingress_p24, ObservationInputs, ObserverAdapter, ProcessIdentity,
-    RegisteredObserverIdentity,
+    build_receipt, ingress_p24, ingress_p24_via_exclusive_pipe, ObservationInputs, ObserverAdapter,
+    ProcessIdentity, RegisteredObserverIdentity,
+};
+
+mod observe_protocol;
+pub use observe_protocol::{
+    serve_request, ObserveReceiptRequest, ObserveRecordRequest, SCHEMA_RECEIPT_REQUEST,
+    SCHEMA_RECORD_REQUEST,
 };

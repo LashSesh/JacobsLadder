@@ -3,7 +3,7 @@ schema: psk.obligations/1.0
 # entscheidbaren Residuen: fuer die Architektur nicht blocking, fuer den
 # Release der genannten Konformitaetsklasse blocking. Jede Aufloesung
 # erfolgt hier als deklarierte, versionierte Methodenwahl mit Test.
-count: 9
+count: 10
 obligations:
   - id: OBL-001
     title: Unabhaengigkeitsrang
@@ -142,3 +142,24 @@ obligations:
     blocking_from: null
     resolution: "eigene constitution_id statt declared_ancestor_constitution_id; siehe constitution.lock.json"
     resolution_version: "I0"
+
+  # --- Nachtrag v1.0.13: Offene Implementierungsverpflichtung 20.3 ---
+  - id: OBL-010
+    title: Getrennte Benutzerkontexte oder Namespaces
+    statement: "Regel Einzelrechnerbetrieb verlangt getrennte Benutzerkontexte
+      oder Namespaces fuer Effekt- und Beobachterprozess. Ein ueber M26
+      erzeugter Kindprozess ohne zusaetzliche Rechte- oder Namespace-Trennung
+      teilt die Benutzerkennung des Kernprozesses und erfuellt diese Regel
+      DARF NICHT."
+    fixed_by_architecture:
+      isolation: "M26 (proc.control, capability_matrix.yaml) erzeugt Effekt-
+        und Beobachterprozess als exklusiv mit ihm verbundene Kindprozesse -
+        Prozessisolation im Sinne von Vertrag Capability-Erzwingung,
+        unabhaengig von der Benutzerkennung. Die v1.0.13-Praezisierung von
+        Vertrag Herkunftsbeglaubigung an der Prozessgrenze bestaetigt das
+        ausdruecklich fuer P24."
+    domain_declared: [namespace_und_rechtetrennung_pro_plattform]
+    test: null
+    blocking_from: C4
+    resolution: null
+    resolution_version: null

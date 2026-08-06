@@ -10,4 +10,7 @@ pub use golden_run::{
 
 mod conformance_catalog;
 
+pub mod baselines;
+pub use baselines::{run_baseline_comparison, BaselineComparison, BaselineMetrics};
+
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));

@@ -1,6 +1,6 @@
 //! M15 EffectTokenService (Kapitel 19).
 //!
-//! Invariante 20.3 (Kein Effekt ohne Token): "ExecuteEffect(e) = 1 =>
+//! Invariante 20.4 (Kein Effekt ohne Token): "ExecuteEffect(e) = 1 =>
 //! Gate(e) = PASS UND TokenBound(e) = 1." `issue` erzwingt die erste
 //! Haelfte jetzt auf Substratebene statt per Konvention: es nimmt eine
 //! `psk_gate::GateAuthorization` entgegen, nicht mehr den rohen
