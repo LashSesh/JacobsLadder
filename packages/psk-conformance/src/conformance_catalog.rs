@@ -38,15 +38,43 @@
 //!   dokumentiert, dann auf explizite Anweisung behoben statt nur
 //!   geflaggt; dieser Eintrag verschoben, statt die Vorfix-Begruendung
 //!   stehen zu lassen.
+//! - T-PORT-001 (direkter modulueberschreitender Aufruf ohne Port ->
+//!   build_fail): real gruen getestet in `tools/verify-dependencies`
+//!   (`the_real_package_dependencies_are_all_port_justified_or_exempt`
+//!   u.a.). Zwei Funde fuehrten hierher, beide behoben: psk-contracts drei
+//!   Paketkanten sind an `boot.rs` als Algorithmus-17.1-Schritte 8/17/18
+//!   verifiziert (Orchestratorrolle, kein Portverstoss); psk-adversarials
+//!   `split()` (kernel.rs) nahm `EvidenceObject`/`ClassId` direkt aus
+//!   psk-witness entgegen - auf explizite Anweisung durch einen
+//!   deklarierten `has_independent_evidence: bool`-Parameter ersetzt (M10/
+//!   M12 entscheiden das bereits frueher in der Pipeline), Cargo-
+//!   Abhaengigkeit vollstaendig entfernt statt eines neuen Ports.
 //!
 //! ## (c) Derzeit nicht realisierbar (Befund, mit Begruendung)
-//! - T-ARCH-002 (zyklische Modulabhaengigkeit -> build_fail) und
-//!   T-PORT-001 (direkter modulueberschreitender Aufruf ohne Port ->
-//!   build_fail): beides sind Eigenschaften des KOMPILIERZEITPUNKTS des
-//!   gesamten Workspace (Cargo verweigert zyklische Pfadabhaengigkeiten
-//!   strukturell), nicht als `#[test]`-Laufzeitassertion innerhalb EINES
-//!   Crates ausdrueckbar, ohne einen absichtlich kaputten Geschwister-
-//!   Workspace anzulegen - ausserhalb des Umfangs dieser Datei.
+//! - T-ARCH-002 (zyklische Modulabhaengigkeit -> build_fail): real
+//!   gepruedft in `tools/verify-dependencies`, aber noch nicht gruen -
+//!   die Zyklensuche legte bisher DREI Funde nacheinander frei, jeweils
+//!   erst sichtbar, nachdem der vorherige behoben war (DFS stoppt am
+//!   ersten Fund): (1) M09-M13 ueber P39 - ein Normfehler (Invariante 2.3s
+//!   invertierte Schichtungleichung), an PSK-RA v1.0.14 korrigiert, P39
+//!   als fuenfter benannter Rueckflusskanal aufgenommen. (2) M11-M22 ueber
+//!   P16/P17 - kein Rueckfluss, sondern Zusammenarbeit INNERHALB von Pass
+//!   C9 (ClosureAndGluing, `modules: [M11, M22]`); PSK-RA v1.0.15 ergaenzte
+//!   dafuer die Ausnahme "gemeinsame Passtraeger" in Invariante 2.3, siehe
+//!   `tools/verify-dependencies`s `shares_a_pass`. (3) M08-M20 ueber P31/
+//!   P32 (M20->M08 "MorphogenesisDecision", M08->M20 "SpawnRequest") -
+//!   NEU, noch offen. Anders als bei (2) existiert hier STARKE Evidenz:
+//!   `psk-fields/src/morphogenesis.rs`s Modulkopf sagt woertlich "M20
+//!   wertet das Gate aus, aber nur M08 (`registry::complete_transition`)
+//!   konstruiert das neue FieldIdentity-Objekt. decide_transition ruft
+//!   deshalb in DASSELBE MODUL zurueck" - M08 und M20 sind sogar dasselbe
+//!   Cargo-Paket (psk-fields). Strukturell derselbe Anruf/Ruecksprung-Fall
+//!   wie `psk_contract::boot()`s P00/P05 - aber weder P31 noch P32 tragen
+//!   `kind: request` in der aktuellen Quelle, und keine der vier
+//!   bestehenden Ausnahmeklassen deckt das Paar. Bewusst nicht selbst als
+//!   fuenfte Ausnahme erfunden. Siehe `tools/verify-dependencies/src/
+//!   main.rs::tests::the_real_module_graph_has_exactly_one_open_cycle_
+//!   finding_m08_m20`.
 //! - T-SEC-001 (Adapter schreibt ausserhalb des Tokenscopes ->
 //!   substratblockiert): verlangt echte Substraterzwingung (Vertrag
 //!   Capability-Erzwingung); dokumentierte Luecke seit WP12 (siehe
@@ -106,9 +134,22 @@
 //!   NAMENSKONVENTION (die Konstruktorfunktion liegt im Owner-Modul), keine
 //!   Typdurchsetzung. `GateAuthorization`s `#[non_exhaustive]`-Muster loest
 //!   das fuer EIN Objekt (psk-gate/authorization.rs), aber nicht generisch
-//!   fuer alle 27 - ein Sealing pro Objekt waere ein eigenes, groesseres
-//!   Vorhaben, hier nicht unternommen ohne explizite Freigabe. FAIL_PSK_E014
-//!   hat deshalb keinen Code-Pfad, der ihn tatsaechlich erzeugt.
+//!   fuer alle 27: es funktioniert nur, WEIL GateAuthorization ausserhalb
+//!   des Objektregisters in einem eigenen Crate liegt (object_registry.yaml
+//!   fuehrt 28 Eintraege, keiner davon GateAuthorization); die 27
+//!   kanonischen Objekte teilen sich dagegen EIN Crate (psk_types, via
+//!   psk-types/build.rs) und werden per Struct-Literal in mindestens fuenf
+//!   weiteren Crates konstruiert - Sealing dort wuerde entweder den
+//!   gesamten Workspace an jeder Konstruktionsstelle brechen oder (falls
+//!   Konstruktorfunktionen in psk_types selbst blieben) nichts durchsetzen,
+//!   da psk_types von jedem Crate gleichermassen importierbar ist. Echte
+//!   Durchsetzung braeuchte das physische Verschieben aller 27
+//!   Typdefinitionen in ihre besitzenden Crates - explizit gepruedft und
+//!   auf Anweisung NICHT unternommen: das Verhaeltnis von Aufwand zu
+//!   Gewinn steht nicht im Verhaeltnis, und nichts verschlechtert sich
+//!   gegenueber dem seit WP02 bekannten Zustand. FAIL_PSK_E014 hat deshalb
+//!   weiterhin keinen Code-Pfad, der ihn tatsaechlich erzeugt - bewusst
+//!   offen gelassen, nicht uebersehen.
 
 #[cfg(test)]
 mod tests {

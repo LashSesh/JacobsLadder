@@ -16,8 +16,8 @@
 use psk_canon::{identity_projection, object_id, Media};
 use psk_types::objects::{
     CandidateCapsule, CandidateCapsulePhaseKind as Phase, CandidateCapsuleStatusKind as Status,
-    CapsuleId, ClassId, EvidenceObject, FieldProjection, InvariantId, ReplayDescriptor, ScopeExpr,
-    SortId, SurfaceDescriptor,
+    CapsuleId, EvidenceObject, FieldProjection, InvariantId, ReplayDescriptor, ScopeExpr, SortId,
+    SurfaceDescriptor,
 };
 use psk_types::{Digest, ObjectId, PskError, TraceRef};
 
@@ -102,16 +102,24 @@ pub struct SplitResult {
 /// Axiom 12.3 (Oberflaeche erzeugt keine Invarianz): eine behauptete Rolle
 /// traegt nie von sich aus in den Kern. Deshalb wird `claimed` gegen die
 /// Evidenz geprueft und nicht uebernommen.
+///
+/// `has_independent_evidence` kommt als bereits ENTSCHIEDENER Wert herein,
+/// nicht als roher `EvidenceObject`/`ClassId`-Import aus psk-witness: M10/
+/// M12 haben diese Frage frueher in der Pipeline laengst beantwortet
+/// (`psk_witness::has_independent_evidence`, dieselbe Funktion, jetzt beim
+/// AUFRUFER statt hier). Split() ist damit eine reine Funktion ihrer
+/// deklarierten Eingaben - dasselbe Muster wie ueberall sonst im Werk fuer
+/// domaenengelieferte Werte -, kein Live-Aufruf in ein fremdes Crate
+/// (T-PORT-001-Befund, behoben statt eines neuen Ports).
 pub fn split(
     capsule: &CandidateCapsule,
     claimed: &[InvariantId],
-    evidence: &[EvidenceObject],
-    creator_class: &ClassId,
+    has_independent_evidence: bool,
 ) -> SplitResult {
     let mut invariant_core = Vec::new();
     let mut rejected = Vec::new();
     for inv in claimed {
-        if psk_witness::has_independent_evidence(evidence, creator_class) {
+        if has_independent_evidence {
             invariant_core.push(inv.clone());
         } else {
             rejected.push(inv.clone());
@@ -363,10 +371,9 @@ pub fn check_closure_state(capsule: &CandidateCapsule) -> Result<(), PskError> {
 mod tests {
     use super::*;
     use psk_types::objects::{
-        EvidenceObjectStatusKind, EvidenceObjectTypeKind, IRNodeId, LensSpec, MethodRef,
+        ClassId, EvidenceObjectStatusKind, EvidenceObjectTypeKind, IRNodeId, LensSpec, MethodRef,
         RealityStatus, ScopeSpec, SourceRef, TickId,
     };
-    use psk_witness::{make_evidence, EvidenceInputs};
 
     fn projection(id: &str) -> FieldProjection {
         FieldProjection {
@@ -400,19 +407,28 @@ mod tests {
         capsulate(&[projection("p1")], inputs(next)).unwrap()
     }
 
+    /// Direktes Struct-Literal statt `psk_witness::make_evidence`: die
+    /// echte, kanonische Identitaet (die `make_evidence` berechnet) spielt
+    /// fuer diese Tests keine Rolle - weder `split()` (nimmt seit dem
+    /// T-PORT-001-Fix gar kein `EvidenceObject` mehr entgegen) noch
+    /// `effective_rank_of` (liest nur `independence_class`) pruefen `id`/
+    /// `hash`. Ein Platzhalterdigest genuegt, ohne die psk-witness-
+    /// Abhaengigkeit fuer einen einzigen Testwert zu behalten.
     fn evidence(class: &str) -> EvidenceObject {
-        make_evidence(EvidenceInputs {
+        EvidenceObject {
+            schema: "psk.evidence/1.0".into(),
+            id: ObjectId::new(SortId::Witness, Digest::sha256(class.as_bytes())),
             r#type: EvidenceObjectTypeKind::Measurement,
             scope: ScopeExpr("s".into()),
             input: vec![Digest::sha256(b"i")],
             output: Digest::sha256(b"o"),
             method: MethodRef("m".into()),
             trace_ref: TraceRef(Digest::sha256(b"t")),
+            hash: Digest::sha256(class.as_bytes()),
             signature: None,
             status: EvidenceObjectStatusKind::Valid,
             independence_class: ClassId(class.into()),
-        })
-        .unwrap()
+        }
     }
 
     #[test]
@@ -426,19 +442,22 @@ mod tests {
 
     #[test]
     fn claimed_invariants_need_independent_evidence_to_enter_the_core() {
-        // Regel 12.4.
+        // Regel 12.4. `has_independent_evidence` ist seit dem T-PORT-001-
+        // Fix ein deklarierter Parameter (vom Aufrufer via
+        // `psk_witness::has_independent_evidence` entschieden, siehe
+        // split()s Modulkopf) - `false` entspricht Evidenz aus derselben
+        // Klasse wie der Erzeuger, `true` einer unabhaengigen Klasse.
         let c = capsule(&["c1"]);
         let claimed = vec![InvariantId("I-ARCH-001".into())];
-        let own = ClassId("qc-0".into());
 
-        let self_only = split(&c, &claimed, &[evidence("qc-0")], &own);
+        let self_only = split(&c, &claimed, false);
         assert!(self_only.invariant_core.is_empty());
         assert_eq!(
             self_only.rejected, claimed,
             "Abgewiesenes verschwindet nicht"
         );
 
-        let independent = split(&c, &claimed, &[evidence("qc-1")], &own);
+        let independent = split(&c, &claimed, true);
         assert_eq!(independent.invariant_core, claimed);
         assert!(independent.rejected.is_empty());
     }
