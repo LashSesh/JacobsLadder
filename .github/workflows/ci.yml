@@ -68,6 +68,17 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      # `psk_lifecycle::sibling_binary_path` findet effect-local-fs/
+      # observer-local-fs im Cargo-Ausgabeverzeichnis (siehe dessen
+      # Modulkopf) - Cargo setzt `CARGO_BIN_EXE_*` NICHT fuer das
+      # Bin-Target eines fremden Pakets (auch nicht als dev-dependency,
+      # siehe psk-lifecycle/tests/spawn_and_request.rs), und `cargo test`
+      # baut ein [[bin]]-Ziel nicht automatisch nur weil das Paket
+      # transitiv als Bibliothek gebraucht wird. Ohne diesen Schritt
+      # existieren beide Binaries in einem frischen Checkout schlicht
+      # nicht, egal wie lange golden_run.rs's Aufrufer wartet.
+      - name: build effect-local-fs/observer-local-fs (sibling adapter binaries)
+        run: cargo build -p effect-local-fs -p observer-local-fs --locked
       - name: cargo test --workspace --locked
         run: cargo test --workspace --locked
 
@@ -152,6 +163,11 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      # Siehe `unit`-Stufe: psk-conformance's Tests (golden_run.rs,
+      # baselines/comparison.rs) rufen run_golden_run auf, das die
+      # Adapterbinaries braucht.
+      - name: build effect-local-fs/observer-local-fs (sibling adapter binaries)
+        run: cargo build -p effect-local-fs -p observer-local-fs --locked
       # Real: 19 von 30 registrierten negative-Tests (siehe
       # conformance_catalog.rs Kategorien a+b fuer die genaue Liste) -
       # ueberwiegend in psk-conformance (14 Testfunktionen, 16 IDs - eine
@@ -185,6 +201,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      # Siehe `unit`-Stufe: i8_independent_replay.rs braucht die
+      # Adapterbinaries ueber die volle golden-run-Pipeline.
+      - name: build effect-local-fs/observer-local-fs (sibling adapter binaries)
+        run: cargo build -p effect-local-fs -p observer-local-fs --locked
       # Interpretation, nicht woertlich aus einem Register abgeleitet
       # (Regel 26.6 definiert "integration" nicht ueber eine T-*-Kind-
       # Auspraegung wie "property"/"negative" es tun): dieser Schritt
@@ -212,6 +232,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      # Siehe `unit`-Stufe: `psk golden-run` selbst braucht die
+      # Adapterbinaries.
+      - name: build effect-local-fs/observer-local-fs (sibling adapter binaries)
+        run: cargo build -p effect-local-fs -p observer-local-fs --locked
       # Regel 24.3, alle 13 Schritte inkl. I7-Replay (siehe
       # psk-conformance/src/golden_run.rs) - ueber das echte `psk-cli`-
       # Binary, nicht nur die Bibliotheksfunktion direkt.
@@ -225,6 +249,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      # Siehe `unit`-Stufe: `psk golden-run --independent` spawnt einen
+      # zweiten echten Prozess, der dieselben Adapterbinaries braucht.
+      - name: build effect-local-fs/observer-local-fs (sibling adapter binaries)
+        run: cargo build -p effect-local-fs -p observer-local-fs --locked
       # I8 (Phasentabelle 32.1, Klasse C5): zweiter echter Betriebssystem-
       # prozess reproduziert denselben kanonischen Zustandsdigest -
       # HOLD statt PASS ist zulaessig (M00/M02/M04 fehlen Laufzeitkoerper),
@@ -242,6 +270,10 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      # Siehe `unit`-Stufe: psk-conformance's volle Testsuite laeuft hier
+      # nochmal.
+      - name: build effect-local-fs/observer-local-fs (sibling adapter binaries)
+        run: cargo build -p effect-local-fs -p observer-local-fs --locked
       # Meldet den TATSAECHLICHEN Deckungsgrad (cargo's eigene Zusammen-
       # fassung plus der aktuelle Inhalt von conformance_catalog.rs'
       # eigenem Kategorienkommentar) statt einer hier eingetragenen Zahl -
