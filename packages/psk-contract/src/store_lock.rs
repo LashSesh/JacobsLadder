@@ -71,14 +71,35 @@ const RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(20);
 /// zuverlaessig bekannt war, nicht eine hier neu erfundene Vermutung.
 pub fn acquire_store_lock(store_root: &Path) -> Result<StoreLock, PskError> {
     let path = store_root.join("LOCK");
+    let mut last_err = None;
     for attempt in 0..RETRY_ATTEMPTS {
         if attempt > 0 {
             std::thread::sleep(RETRY_DELAY);
         }
-        if let Ok(file) = OpenOptions::new().write(true).create_new(true).open(&path) {
-            return Ok(StoreLock { path, _file: file });
+        match OpenOptions::new().write(true).create_new(true).open(&path) {
+            Ok(file) => return Ok(StoreLock { path, _file: file }),
+            Err(e) => last_err = Some(e),
         }
     }
+    // TEMPORAERE Diagnose (siehe Commit-Nachricht): das kurze Retry oben
+    // behob die CI-Fehlschlaege NICHT (gleiche Fehlermeldung, unveraenderte
+    // Laufzeit) - die urspruengliche "transiente Kontention"-Hypothese war
+    // damit falsch oder unvollstaendig. `.map_err(|_| ...)` verwarf bisher
+    // den TATSAECHLICHEN io::Error; dieser Pfad haengt an keinem Trace-/
+    // Objektregister und darf deshalb ausnahmsweise auf stderr melden, was
+    // sonst verloren ginge - `psk-cli`s eigene Fehlerausgabe (siehe
+    // cmd_golden_run_independent) reicht das bereits bis in i8_independent_
+    // replay.rs' Panic-Meldung durch, ohne neue Plumbing. Wird entfernt,
+    // sobald die reale Ursache bekannt ist.
+    eprintln!(
+        "acquire_store_lock: DIAGNOSE nach {RETRY_ATTEMPTS} Versuchen - store_root={} \
+         (existiert={}, ist_verzeichnis={}) path={} letzter Fehler={:?}",
+        store_root.display(),
+        store_root.exists(),
+        store_root.is_dir(),
+        path.display(),
+        last_err,
+    );
     Err(PskError::BootPreconditionFailed)
 }
 
