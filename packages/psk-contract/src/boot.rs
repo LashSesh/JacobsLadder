@@ -164,16 +164,35 @@ pub fn boot(
     trace: &mut TraceStore,
     residues: &mut ResidueLedger,
 ) -> Result<BootReport, PskError> {
+    // TEMPORAERE Schritt-Diagnose (siehe store_lock.rs Modulkopf/Commit-
+    // Nachricht fuer den Anlass): PskError::BootPreconditionFailed hat
+    // mindestens VIER unabhaengige Quellen im fruehen Bootpfad allein
+    // (acquire_store_lock, load::load, resolve_artifact_registry,
+    // identity_binder::implementation_id/build_digest) - alle verwerfen
+    // ihren eigenen io::Error gleich, der Fehlerwert allein unterscheidet
+    // sie nicht. Wird entfernt, sobald die reale Fehlerquelle bekannt ist.
+    eprintln!(
+        "boot: Schritt 1 (acquire_store_lock, store_root={})...",
+        inputs.store_root.display()
+    );
     // Schritt 1: else FAIL(PSK-E101) - einziger echter frueher Ruecksprung.
     let _lock = acquire_store_lock(&inputs.store_root)?;
+    eprintln!("boot: Schritt 1 OK.");
 
+    eprintln!(
+        "boot: Schritt 2 (M00.load, bundle_root={})...",
+        inputs.bundle_root.display()
+    );
     // Schritt 2: M00.load (constitution.lock.json zuerst).
     let image: BundleImage = load::load(&inputs.bundle_root)?;
+    eprintln!("boot: Schritt 2 OK.");
 
+    eprintln!("boot: Schritt 3 (M02.resolve_artifact_registry)...");
     // Schritt 3: M02.resolve_artifact_registry(image) - deckt zugleich
     // Schritt 7 (architekturseitig) und Schritte 10/11 ab, siehe
     // artifact_registry.rs Modulkopf.
     let registry: ArtifactRegistry = artifact_registry::resolve_artifact_registry(&image)?;
+    eprintln!("boot: Schritt 3 OK.");
 
     // Schritte 4-6: cid = M01.collection_digest(canon); require cid ==
     // image.lock.constitution_id. `matches()` vergleicht bereits exakt
@@ -219,10 +238,13 @@ pub fn boot(
         "architecture-digest-mismatch",
     );
 
+    eprintln!("boot: Schritt 12 (M04.bind: implementation_id)...");
     // Schritt 12: M04.bind(cid, aid, implementation_id(), runtime_state_digest()).
     let i_m = identity_binder::implementation_id(&inputs.bundle_root, cid, aid)?;
+    eprintln!("boot: Schritt 12 implementation_id OK.");
     let i_t = identity_binder::runtime_state_digest(trace);
     let identity = identity_binder::bind(cid, aid, i_m, i_t, trace.head(), inputs.bound_at.clone());
+    eprintln!("boot: Schritt 12 OK.");
 
     // Schritt 17 zuerst berechnet (RuntimeManifest braucht sein Ergebnis),
     // Bedingung/Reihenfolge im all_of() weiter unten folgt Schritt 17s
@@ -235,7 +257,9 @@ pub fn boot(
         Ok(_) => ConditionOutcome::True,
         Err(_) => ConditionOutcome::False(ReasonCode("operator-registration-failed".into())),
     };
+    eprintln!("boot: Schritt 17 (build_digest)...");
     let build_digest = identity_binder::build_digest()?;
+    eprintln!("boot: Schritt 17 build_digest OK.");
     let runtime_manifest = identity_binder::build_runtime_manifest(
         cid,
         aid,
