@@ -1,0 +1,11 @@
+[package]
+name = "verify-dependencies"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+serde = { workspace = true }
+serde_yaml = { workspace = true }
+toml = "0.8"

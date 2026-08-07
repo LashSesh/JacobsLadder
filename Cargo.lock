@@ -792,7 +792,6 @@ dependencies = [
  "psk-canon",
  "psk-codegen",
  "psk-types",
- "psk-witness",
  "serde_json",
 ]
 
@@ -1609,6 +1608,15 @@ dependencies = [
  "psk-types",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "verify-dependencies"
+version = "0.0.0"
+dependencies = [
+ "serde",
+ "serde_yaml",
+ "toml",
 ]
 
 [[package]]
