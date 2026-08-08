@@ -183,6 +183,7 @@ fn run_boot(
             bound_at: run_time(),
             trace_ref,
             replay_descriptor: ReplayDescriptor("golden-run/1".into()),
+            budget: psk_contract::default_budget(psk_types::RunId("golden-run".into())),
         },
         trace,
         residues,

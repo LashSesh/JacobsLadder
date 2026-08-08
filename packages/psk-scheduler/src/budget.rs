@@ -27,7 +27,7 @@ use psk_types::objects::Scaled;
 use psk_types::RunId;
 
 /// Eine der sieben ganzzahligen Ressourcenklassen aus Definition 14.9.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize)]
 pub struct ResourceClass {
     pub limit: u64,
     pub used: u64,
@@ -35,13 +35,17 @@ pub struct ResourceClass {
 
 /// Die Risikoklasse: einzige nichtganzzahlige Klasse, deshalb `Scaled`
 /// statt `u64` (Struktur 14.10, Feld `risk`).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct RiskClass {
     pub limit: Scaled,
     pub used: Scaled,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+/// `Serialize` (nicht `Deserialize`): das Ledger ist Teil von Sigma und
+/// geht damit in `I_t = H(Can(Sigma_t))` ein (siehe `sigma::sigma_digest`).
+/// Ein Budgetstand entsteht ueber `open`/`charge`, nie durch Einspielen -
+/// sonst waere Vertrag 14.11 (kein stilles Saettigen) umgehbar.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct BudgetLedger {
     pub run_id: RunId,
     pub compute: ResourceClass,

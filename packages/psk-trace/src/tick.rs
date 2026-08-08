@@ -14,11 +14,10 @@
 //! festen `EventTypeId`-Werten - keine zweite, parallele Speicherform
 //! neben der bereits bestehenden, hashverketteten Segmentfolge. `t`
 //! (Algorithmus 14.4s Rueckgabewert von `open_tick`) ist hier `TickHandle`:
-//! traegt `tick_no` und den Digest des soeben geschriebenen
-//! "tick.opened"-Segments, den `seal_phase`/`close_tick` als
-//! `payload_digest` weiterreichen - eine schwache, aber echte Bindung an
-//! den Eroeffnungssegment, zusaetzlich zur ohnehin schon vorhandenen
-//! Kettenbindung (`prev_digest`) der zugrundeliegenden Segmentfolge.
+//! traegt `tick_no` und die wanduhrfreie Taktkennung, die
+//! `seal_phase`/`close_tick` als `payload_digest` weiterreichen - siehe
+//! dessen Kommentar fuer den gemessenen Grund, warum dort NICHT der
+//! `segment_digest` des Eroeffnungssegments steht.
 
 use psk_canon::{can, Media};
 use psk_types::objects::EventTypeId;
@@ -29,10 +28,22 @@ use crate::{SegmentInputs, TraceStore};
 /// Rueckgabewert von `open_tick` (Algorithmus 14.4s `t`). Kein kanonisches
 /// Kapitel-7-Objekt (keine ObjectId, kein Schema) - ein reiner
 /// Laufzeit-Handle fuer die Dauer eines einzelnen Takts.
+///
+/// `tick_identity` ist H(Can(tick_no, run_descriptor_digest)) - die
+/// wanduhrfreie Kennung dieses Takts, NICHT der `segment_digest` des
+/// Eroeffnungssegments. Der Unterschied ist gemessen, nicht theoretisch:
+/// `segment_digest` schliesst nach Struktur 7.38 das Feld `time: DualTime`
+/// mit ein und traegt damit `tau_e`. Ein Handle, der ihn weiterreicht,
+/// schleppt die Wanduhr in jedes Folgesegment (`seal_phase`/`close_tick`
+/// setzen ihn als `payload_digest`) und von dort in jeden Digest ueber den
+/// Laufzustand - genau das, was Invariante 6.14 verbietet. Die Bindung an
+/// den Takt bleibt trotzdem echt: `tick_no` und der RunDescriptor-Digest
+/// identifizieren ihn eindeutig, und die Kettenbindung
+/// (`prev_digest`) leistet die Reihenfolgesicherung ohnehin schon.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TickHandle {
     pub tick_no: u64,
-    opened_segment: Digest,
+    tick_identity: Digest,
 }
 
 /// `t = M19.open_tick(state.tick_no, rd)`. `rd_digest` ist
@@ -46,19 +57,19 @@ pub fn open_tick(
     rd_digest: Digest,
     time: DualTime,
 ) -> Result<TickHandle, PskError> {
-    let payload_digest = tick_payload_digest(tick_no, rd_digest)?;
-    let seg = store.append(SegmentInputs {
+    let tick_identity = tick_payload_digest(tick_no, rd_digest)?;
+    store.append(SegmentInputs {
         event_type: EventTypeId("tick.opened".to_string()),
         module: ModuleId::Scheduler,
         port_id: None,
         object_refs: vec![],
-        payload_digest,
+        payload_digest: tick_identity,
         time,
         attestation: None,
     })?;
     Ok(TickHandle {
         tick_no,
-        opened_segment: seg.segment_digest,
+        tick_identity,
     })
 }
 
@@ -76,7 +87,7 @@ pub fn seal_phase(
         module: ModuleId::Scheduler,
         port_id: None,
         object_refs: vec![],
-        payload_digest: handle.opened_segment,
+        payload_digest: handle.tick_identity,
         time,
         attestation: None,
     })?;
@@ -96,7 +107,7 @@ pub fn close_tick(
         module: ModuleId::Scheduler,
         port_id: None,
         object_refs: vec![],
-        payload_digest: handle.opened_segment,
+        payload_digest: handle.tick_identity,
         time,
         attestation: None,
     })?;
@@ -177,6 +188,6 @@ mod tests {
             store_a.segments()[0].payload_digest,
             store_b.segments()[0].payload_digest
         );
-        assert_ne!(a.opened_segment, b.opened_segment);
+        assert_ne!(a.tick_identity, b.tick_identity);
     }
 }

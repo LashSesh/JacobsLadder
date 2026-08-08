@@ -32,4 +32,4 @@ pub use identity_binder::{
 };
 
 mod boot;
-pub use boot::{boot, default_inputs, BootInputs, BootReport};
+pub use boot::{boot, default_budget, default_inputs, BootInputs, BootReport};

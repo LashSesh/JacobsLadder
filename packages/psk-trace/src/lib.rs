@@ -15,7 +15,10 @@
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
 mod trace;
-pub use trace::{verify_chain, SegmentInputs, TraceSegment, TraceStore, GENESIS_DIGEST};
+pub use trace::{
+    verify_chain, verify_chain_detailed, ChainViolation, SegmentInputs, TraceSegment, TraceStore,
+    GENESIS_DIGEST,
+};
 
 mod residue;
 pub use residue::{

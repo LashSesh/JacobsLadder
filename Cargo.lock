@@ -900,6 +900,7 @@ dependencies = [
  "psk-effect",
  "psk-gate",
  "psk-lifecycle",
+ "psk-scheduler",
  "psk-topology",
  "psk-trace",
  "psk-types",
@@ -1055,6 +1056,7 @@ dependencies = [
  "psk-canon",
  "psk-codegen",
  "psk-types",
+ "serde",
  "serde_json",
 ]
 

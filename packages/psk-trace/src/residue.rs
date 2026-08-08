@@ -72,7 +72,15 @@ fn compute_identity(draft: &ResidueInputs) -> Result<ObjectId, PskError> {
 
 /// Das Residuenledger eines Laufs. Es gibt bewusst keine `remove`-Methode:
 /// Loeschung ist mit dieser API nicht ausdrueckbar (Axiom 7.41).
-#[derive(Debug, Clone, Default)]
+///
+/// `Serialize` (nicht `Deserialize`): das Ledger ist Teil von Sigma
+/// (Definition 13.1, Position `Rt`) und geht damit in `I_t =
+/// H(Can(Sigma_t))` ein - siehe `psk_scheduler::sigma_digest`. Die
+/// Gegenrichtung fehlt bewusst: ein Residuum entsteht ueber `open` und
+/// wandert ueber `transition`, nie durch Deserialisierung - sonst liesse
+/// sich Axiom 7.41 (kein stilles Verwerfen) durch das Einspielen eines
+/// gekuerzten Ledgers umgehen.
+#[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct ResidueLedger {
     residues: Vec<ResidueRecord>,
 }

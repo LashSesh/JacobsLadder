@@ -24,16 +24,21 @@
 //!   || I_C || I_A) - real, reproduzierbar, aendert sich mit jeder
 //!   Abhaengigkeits- ODER Registeraenderung, aber ohne eine erfundene
 //!   Compiler-Kennung.
-//! - `runtime_state_digest()` (I_t). Regel 6.10: "I_t = H(Can(Sigma_t))".
-//!   Zum Zeitpunkt von Schritt 12 ist `M19.open_trace_store()` (Schritt
-//!   14) noch nicht einmal aufgerufen - der Algorithmus selbst ordnet
-//!   Bindung VOR Tracestore-Eroeffnung an. Der einzige ehrliche
-//!   Laufzeitzustand an dieser Stelle ist der, den der Trace-Kopf zu
-//!   diesem Zeitpunkt tatsaechlich traegt: bei einem frischen Boot der
-//!   Genesis-Digest, bei einem Recovery-Boot (Algorithmus 17.6) der
-//!   fortgesetzte Kopf. `runtime_state_digest` liest deshalb
-//!   `trace.head()` direkt, statt eine Konstante zu erfinden - korrekt in
-//!   beiden Faellen, nicht nur im haeufigeren.
+//! - `runtime_state_digest()` (I_t). Regel 6.10: "I_t = H(Can(Sigma_t))" -
+//!   seit dem Bau von `Sigma` (Definition 13.1, `psk_scheduler::sigma`)
+//!   woertlich erfuellt: die Funktion bildet den Digest ueber den realen
+//!   Laufzustand, ueber `identity_projection` statt `can()`.
+//!
+//!   Befund und Korrektur: bis dahin lieferte sie `trace.head()`. Das war
+//!   als ehrlicher Platzhalter gedacht, verletzte aber Invariante 1.7
+//!   (Vier Identitaetsschichten): "Konstitutions-ID I_C, Architektur-ID
+//!   I_A, Implementierungs-ID I_M und Laufzeit-ID I_t sind vier getrennte
+//!   Groessen. Keine DARF eine andere ersetzen." `IdentityBinding`
+//!   (Struktur 7.2) fuehrt `I_t` UND `trace_head` als getrennte Felder -
+//!   mit dem Platzhalter trugen beide buchstaeblich denselben Wert, eine
+//!   der vier gebundenen Groessen war also durch eine andere ersetzt.
+//!   `binding_i_t_is_not_the_trace_head` haelt das jetzt fest, damit ein
+//!   Rueckfall auffaellt statt unbemerkt zu bleiben.
 //!
 //! `build_digest` (RuntimeManifest, getrennt von `implementation_id`):
 //! Digest der tatsaechlich laufenden Programmdatei
@@ -45,7 +50,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
-use psk_trace::TraceStore;
+use psk_scheduler::Sigma;
 use psk_types::objects::{
     AdapterId, CapabilityMatrixRef, IdentityBinding, OpId, ProfileId, RuntimeManifest,
     RuntimeManifestDeterminismClassKind, SemVer,
@@ -66,9 +71,15 @@ pub fn implementation_id(
     Ok(Digest::sha256(&bytes))
 }
 
-/// Regel 6.10: "I_t = H(Can(Sigma_t))" - siehe Modulkopf.
-pub fn runtime_state_digest(trace: &TraceStore) -> Digest {
-    trace.head()
+/// Regel 6.10: "I_t = H(Can(Sigma_t))" - jetzt woertlich, ueber den
+/// realen Laufzustand.
+///
+/// Delegiert an `psk_scheduler::sigma_digest`, das die Digestbildung
+/// ueber `identity_projection` (pi_vol) statt ueber `can()` fuehrt -
+/// siehe dessen Kommentar fuer die tragende Begruendung (Invariante 6.14,
+/// Replayneutralitaet der Wanduhr).
+pub fn runtime_state_digest(sigma: &Sigma) -> Result<Digest, PskError> {
+    psk_scheduler::sigma_digest(sigma)
 }
 
 /// Digest der laufenden Programmdatei - siehe Modulkopf.
@@ -214,10 +225,59 @@ mod tests {
         std::fs::remove_dir_all(&dir).ok();
     }
 
+    /// Ein minimaler, aber echter Laufzustand fuer die I_t-Tests.
+    fn sample_sigma() -> Sigma {
+        Sigma::new(
+            build_runtime_manifest(
+                Digest::sha256(b"c"),
+                Digest::sha256(b"a"),
+                Digest::sha256(b"m"),
+                ProfileId::Reference,
+                Digest::sha256(b"build"),
+                BTreeMap::new(),
+                BTreeMap::new(),
+            ),
+            crate::boot::default_budget(psk_types::RunId("run-0".into())),
+        )
+    }
+
     #[test]
-    fn runtime_state_digest_of_a_fresh_trace_store_is_the_genesis_digest() {
-        let trace = TraceStore::new();
-        assert_eq!(runtime_state_digest(&trace), psk_trace::GENESIS_DIGEST);
+    fn runtime_state_digest_is_deterministic_for_the_same_state() {
+        let a = runtime_state_digest(&sample_sigma()).unwrap();
+        let b = runtime_state_digest(&sample_sigma()).unwrap();
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn i_t_is_not_the_trace_head() {
+        // Invariante 1.7 (Vier Identitaetsschichten): "Keine DARF eine
+        // andere ersetzen." Bis zum Bau von `sigma_digest` lieferte
+        // `runtime_state_digest` schlicht `trace.head()` - `IdentityBinding`
+        // trug damit in `I_t` und `trace_head` buchstaeblich denselben
+        // Wert. Dieser Test faellt, sobald jemand dorthin zurueckfaellt.
+        let sigma = sample_sigma();
+        let i_t = runtime_state_digest(&sigma).unwrap();
+        assert_ne!(
+            i_t,
+            sigma.trace.head(),
+            "I_t DARF NICHT der Tracekopf sein - das ersetzte eine der vier Identitaeten durch eine andere"
+        );
+        assert_ne!(
+            i_t,
+            psk_trace::GENESIS_DIGEST,
+            "und erst recht nicht der Genesisdigest eines leeren Tracespeichers"
+        );
+    }
+
+    #[test]
+    fn i_t_changes_when_the_runtime_state_changes() {
+        // Gegenprobe: ohne sie waere `i_t_is_not_the_trace_head` auch mit
+        // einer Konstante gruen.
+        let before = runtime_state_digest(&sample_sigma()).unwrap();
+        let mut sigma = sample_sigma();
+        sigma.tick_no += 1;
+        let after = runtime_state_digest(&sigma).unwrap();
+        assert_ne!(before, after, "I_t MUSS dem Laufzustand folgen");
     }
 
     #[test]

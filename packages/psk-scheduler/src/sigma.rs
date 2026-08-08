@@ -63,6 +63,7 @@ use psk_types::objects::{
     AnchorSnapshot, CandidateCapsule, EffectAttempt, EffectToken, EvidenceObject, FieldIdentity,
     GateReport, RealityClassification, RuntimeManifest, ThoughtBody,
 };
+use psk_types::PskError;
 
 /// Qt (Gates und Tokens): ein GateReport-Verlauf, die bereits ausgestellten
 /// EffectToken und deren FSM-TOKEN-Zustandsfuehrung. Drei Felder statt
@@ -70,7 +71,7 @@ use psk_types::objects::{
 /// vollstaendigen `EffectToken`-Objekte (fuer `execute_effect`, das den
 /// realen Token braucht, nicht nur seinen Zustand) unterschiedliche Dinge
 /// festhalten - siehe `psk-effect::consume`s Modulkopf.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct GatesAndTokens {
     pub reports: Vec<GateReport>,
     pub issued: Vec<EffectToken>,
@@ -79,7 +80,14 @@ pub struct GatesAndTokens {
 
 /// Sigma (Definition 13.1). Siehe Modulkopf fuer die vollstaendige
 /// Positionszuordnung.
-#[derive(Debug, Clone)]
+///
+/// `Serialize` (nicht `Deserialize`): Grundlage von `I_t =
+/// H(Can(Sigma_t))`, siehe `sigma_digest` unten. Die Gegenrichtung fehlt
+/// bewusst - ein Laufzustand entsteht ausschliesslich durch `tick()`
+/// (Algorithmus 14.4), nie durch Einspielen eines fremden Werts;
+/// Invariante 13.3 verlangt fuer jeden Zustandsuebergang einen Operator
+/// und einen GateReport, was eine Deserialisierung strukturell umginge.
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct Sigma {
     pub tick_no: u64,
     pub i: RuntimeManifest,
@@ -128,6 +136,31 @@ impl Sigma {
     pub fn c(&self) -> psk_types::Digest {
         self.i.constitution_id
     }
+}
+
+/// `I_t = H(Can(Sigma_t))` (Regel 6.10, Vier Identitaeten).
+///
+/// **Ueber `identity_projection`, NICHT ueber `can`.** Das ist die
+/// tragende Entscheidung dieser Funktion, nicht eine Stilfrage: Sigma
+/// enthaelt an vielen Stellen `DualTime` (jedes TraceSegment, jedes
+/// ResidueRecord, jeder GateReport), und `DualTime.tau_e`/`clock_ref`/
+/// `uncertainty_ns` sind in `architecture/volatile_fields.yaml` als
+/// volatil gefuehrt. Ueber `can()` gebildet wuerde I_t die Wanduhr
+/// einschliessen und damit Invariante 6.14 (Replayneutralitaet der
+/// Wanduhr) verletzen - "tau_e DARF NICHT in eine Kanonisierung, einen
+/// Digest oder eine Gate-Entscheidung eingehen" - und zwei inhaltlich
+/// identische Laeufe erhielten verschiedene Laufzeit-IDs. `pi_vol`
+/// entfernt sie vor der Digestbildung; `record_digest` ueber denselben
+/// Zustand DARF abweichen (Definition 6.6/6.7).
+///
+/// Damit ist auch die Frage beantwortet, die den Profilingschalter
+/// (`crate::profiling`) betrifft: ein Feld namens `runtime_metrics` waere
+/// hier automatisch ausgeschlossen. Der Schalter liegt zusaetzlich
+/// ausserhalb von Sigma - zwei unabhaengige Schichten, siehe dortigen
+/// Modulkopf.
+pub fn sigma_digest(sigma: &Sigma) -> Result<psk_types::Digest, PskError> {
+    let bytes = serde_json::to_vec(sigma).map_err(|_| PskError::CanonicalizationFailed)?;
+    Ok(psk_canon::identity_projection(&bytes, psk_canon::Media::Json)?.digest())
 }
 
 #[cfg(test)]

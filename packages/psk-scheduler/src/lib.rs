@@ -29,7 +29,7 @@ pub use budget::{
 };
 
 mod sigma;
-pub use sigma::{GatesAndTokens, Sigma};
+pub use sigma::{sigma_digest, GatesAndTokens, Sigma};
 
 mod dispatch;
 pub use dispatch::{dispatch, DispatchOutcome, DispatchResult, PendingWork};

@@ -457,6 +457,21 @@ objects:
     name: TraceSegment
     struktur: "7.38"
     schema_id: psk.trace-segment/1.0
+    rules:
+      - {id: "Regel 7.39", title: "Zwei Digests je Segment",
+          statement: "segment_digest ist identitaetsbildend: es bildet die
+            Hashkette, geht ueber L_t in I_t ein und MUSS daher pi_vol
+            anwenden. Andernfalls ginge tau_e entgegen der blockierenden
+            Invariante Replayneutralitaet der Wanduhr in einen Digest ein,
+            und zwei inhaltsgleiche Laeufe erhielten verschiedene
+            Zustandsdigests - R2 waere strukturell unerreichbar und damit
+            kein Referenzrelease moeglich. segment_record_digest deckt
+            dieselben Felder einschliesslich tau_e ab und sichert die
+            Integritaet der gespeicherten Bytes. Es ist DARF NICHT Teil der
+            Kette, DARF NICHT Eingabe von I_t und DARF NICHT Eingabe einer
+            Gate-Entscheidung. verify_chain MUSS beides pruefen: die
+            Kettenfortschreibung ueber segment_digest und je Segment die
+            Aufzeichnungsintegritaet ueber segment_record_digest."}
     fields:
       - {name: schema, type: "psk.trace-segment/1.0"}
       - {name: seq, type: uint64, note: "global monoton je run_id"}
@@ -468,7 +483,8 @@ objects:
       - {name: payload_digest, type: Digest}
       - {name: time, type: DualTime}
       - {name: attestation, type: Signature, optional: true}
-      - {name: segment_digest, type: Digest, note: "H(Can(alle vorstehenden Felder))"}
+      - {name: segment_digest, type: Digest, note: "H(Can(pi_vol(alle vorstehenden Felder)))"}
+      - {name: segment_record_digest, type: Digest, note: "H(Can(alle vorstehenden Felder)), mit tau_e"}
 
   - id: OBJ-RES
     name: ResidueRecord

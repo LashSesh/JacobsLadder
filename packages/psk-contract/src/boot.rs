@@ -70,12 +70,13 @@ use std::path::{Path, PathBuf};
 
 use psk_gate::{evaluate_gate, ConditionOutcome, GateInputs};
 use psk_lifecycle::{advance, decide, BootOutcome, BootSituation, RuntimeState};
+use psk_scheduler::{BudgetLedger, Sigma};
 use psk_trace::{ResidueLedger, TraceStore};
 use psk_types::objects::{
     AdapterId, GateId, GateReport, GateReportDecisionKind, IdentityBinding, OpId, ProfileId,
-    ReasonCode, Releaseposture, ReplayDescriptor, RuntimeManifest, SemVer, SortId,
+    ReasonCode, Releaseposture, ReplayDescriptor, RuntimeManifest, Scaled, SemVer, SortId,
 };
-use psk_types::{Digest, DualTime, ObjectId, PskError, TraceRef};
+use psk_types::{Digest, DualTime, ObjectId, PskError, RunId, TraceRef};
 
 use crate::artifact_registry::{self, ArtifactRegistry};
 use crate::identity_binder;
@@ -104,6 +105,12 @@ pub struct BootInputs {
     pub bound_at: DualTime,
     pub trace_ref: TraceRef,
     pub replay_descriptor: ReplayDescriptor,
+    /// Die deklarierten Ressourcengrenzen dieses Laufs (Vertrag 14.11:
+    /// "Jede Klasse besitzt ein deklariertes Limit"). Vom Aufrufer
+    /// geliefert, nicht hier erfunden - dasselbe Muster wie
+    /// `trace`/`residues`, die ebenfalls von aussen kommen. Sie sind Teil
+    /// des Laufzustands, ueber den Schritt 12 `I_t` bildet.
+    pub budget: BudgetLedger,
 }
 
 /// `BootReport` (Algorithmus 17.1s Rueckgabetyp - kein registriertes
@@ -242,13 +249,15 @@ pub fn boot(
     // Schritt 12: M04.bind(cid, aid, implementation_id(), runtime_state_digest()).
     let i_m = identity_binder::implementation_id(&inputs.bundle_root, cid, aid)?;
     eprintln!("boot: Schritt 12 implementation_id OK.");
-    let i_t = identity_binder::runtime_state_digest(trace);
-    let identity = identity_binder::bind(cid, aid, i_m, i_t, trace.head(), inputs.bound_at.clone());
-    eprintln!("boot: Schritt 12 OK.");
 
     // Schritt 17 zuerst berechnet (RuntimeManifest braucht sein Ergebnis),
     // Bedingung/Reihenfolge im all_of() weiter unten folgt Schritt 17s
-    // Nummer, nicht der Berechnungsreihenfolge hier.
+    // Nummer, nicht der Berechnungsreihenfolge hier. Seit I_t ueber den
+    // realen Laufzustand gebildet wird, gilt dasselbe fuer Schritt 12s
+    // ZWEITE Haelfte: `Sigma` traegt das RuntimeManifest als Position `I`
+    // (Definition 13.1), also MUSS das Manifest vor `bind` stehen. Die
+    // Nummernfolge im Bericht bleibt unveraendert; nur die
+    // Berechnungsreihenfolge folgt der Datenabhaengigkeit.
     let registration = psk_effect::register_only_versioned_operators_and_capabilities(
         &versioned_operators(),
         &versioned_adapters(),
@@ -275,6 +284,18 @@ pub fn boot(
             .map(|r| r.adapter_versions.clone())
             .unwrap_or_default(),
     );
+
+    // Schritt 12, zweite Haelfte: der Laufzustand zum Bindezeitpunkt.
+    // `Sigma_t` ist hier real und nicht leer - Trace und Residuen kommen
+    // vom Aufrufer (siehe Modulkopf) und tragen bei einem Recovery-Boot
+    // bereits Inhalt, bei einem frischen Boot nichts. Beides ist ein
+    // gueltiger Zustand; erfunden wird keiner.
+    let mut boot_sigma = Sigma::new(runtime_manifest.clone(), inputs.budget.clone());
+    boot_sigma.trace = trace.clone();
+    boot_sigma.residues = residues.clone();
+    let i_t = identity_binder::runtime_state_digest(&boot_sigma)?;
+    let identity = identity_binder::bind(cid, aid, i_m, i_t, trace.head(), inputs.bound_at.clone());
+    eprintln!("boot: Schritt 12 OK.");
 
     // Schritt 13: M04.check_profile_binding(profile).
     let profile_condition =
@@ -385,7 +406,41 @@ pub fn default_inputs(
         bound_at,
         trace_ref,
         replay_descriptor: ReplayDescriptor("boot/1".into()),
+        budget: default_budget(RunId(trace_ref_run_id())),
     }
+}
+
+/// Ein deklariertes, ENDLICHES Vorgabebudget fuer Aufrufer, die kein
+/// eigenes mitbringen. Vertrag 14.11 ("Keine implizite Unendlichkeit")
+/// verlangt fuer jede Klasse ein deklariertes Limit - der Wert hier ist
+/// bewusst konkret und endlich, nicht `u64::MAX`: ein Vorgabewert darf
+/// bequem sein, aber nicht die Erschoepfungssemantik aushebeln. Wer reale
+/// Grenzen kennt, uebergibt sie ueber `BootInputs::budget` selbst.
+pub fn default_budget(run_id: RunId) -> BudgetLedger {
+    const DEFAULT_LIMIT: u64 = 1_000_000;
+    BudgetLedger::open(
+        run_id,
+        DEFAULT_LIMIT,
+        DEFAULT_LIMIT,
+        DEFAULT_LIMIT,
+        DEFAULT_LIMIT,
+        DEFAULT_LIMIT,
+        DEFAULT_LIMIT,
+        DEFAULT_LIMIT,
+        Scaled {
+            schema: "psk.scaled/1.0".to_string(),
+            numerator: 100,
+            scale: 2,
+        },
+    )
+}
+
+/// `BudgetLedger::open` verlangt eine `RunId`; `default_inputs` kennt an
+/// dieser Stelle nur den `TraceRef`. Der Lauf selbst wird erst spaeter
+/// (M19 `open_run`) eroeffnet - bis dahin traegt das Vorgabebudget einen
+/// festen, deterministischen Bezeichner statt eines erfundenen Laufnamens.
+fn trace_ref_run_id() -> String {
+    "boot-default".to_string()
 }
 
 #[cfg(test)]

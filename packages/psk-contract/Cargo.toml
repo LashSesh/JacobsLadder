@@ -14,6 +14,7 @@ psk-effect = { path = "../psk-effect" }
 psk-certify = { path = "../psk-certify" }
 psk-gate = { path = "../psk-gate" }
 psk-lifecycle = { path = "../psk-lifecycle" }
+psk-scheduler = { path = "../psk-scheduler" }
 verify-bundle = { path = "../../tools/verify-bundle" }
 verify-architecture = { path = "../../tools/verify-architecture" }
 
