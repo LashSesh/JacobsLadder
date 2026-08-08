@@ -18,5 +18,10 @@ pub use certify::{
     issue_certificate, AdditionalAcceptance, CertificateInputs, ObligationPlatformBinding,
 };
 
+mod feature_coverage;
+pub use feature_coverage::{
+    derive_feature_coverage, CoverageDerivation, CoverageFinding, FeatureEvidence, ReplayEvidence,
+};
+
 mod posture;
 pub use posture::{compute_release_and_operational_posture, PostureInputs};

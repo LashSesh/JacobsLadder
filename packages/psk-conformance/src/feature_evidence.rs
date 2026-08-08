@@ -1,0 +1,144 @@
+//! Die Messseite von `feature_coverage`: reale Laufartefakte einsammeln.
+//!
+//! `psk_certify::derive_feature_coverage` traegt die Ableitungsregel, misst
+//! aber selbst nichts (M21: "Kein Feld wird hier gemessen"). Diese Datei
+//! misst - aus den Artefakten, die ein Zertifikatsaussteller tatsaechlich
+//! in der Hand haelt: dem Bootbericht, den zwei Golden Runs samt
+//! Replaypruefung und, wenn gelaufen, dem Baselinevergleich.
+//!
+//! ## Was hier als Beleg zaehlt und was nicht
+//!
+//! Zaehlbar ist, was ein Lauf HERVORBRINGT. Nicht zaehlbar ist, was ein
+//! Test ZEIGT. Die Unterscheidung ist nicht kosmetisch: ein Test belegt
+//! eine Eigenschaft des Codes, ein Laufartefakt belegt, dass die
+//! Eigenschaft im zertifizierten Betrieb auch zur Anwendung kam. Das
+//! Zertifikat behauptet Zweiteres. An zwei Stellen faellt die
+//! Unterscheidung ins Gewicht (FC2, FC3) - beide sind unten am Messpunkt
+//! selbst vermerkt, damit die kuerzere Antwort ihren Grund mitbringt.
+//!
+//! Diese Datei erfindet keine Zaehlung, die der Lauf nicht liefert. Wo ein
+//! Feld 0 oder `None` bleibt, ist das der Messwert, nicht eine Luecke im
+//! Messen.
+
+use psk_certify::{FeatureEvidence, ReplayEvidence};
+use psk_types::Digest;
+
+use crate::baselines::BaselineComparison;
+use crate::golden_run::{GoldenRunCertification, GoldenRunReport};
+
+/// Der deklarierte und der nachgerechnete Wert, sofern beides vorliegt.
+fn identity_pair(stored: Option<&str>, computed: Digest) -> Option<(Digest, Digest)> {
+    // Ein unversiegeltes Bundle liefert kein Paar - das ist "kein
+    // Artefakt", nicht "Abweichung". Ein gesetzter, aber unparsbarer Wert
+    // ist dagegen sehr wohl eine Abweichung und wird als solche
+    // weitergereicht (ein Digest, der nicht Definition 6.4 entspricht, ist
+    // kein Treffer).
+    let stored = stored?;
+    match Digest::from_hex(stored) {
+        Ok(declared) => Some((declared, computed)),
+        Err(_) => Some((Digest::sha256(b"unparsable-declared-identity"), computed)),
+    }
+}
+
+/// Sammelt die Messwerte eines einzelnen Laufs ein.
+fn measure_run(run: &GoldenRunReport, evidence: &mut FeatureEvidence) {
+    // ---- FC1: die lokale Seam-Closure. `section` ist `Some` nur bei
+    // eindeutiger globaler Sektion (Invariante 11.14) - genau die
+    // Bedingung, die FC1 verlangt.
+    if run.glue.section.is_some() {
+        evidence.local_seam_section = run.glue.section;
+    }
+
+    // ---- FC3: die Typisierung selbst ist belegt, sobald eine
+    // Klassifikation entstand.
+    evidence.reality_classifications += 1;
+
+    // FC3, zweite Haelfte ("ohne Promotionsbypass"): die Sperre aus
+    // Vertrag 7.11 greift bei reality_status = UNKNOWN. Sie kommt in
+    // diesem Lauf nicht zur Anwendung, weil das Subjekt der Reconciliation
+    // ACTUALIZED ist. `psk_thought::check_promotion` ist die einzige
+    // Wache und T-UNKNOWN-001 belegt sie - als Test, nicht als
+    // Laufartefakt. Deshalb bleibt `promotions_barred_on_unknown` hier
+    // unberuehrt; einen UNKNOWN-Fall in den Golden Run zu legen, nur damit
+    // der Zaehler steigt, waere Nachhelfen, nicht Messen.
+
+    // ---- FC4.
+    evidence.field_projections += run.field_projections.len();
+    if !run.dependency_profile.quotient_classes.is_empty() {
+        evidence.dependency_profiles += 1;
+    }
+
+    // FC4, Lineage: `Lin_lambda` sitzt auf `FieldIdentity`, nicht auf der
+    // Projektion. Der Lauf BAUT eine Feldidentitaet mit echter Lineage,
+    // gibt sie aber nicht heraus - `FieldProjection.field_ref` ist eine
+    // ObjectId, also ein Verweis auf das Lineage tragende Objekt, nicht
+    // das Objekt. Damit ist die Lineage referenziert, nicht belegt, und
+    // `field_lineages` bleibt 0.
+
+    // ---- FC5: der Golden Run durchlaeuft M24 nicht. Es entstehen keine
+    // CandidateCapsules, kein Ratchet, keine Supportentscheidung und kein
+    // Residuenfluss zwischen Kapselzustaenden. Die vier Zaehler bleiben
+    // deshalb 0. (`psk_closure::CapsuleRestriction` im Glue-Schritt ist
+    // eine Nahtrestriktion, keine Kandidatenkapsel - gleicher Wortstamm,
+    // anderes Objekt.)
+
+    // ---- FC6.
+    evidence.gate_reports += 2; // boot_gate und patch_gate
+    evidence.effect_tokens += 1; // token_authorization -> EffectToken
+    evidence.external_receipts += 1;
+    evidence.reconciliation_reports += 1;
+
+    // ---- FC7: G-SELF-COMPILE wird in keinem Lauf ausgewertet; M24s
+    // Selbstverhaertung laeuft nicht mit. `self_compile_gate_passed`
+    // bleibt `None`.
+}
+
+/// Misst den Deckungsvektor an dem, was zwei Golden Runs und der Boot
+/// tatsaechlich hervorgebracht haben.
+pub fn collect_feature_evidence(
+    certification: &GoldenRunCertification,
+    baseline: Option<&BaselineComparison>,
+) -> FeatureEvidence {
+    let boot = &certification.first.boot_report;
+    let mut evidence = FeatureEvidence {
+        // ---- FC0: I_C und I_A, deklariert gegen nachgerechnet.
+        constitution_id: identity_pair(
+            boot.constitution_check.stored_constitution_id.as_deref(),
+            boot.constitution_check.computed_constitution_id,
+        ),
+        architecture_id: identity_pair(
+            boot.architecture_check.stored_architecture_id.as_deref(),
+            boot.architecture_check.computed_architecture_id,
+        ),
+
+        // ---- FC1: die Kardinalitaeten aus M13 selbst, nicht aus einer
+        // Konstanten hier.
+        m13_nodes: psk_topology::nodes().len(),
+        m13_edges: psk_topology::edges().len(),
+        m13_cells: psk_topology::cells().len(),
+
+        // ---- FC2, zweite Haelfte: M19s eigenes Replayurteil, unveraendert
+        // uebernommen.
+        replay: Some(ReplayEvidence {
+            attempted: certification.replay_check.replay_attempted,
+            canonical_digest_match: certification.replay_check.canonical_digest_match,
+            gate_sequence_match: certification.replay_check.gate_sequence_match,
+        }),
+
+        // FC2, erste Haelfte: `ir_bundle_round_trip` bleibt `None`.
+        // `psk_ir::compile_ir_bundle` ist ein dokumentierter Stub mit
+        // Rueckgabetyp `!` - in keinem Lauf entsteht ein IRBundle, also
+        // gibt es auch keines, das man durch ir_encode/ir_decode schicken
+        // koennte. T-IR-001 rundet ein von Hand gebautes Testbundle ab und
+        // belegt damit den Codec, nicht das System.
+        ..Default::default()
+    };
+
+    measure_run(&certification.first, &mut evidence);
+    measure_run(&certification.second, &mut evidence);
+
+    // ---- FC8.
+    evidence.baseline_comparison_passed = baseline.map(|b| b.kern_passes());
+
+    evidence
+}

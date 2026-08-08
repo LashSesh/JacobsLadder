@@ -13,4 +13,7 @@ mod conformance_catalog;
 pub mod baselines;
 pub use baselines::{run_baseline_comparison, BaselineComparison, BaselineMetrics};
 
+mod feature_evidence;
+pub use feature_evidence::collect_feature_evidence;
+
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));

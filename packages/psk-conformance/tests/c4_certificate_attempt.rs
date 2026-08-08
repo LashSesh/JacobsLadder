@@ -1,4 +1,5 @@
-//! Der C4-Versuch: eine reale Ausstellung, kein Audit.
+//! Der C4-Versuch: eine reale Ausstellung, kein Audit - seit v1.0.23 mit
+//! ABGELEITETEM statt beanspruchtem Deckungsvektor.
 //!
 //! Tabelle 23.2: C4 ("Reference-validated") verlangt FC0-FC6 und FC8,
 //! `reference_validated`, mindestens R2 (Vertrag 22.4) und - seit Regel
@@ -13,6 +14,14 @@
 //! massgeblichen Felder werden aus `architecture/obligations.yaml`
 //! GELESEN, nicht einprogrammiert - sonst prueft e der Test seine eigene
 //! Annahme statt des Registers.
+//!
+//! `feature_coverage` ist im Werk als "abgeleiteter Deckungsvektor"
+//! spezifiziert (Struktur 7.44). Der Versuch beansprucht ihn deshalb
+//! nicht mehr, sondern misst ihn an den Artefakten dieses Laufs
+//! (`collect_feature_evidence`) und leitet ihn daraus ab
+//! (`derive_feature_coverage`). Die Klasse folgt aus dem Vektor - sie
+//! wird nicht daneben behauptet. Dass der Versuch weiter "C4-Versuch"
+//! heisst, beschreibt seine Absicht, nicht sein Ergebnis.
 
 use psk_certify::{
     issue_certificate, AdditionalAcceptance, CertificateInputs, ObligationPlatformBinding,
@@ -74,10 +83,19 @@ fn obl_010_from_register() -> ObligationPlatformBinding {
     }
 }
 
-/// FC0-FC6 und FC8 - genau der von Tabelle 23.2 fuer C4 verlangte Vektor.
-/// FC7 (kontrollierte Selbstkompilation) fehlt bewusst: es ist fuer C4
-/// nicht verlangt und waere unbelegt.
-fn c4_features() -> Vec<FeatureCoverageId> {
+/// FC0-FC6 und FC8 - der von Tabelle 23.2 fuer C4 verlangte Vektor, als
+/// BEHAUPTUNG.
+///
+/// Ab v1.0.23 wird der Vektor des eigentlichen Versuchs nicht mehr so
+/// gebildet: `feature_coverage` ist im Werk als "abgeleiteter
+/// Deckungsvektor" spezifiziert, und solange er beansprucht statt
+/// abgeleitet wird, ist die Klasse selbst beansprucht. Diese Funktion
+/// bleibt nur fuer die drei Gegenproben weiter unten stehen, deren
+/// Gegenstand Regel 7.47 ist: sie muessen den C4-Zweig erreichen, um
+/// zeigen zu koennen, dass die Plattformregel dort ueberhaupt feuert. Mit
+/// einem abgeleiteten Vektor, der C4 nicht traegt, wuerden sie zu leeren
+/// Gruenlaeufen - sie wuerden dann aus dem falschen Grund bestehen.
+fn claimed_c4_features() -> Vec<FeatureCoverageId> {
     use FeatureCoverageId::*;
     vec![Fc0, Fc1, Fc2, Fc3, Fc4, Fc5, Fc6, Fc8]
 }
@@ -112,10 +130,30 @@ fn attempt_to_issue_a_c4_certificate_and_report_the_full_contents() {
     let certification = psk_conformance::run_golden_run_with_certificate(&root, &sandbox)
         .expect("der Golden Run selbst muss laufen");
 
+    // Der Deckungsvektor wird ABGELEITET, nicht beansprucht: gemessen an
+    // den Artefakten, die dieser Lauf tatsaechlich hervorgebracht hat.
+    // Der Baselinevergleich ist FC8s einziger Beleg und laeuft deshalb
+    // mit; er wiederholt intern den Zertifizierungslauf.
+    let baseline = psk_conformance::run_baseline_comparison(&root)
+        .expect("der Baselinevergleich selbst muss laufen");
+    let evidence = psk_conformance::collect_feature_evidence(&certification, Some(&baseline));
+    let derivation = psk_certify::derive_feature_coverage(&evidence);
+
+    println!("=== Abgeleiteter Deckungsvektor (Kapitel 23) ===");
+    for f in &derivation.findings {
+        println!(
+            "  {:<4} {}  {}",
+            format!("{:?}", f.feature).to_uppercase(),
+            if f.covered { "JA  " } else { "NEIN" },
+            f.reason
+        );
+    }
+    println!("  => FC = {:?}", derivation.covered);
+
     let boot = &certification.first.boot_report;
     let obl_010 = obl_010_from_register();
 
-    println!("=== OBL-010, aus architecture/obligations.yaml gelesen ===");
+    println!("\n=== OBL-010, aus architecture/obligations.yaml gelesen ===");
     println!("  blocking_from      = {:?}", obl_010.blocking_from);
     println!("  resolution_platform = {}", obl_010.resolution_platform);
     println!("  current_platform    = {}", std::env::consts::OS);
@@ -125,8 +163,12 @@ fn attempt_to_issue_a_c4_certificate_and_report_the_full_contents() {
         obl_010.resolution_platform
     ));
 
-    println!("\n=== Beanspruchte Eingaben ===");
-    println!("  features   = {:?}", c4_features());
+    println!("\n=== Eingaben ===");
+    println!("  features   = {:?} (abgeleitet)", derivation.covered);
+    println!(
+        "  klasse     = {:?} (aus dem abgeleiteten Vektor)",
+        psk_certify::compute_conformance_class(&derivation.covered, c4_acceptance())
+    );
     println!("  acceptance = {:?}", c4_acceptance());
     println!(
         "  replay     = attempted={} canonical_match={} gate_match={} byte_identical={}",
@@ -142,7 +184,7 @@ fn attempt_to_issue_a_c4_certificate_and_report_the_full_contents() {
         i_a: boot.identity.I_A,
         i_m: boot.identity.I_M,
         i_t: boot.identity.I_t,
-        features: c4_features(),
+        features: derivation.covered.clone(),
         acceptance: c4_acceptance(),
         replay_class: MachineCertificateReplayClassKind::R2,
         gate_report_digest: Digest::sha256(b"c4-attempt-gate-report"),
@@ -191,6 +233,39 @@ fn attempt_to_issue_a_c4_certificate_and_report_the_full_contents() {
     // ein gueltiges Ergebnis dieses Versuchs, und ein Fehlschlag waere
     // die praeziseste Beschreibung des Rests. Was er festhaelt, ist nur:
     // die Ausstellung wurde real versucht, mit realen Eingaben.
+    //
+    // Festgehalten wird die BEZIEHUNG, nicht der Wert: welche Stufen
+    // gerade belegt sind, aendert sich mit dem Bauzustand, und ein Test,
+    // der [Fc0, Fc1, Fc6, Fc8] festnagelt, wuerde spaeteren Fortschritt
+    // als Bruch melden. Unveraenderlich ist dagegen, dass das Zertifikat
+    // genau den abgeleiteten Vektor traegt und seine Klasse genau aus
+    // diesem Vektor folgt - das ist der Unterschied zwischen abgeleitet
+    // und beansprucht.
+    if let Ok(cert) = &outcome {
+        assert_eq!(
+            cert.feature_coverage, derivation.covered,
+            "das Zertifikat MUSS den abgeleiteten Vektor tragen, keinen anderen"
+        );
+        assert_eq!(
+            cert.conformance_class,
+            psk_certify::compute_conformance_class(&derivation.covered, c4_acceptance()),
+            "die Klasse MUSS aus dem abgeleiteten Vektor folgen, nicht neben ihm stehen"
+        );
+    }
+
+    // Und: die Ableitung darf nicht leer durchlaufen. Ein Vektor, der aus
+    // Versehen immer leer bliebe, waere kein ehrlicher Vektor, sondern ein
+    // kaputter Messpunkt - beides sieht im Zertifikat gleich aus.
+    assert!(
+        !derivation.covered.is_empty(),
+        "die Messung selbst muss etwas finden, sonst misst sie nicht"
+    );
+    assert_eq!(
+        derivation.findings.len(),
+        9,
+        "jede der neun Stufen MUSS begruendet sein, gedeckt oder nicht"
+    );
+
     println!("\n(Versuch abgeschlossen - Ausgang oben.)");
 }
 
@@ -215,7 +290,7 @@ fn the_same_c4_claim_is_refused_when_scope_hides_the_platform_binding() {
         i_a: Digest::sha256(b"c4-counter-i-a"),
         i_m: Digest::sha256(b"c4-counter-i-m"),
         i_t: Digest::sha256(b"c4-counter-i-t"),
-        features: c4_features(),
+        features: claimed_c4_features(),
         acceptance: c4_acceptance(),
         replay_class: MachineCertificateReplayClassKind::R2,
         gate_report_digest: Digest::sha256(b"c4-counter-gate-report"),
@@ -257,7 +332,7 @@ fn the_same_c4_claim_is_refused_on_a_foreign_platform() {
         i_a: Digest::sha256(b"c4-foreign-i-a"),
         i_m: Digest::sha256(b"c4-foreign-i-m"),
         i_t: Digest::sha256(b"c4-foreign-i-t"),
-        features: c4_features(),
+        features: claimed_c4_features(),
         acceptance: c4_acceptance(),
         replay_class: MachineCertificateReplayClassKind::R2,
         gate_report_digest: Digest::sha256(b"c4-foreign-gate-report"),
