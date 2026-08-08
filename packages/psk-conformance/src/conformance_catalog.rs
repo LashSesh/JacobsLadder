@@ -186,10 +186,49 @@
 //!   gemeinsamer Schreibzustand, also ist Anhaengen keine freigegebene
 //!   Operation - es braucht keine Sperre, weil es keinen Wettlauf gibt.
 //!
+//! - T-PASS-001 (reorder_compiler_passes -> divergence_report): real gruen
+//!   getestet in `t_pass_001_reordering_two_passes_alone_already_diverges_i_a`
+//!   (unten). Die fruehere Einordnung ("keine ausfuehrbare Passpipeline
+//!   existiert") uebersah die billigere Lesart: die Passfolge IST im
+//!   versiegelten Register deklariert, also ist ihre Umordnung am I_A
+//!   nachweisbar, ohne dass ein Compilerlauf noetig waere. Der Test
+//!   mutiert AUSSCHLIESSLICH die Reihenfolge - zwei benachbarte Zeilen
+//!   vertauscht, gleiche Menge, gleiche Anzahl, per Sortiervergleich
+//!   zugesichert. Diese Enge ist der Punkt: t_arch_001 zeigt bereits,
+//!   dass IRGENDEINE Inhaltsaenderung I_A bricht; erst die reine
+//!   Permutation zeigt, dass die REIHENFOLGE selbst identitaetsbildend
+//!   ist (Definition 11.1, geordnete Passfolge; `Can` erhaelt
+//!   Arrayreihenfolgen).
+//! - T-TRACE-001 (drop_previous_residue -> FAIL): real gruen als
+//!   `compile_fail`-Doctests an `psk_trace::ResidueLedger`. Die
+//!   Zusicherung IST die Abwesenheit von `remove`/`clear` und eines
+//!   Schreibzugriffs auf die Sammlung (Axiom 7.41) - ein Laufzeittest
+//!   kann das nicht leisten, weil man nicht aufrufen kann, was nicht
+//!   existiert. Eine Positivkontrolle daneben zeigt, dass derselbe Aufbau
+//!   uebersetzt: ohne sie bestuende ein `compile_fail` auch bei einem
+//!   blossen Tippfehler im Aufbau.
+//!   Hinweis zur Deckung: `verify-catalog` kann diesen Eintrag NICHT
+//!   pruefen - Doctests tragen keinen Funktionsnamen, an dem die
+//!   ID-Beschriftung haengen koennte. Das ist die dort dokumentierte
+//!   Luecke, hier konkret.
+//! - T-FORECAST-001 (overwrite_forecast_after_observation -> FAIL): real
+//!   gruen in `psk_thought::forecast` - `t_forecast_001_a_later_
+//!   observation_only_appends_and_never_replaces` plus drei
+//!   `compile_fail`-Doctests und eine Positivkontrolle.
+//!   PSK-RA v1.0.22 hat die Voraussetzung an der Quelle geschaffen: OBJ-FCT
+//!   (Struktur 20.10) fuehrt horizon, generation_basis, validity_window,
+//!   anchor_ref und append-only `evaluations`. Zuvor benannte Vertrag
+//!   20.12 vier Pflichtfelder, ohne dass ein Objekt sie trug - es gab
+//!   nichts zu ueberschreiben.
+//!   Befund bei der Umsetzung: der GENERIERTE Typ allein genuegt Regel
+//!   20.11 nicht - alle Felder sind `pub` (Codegen-Konvention), also ist
+//!   "besitzen keinen Schreibpfad nach Konstruktion" auf ihm eine blosse
+//!   Konvention, dieselbe Lage wie bei T-OWN-001. `SealedForecast` (M07)
+//!   schliesst das mit dem Muster von `ResidueLedger`/`TraceStore`:
+//!   privates Feld, `&`-Getter, `evaluate()` als einziger veraendernder
+//!   Weg und ausschliesslich anhaengend.
+//!
 //! ## (c) Derzeit nicht realisierbar (Befund, mit Begruendung)
-//! - T-PASS-001 (Compiler-Passreihenfolge vertauschen -> divergence_report):
-//!   `pass_registry.yaml` ist deklaratives Metadatenregister, keine
-//!   ausfuehrbare Passpipeline mit vertauschbarer Reihenfolge existiert.
 //! - T-UNKNOWN-001 (verbale Unsicherheit ohne internen Block -> FAIL) und
 //!   T-FIELD-001 (Systemidentitaet auf Feld-ID setzen -> FAIL): beide
 //!   benennen Szenarien, zu denen keine registrierte Funktion eine
@@ -198,15 +237,6 @@
 //!   gefasst (anders als z.B. Personas Feldliste bei T-PERSONA-001). Ohne
 //!   eine Konstruktion, die tatsaechlich existiert, waere jeder Test hier
 //!   ein erfundenes Szenario, keine reale Pruefung.
-//! - T-TRACE-001 (vorheriges Residuum loeschen) und T-FORECAST-001 (alte
-//!   Prognose nach Beobachtung ueberschreiben): `TraceStore`/`ResidueLedger`
-//!   besitzen strukturell KEINE `delete`/`overwrite`-Methode (nur
-//!   `append`/`transition`) - die Garantie ist die Abwesenheit einer API,
-//!   nicht das Verhalten einer vorhandenen. Das ist real (dieselbe Klasse
-//!   wie `EffectAdapter`s fehlende `observe()`), aber nicht als Laufzeit-
-//!   `#[test]` ausdrueckbar; siehe stattdessen die `compile_fail`-Doctests
-//!   bei `GateAuthorization` fuer das gleiche Beweismuster an anderer
-//!   Stelle.
 //! - T-OWN-001 (create_owned_object_from_foreign_module -> FAIL_PSK_E014):
 //!   Vertrag 3.4 (siehe psk-types/src/lib.rs Modulkopf) bindet Ownership an
 //!   "welcher MODUL-CODE ein Objekt konstruieren/schreiben darf", nicht an
@@ -800,5 +830,82 @@ mod tests {
         );
         // T-RES-001: die HOLD-Entscheidung muss residualisiert sein.
         assert_eq!(residues.all().len(), 1);
+    }
+
+    // ---- T-PASS-001: reorder_compiler_passes -> divergence_report ----
+
+    /// Die Mutation heisst `reorder_compiler_passes`, und genau das tut
+    /// dieser Test: er vertauscht ZWEI benachbarte Passzeilen in
+    /// `pass_registry.yaml` und laesst alles andere unberuehrt - dieselben
+    /// Paesse, dieselbe Anzahl, derselbe Inhalt je Zeile.
+    ///
+    /// Warum diese Enge zaehlt: `t_arch_001_...` oben zeigt bereits, dass
+    /// IRGENDEINE Inhaltsaenderung an einem Register I_A bricht. Ein
+    /// T-PASS-001, das ebenfalls Inhalt aendert, bewiese nur dasselbe ein
+    /// zweites Mal. Erst die reine Umordnung zeigt die Aussage, die
+    /// T-PASS-001 eigen ist: die REIHENFOLGE der Passfolge ist selbst
+    /// identitaetsbildend, nicht bloss ihre Menge. Definition 11.1 fuehrt
+    /// C1..C11 als geschlossene, geordnete Folge; `Can` erhaelt
+    /// Arraysreihenfolgen ausdruecklich ("erhaelt Arrayreihenfolgen",
+    /// Kapitel 6), weshalb eine Permutation einen anderen Digest ergibt.
+    ///
+    /// Damit braucht T-PASS-001 keine ausfuehrbare Passpipeline: die
+    /// Divergenz ist am versiegelten Register nachweisbar, nicht erst an
+    /// einem Compilerlauf.
+    #[test]
+    fn t_pass_001_reordering_two_passes_alone_already_diverges_i_a() {
+        let root = workspace_root();
+        let scratch = std::env::temp_dir().join(format!("psk-t-pass-001-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&scratch);
+        copy_dir(&root.join("architecture"), &scratch.join("architecture")).unwrap();
+
+        let before = verify_architecture::check_architecture_bundle(&scratch).unwrap();
+        assert!(before.matches(), "unveraenderte Kopie sollte I_A treffen");
+
+        let target = scratch.join("architecture/pass_registry.yaml");
+        let content = fs::read_to_string(&target).unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+        let c6 = lines
+            .iter()
+            .position(|l| l.trim_start().starts_with("- {id: C6,"))
+            .expect("C6 steht im realen Register");
+        let c7 = lines
+            .iter()
+            .position(|l| l.trim_start().starts_with("- {id: C7,"))
+            .expect("C7 steht im realen Register");
+        assert_eq!(c7, c6 + 1, "C6 und C7 muessen benachbart sein");
+
+        let mut swapped = lines.clone();
+        swapped.swap(c6, c7);
+        let mutated = swapped.join("\n") + "\n";
+
+        // Die Mutation ist NUR eine Permutation: Zeilenmenge und Zahl
+        // bleiben gleich. Ohne diese Zusicherung koennte der Test
+        // unbemerkt zu einer gewoehnlichen Inhaltsaenderung werden und
+        // damit wieder nur T-ARCH-001 nachspielen.
+        let mut original_sorted = lines.clone();
+        let mut mutated_sorted: Vec<&str> = mutated.lines().collect();
+        original_sorted.sort_unstable();
+        mutated_sorted.sort_unstable();
+        assert_eq!(
+            original_sorted, mutated_sorted,
+            "die Mutation DARF ausschliesslich umordnen, nichts hinzufuegen oder aendern"
+        );
+        assert_ne!(
+            content.lines().collect::<Vec<_>>(),
+            mutated.lines().collect::<Vec<_>>(),
+            "sie muss die Reihenfolge aber tatsaechlich aendern"
+        );
+
+        fs::write(&target, mutated).unwrap();
+
+        let after = verify_architecture::check_architecture_bundle(&scratch).unwrap();
+        assert!(
+            !after.matches(),
+            "eine reine Umordnung der Passfolge MUSS I_A brechen - die Reihenfolge \
+             ist identitaetsbildend, nicht nur die Menge (Definition 11.1)"
+        );
+
+        fs::remove_dir_all(&scratch).ok();
     }
 }

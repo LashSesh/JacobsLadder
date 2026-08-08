@@ -4,13 +4,16 @@ schema: psk.object-schemas/1.0
 # Struktur 22.5 (ReplayManifest, Kapitel 22) - diese zwei liegen ausserhalb
 # Kapitel 7, definieren aber ebenfalls OBJ-VAL/OBJ-RPM aus object_registry.yaml.
 #
-# Von den 28 Eintraegen in object_registry.yaml haben 27 eine explizite
+# Von den 29 Eintraegen in object_registry.yaml haben 28 eine explizite
 # Feldstruktur: die urspruenglichen 25, OBJ-PRJ (FieldProjection,
 # nachgetragen in v1.0.3, Fehlerkorrektur Punkt 4; Struktur 7.13, Regel
-# 7.14/7.15/7.16) und OBJ-RCL (RealityClassification, nachgetragen in
-# v1.0.7, Fehlerkorrektur Punkt 10; Struktur 7.9, Regel 7.10). Beide waren
-# jeweils schon vorher im Objektregister und an einem Port gefuehrt, nur
-# ohne Felder. Nur OBJ-VIW (ViewArtifact) bleibt ohne
+# 7.14/7.15/7.16), OBJ-RCL (RealityClassification, nachgetragen in
+# v1.0.7, Fehlerkorrektur Punkt 10; Struktur 7.9, Regel 7.10) und OBJ-FCT
+# (Forecast, nachgetragen in v1.0.22; Struktur 20.10, Regel 20.11). Die
+# ersten beiden waren jeweils schon vorher im Objektregister und an einem
+# Port gefuehrt, nur ohne Felder; OBJ-FCT fehlte ganz, obwohl der Vertrag
+# zur Prognosepersistenz seine vier Pflichtfelder seit je benannte.
+# Nur OBJ-VIW (ViewArtifact) bleibt ohne
 # Feldstruktur: es traegt seit v1.0.3 explizit canonical:false in
 # object_registry.yaml und faellt nach I-ARCH-015 aus der Kanonisierung -
 # der Registereintrag dient Ownership und Lebensdauer, nicht der
@@ -21,7 +24,7 @@ schema: psk.object-schemas/1.0
 # Objekt als eigener nested_struct-Verweis). optional=true entspricht
 # einem "?" im Quelltext. Kommentare aus dem Quelltext sind als "note"
 # uebernommen, nicht ergaenzt.
-count: 27
+count: 28
 
 # Struktur 7.25 (Matrix und Scaled), v1.0.8 (Fehlerkorrektur Punkt 12/13):
 # "Beide Typen sind intern berechnet, nicht domaenengeliefert, und gehen in
@@ -452,6 +455,39 @@ objects:
       - {name: fact_promotion, type: "NONE | OBSERVED | ACTUALIZED"}
       - {name: residue_refs, type: "[ObjectId]"}
       - {name: witness_ref, type: ObjectId, note: "ActualizationWitness bei ACTUALIZED"}
+
+  - id: OBJ-FCT
+    name: Forecast
+    struktur: "20.10"
+    schema_id: psk.forecast/1.0
+    note: "Nachgetragen in v1.0.22. Vertrag Prognosepersistenz verlangte
+      seit je Horizont, Erzeugungsbasis, Gueltigkeitsfenster und den
+      damaligen Anker - ohne dass ein Objekt diese Felder getragen haette."
+    rules:
+      - {id: "Regel 20.11", title: "Prognosen werden bewertet, nicht umgeschrieben",
+          statement: "horizon, generation_basis, validity_window und
+            anchor_ref sind nach Erzeugung unveraenderlich. Eine spaetere
+            Beobachtung erzeugt ausschliesslich einen neuen Eintrag in
+            evaluations; sie DARF NICHT ein bestehendes Feld aendern und
+            DARF NICHT einen bestehenden Eintrag ersetzen. Die
+            Durchsetzung erfolgt strukturell: evaluations ist append-only
+            wie der Trace, und die uebrigen Felder besitzen keinen
+            Schreibpfad nach Konstruktion."}
+    fields:
+      - {name: schema, type: "psk.forecast/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: horizon, type: HorizonSpec, note: "bis wohin die Prognose reicht"}
+      - {name: generation_basis, type: "[ObjectId]", note: "Erzeugungsbasis, versiegelt"}
+      - {name: validity_window, type: TimeWindow, note: "Gueltigkeitsfenster, tau_i-gebunden"}
+      - {name: anchor_ref, type: ObjectId, note: "der Anker ZUM ZEITPUNKT der Erzeugung"}
+      - {name: claim_refs, type: "[ObjectId]"}
+      - {name: evaluations, type: "[ForecastEvaluation]", note: "append-only, nie ersetzend"}
+      - {name: trace_ref, type: TraceRef}
+    nested_structs:
+      ForecastEvaluation:
+        - {name: observed_ref, type: ObjectId, note: "spaetere Beobachtung"}
+        - {name: verdict, type: "CONFIRMED | REFUTED | INCONCLUSIVE"}
+        - {name: evaluated_at, type: DualTime}
 
   - id: OBJ-TRC
     name: TraceSegment

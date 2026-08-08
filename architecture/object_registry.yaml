@@ -21,6 +21,7 @@ objects:
   - {id: OBJ-ATT, name: EffectAttempt, owner: M16, lifetime: L-IMMUTABLE, memory: canonical}
   - {id: OBJ-RCP, name: ExternalReceipt, owner: M17, lifetime: L-IMMUTABLE, memory: witness}
   - {id: OBJ-RCN, name: ReconciliationReport, owner: M18, lifetime: L-IMMUTABLE, memory: canonical}
+  - {id: OBJ-FCT, name: Forecast, owner: M07, lifetime: L-PERSIST, memory: canonical}
   - {id: OBJ-TRC, name: TraceSegment, owner: M19, lifetime: L-PERSIST, memory: replay}
   - {id: OBJ-RES, name: ResidueRecord, owner: M19, lifetime: L-PERSIST, memory: residual}
   - {id: OBJ-RUN, name: RunDescriptor, owner: M19, lifetime: L-IMMUTABLE, memory: replay}

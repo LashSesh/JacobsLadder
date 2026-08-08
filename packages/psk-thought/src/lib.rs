@@ -16,6 +16,9 @@ include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 mod thought;
 pub use thought::{compile_thought, thought_record_digest, ThoughtInputs};
 
+mod forecast;
+pub use forecast::{ForecastInputs, SealedForecast};
+
 mod reality;
 pub use reality::{
     check_promotion, classify, classify_reality, is_imaginary, is_implicit_promotion,

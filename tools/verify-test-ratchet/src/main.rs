@@ -37,9 +37,9 @@ use std::process::{Command, ExitCode};
 const FLOORS: &[(&str, usize)] = &[
     ("psk-types", 40),
     ("psk-canon", 23),
-    ("psk-trace", 35),
+    ("psk-trace", 39),
     ("psk-anchor", 21),
-    ("psk-thought", 21),
+    ("psk-thought", 29),
     ("psk-fields", 25),
     ("psk-dependency", 12),
     ("psk-adversarial", 19),
@@ -55,7 +55,7 @@ const FLOORS: &[(&str, usize)] = &[
     ("psk-contract", 20),
     ("psk-certify", 27),
     ("psk-observe", 6),
-    ("psk-conformance", 28),
+    ("psk-conformance", 29),
     ("psk-cli", 1),
     ("psk-ipc", 5),
 ];

@@ -342,7 +342,15 @@ mod tests {
     }
 
     #[test]
-    fn the_real_catalog_yields_a_nonempty_category_c() {
+    fn the_real_catalog_yields_a_plausible_category_c() {
+        // Bewusst OHNE eine bestimmte ID festzunageln: welche IDs unter
+        // (c) stehen, ist genau das, was sich mit jedem geschlossenen
+        // Test aendert. Eine erste Fassung pruefte auf T-PASS-001 und
+        // schlug fehl, sobald T-PASS-001 gebaut war - ein Test, der an
+        // ein bewegliches Ziel gepinnt war und Fortschritt als Fehler
+        // meldete. Geprueft wird deshalb nur, was stabil gilt: der Parser
+        // findet Eintraege, und er verwechselt keine Erwaehnung aus einer
+        // anderen Kategorie mit einem Eintrag.
         let root = workspace_root();
         let catalog =
             fs::read_to_string(root.join("packages/psk-conformance/src/conformance_catalog.rs"))
@@ -350,8 +358,12 @@ mod tests {
         let ids = category_c_ids(&catalog);
         assert!(!ids.is_empty(), "Parser muss (c) finden: {ids:?}");
         assert!(
-            ids.contains("T-PASS-001"),
-            "T-PASS-001 steht real unter (c): {ids:?}"
+            ids.iter().all(|id| id.starts_with("T-")),
+            "nur T-IDs gehoeren hierher: {ids:?}"
+        );
+        assert!(
+            !ids.contains("T-PERSONA-001"),
+            "T-PERSONA-001 steht unter (b) und wird in (c) nur als Vergleich genannt: {ids:?}"
         );
     }
 }
