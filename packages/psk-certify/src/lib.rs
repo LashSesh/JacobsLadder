@@ -15,7 +15,7 @@ include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 mod certify;
 pub use certify::{
     check_minimum_replay_class, compute_conformance_class, evaluate_release_gate,
-    issue_certificate, AdditionalAcceptance, CertificateInputs,
+    issue_certificate, AdditionalAcceptance, CertificateInputs, ObligationPlatformBinding,
 };
 
 mod posture;
