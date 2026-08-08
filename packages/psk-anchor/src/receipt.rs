@@ -159,6 +159,28 @@ fn compute_receipt_identity(draft: &ExternalReceipt) -> Result<psk_types::Object
 /// `result_digest = H(Can(record))` - der Digest des rohen, unvermischten
 /// Beobachtungsergebnisses (Struktur 7.34: "record: bytes # unveraendert,
 /// unvermischt").
+/// Observe(2)-Abschlussbedingung (Definition 14.2), zweiter Ausgang:
+/// "ExternalReceipt vorhanden ODER UNKNOWN_EFFECT." `build_receipt`/
+/// `ingress_p24*` unten leisten den ersten Ausgang; dieser hier den
+/// zweiten - fuer den Fall, dass innerhalb der Frist kein Receipt eintraf.
+///
+/// Blockiert: UNKNOWN_EFFECT ist `EffectAttemptOutcomeKind::UnknownEffect`
+/// (psk-effect, Struktur 7.33) - ein M16/M15-Typ, den psk-anchor nicht
+/// benennen kann (psk-anchor haengt nicht von psk-effect ab, aus denselben
+/// Gruenden wie die verbotene Kante [M16,M17] in module_map.yaml
+/// umgekehrt gilt). Die naechstliegende reale Entscheidungslogik
+/// (`psk_lifecycle::recovery::classify_open_effect`) gehoert M26 (WP14) und
+/// ist von hier aus ebenfalls nicht erreichbar. Welches Modul die
+/// "kein Receipt fristgerecht"-Entscheidung tatsaechlich trifft, ist eine
+/// Registerfrage, die dieses Werk noch nicht beantwortet - kein Zweig hier
+/// erfindet eine Antwort.
+pub fn observe_unknown_effect(_deadline_tau_i: u64, _now_tau_i: u64) -> ! {
+    unimplemented!(
+        "Observe(2) 'oder UNKNOWN_EFFECT': Zustaendigkeit zwischen M17/M16/M26 \
+         ungeklaert (siehe Funktionskommentar)"
+    )
+}
+
 pub fn build_receipt(inputs: ObservationInputs) -> Result<ExternalReceipt, PskError> {
     let result_digest = can(&inputs.record, Media::Json).map_or_else(
         |_| Ok::<Digest, PskError>(Digest::sha256(&inputs.record)),

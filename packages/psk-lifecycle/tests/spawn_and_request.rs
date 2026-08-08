@@ -171,7 +171,10 @@ fn a_path_escape_outside_sandbox_root_is_denied_by_the_substrate_not_the_adapter
     )
     .expect("effect-local-fs muss spawnbar sein");
 
-    let escape_scope = format!("..\\{}", escape_target.file_name().unwrap().to_str().unwrap());
+    let escape_scope = format!(
+        "..\\{}",
+        escape_target.file_name().unwrap().to_str().unwrap()
+    );
     let token = EffectToken {
         schema: "psk.effect-token/1.0".into(),
         id: ObjectId::new(SortId::Capability, Digest::sha256(b"tok-escape")),
@@ -215,7 +218,9 @@ fn a_path_escape_outside_sandbox_root_is_denied_by_the_substrate_not_the_adapter
         "die Ausbruchsdatei darf unter keinen Umstaenden entstanden sein: {escape_target:?}"
     );
 
-    child.shutdown().expect("Kindprozess muss trotz verweigertem Schreibversuch sauber beenden");
+    child
+        .shutdown()
+        .expect("Kindprozess muss trotz verweigertem Schreibversuch sauber beenden");
     fs::remove_dir_all(&sandbox).ok();
     let _ = fs::remove_file(&escape_target);
 }

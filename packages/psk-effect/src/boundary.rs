@@ -63,6 +63,38 @@ pub trait EffectAdapter {
     fn is_reversible(&self, token: &EffectToken) -> bool;
 }
 
+/// Weiterreichende Instanz fuer den geboxten Adapter: `execute_effect`
+/// unten verlangt `&impl EffectAdapter`, was den impliziten `Sized`-Bund
+/// des generischen Parameters auf `dyn EffectAdapter` (unsized) nicht
+/// zulaesst. Ein zur Laufzeit gewaehlter Adapter (z.B. M25/`dispatch()`,
+/// das Execute-Phase-Elemente typisiert entgegennimmt, ohne selbst
+/// generisch ueber jeden moeglichen Adaptertyp zu sein) braucht deshalb
+/// diese Bruecke - Standardmuster fuer Trait-Objekte, keine Erweiterung
+/// des Traits selbst.
+impl EffectAdapter for Box<dyn EffectAdapter> {
+    fn id(&self) -> AdapterId {
+        self.as_ref().id()
+    }
+    fn declared_effect_classes(&self) -> Vec<EffectClassId> {
+        self.as_ref().declared_effect_classes()
+    }
+    fn required_capabilities(&self) -> Vec<CapabilityId> {
+        self.as_ref().required_capabilities()
+    }
+    fn prestate(&self, scope: &ScopeExpr) -> Digest {
+        self.as_ref().prestate(scope)
+    }
+    fn apply(&self, token: &EffectToken, started_at: DualTime) -> EffectAttempt {
+        self.as_ref().apply(token, started_at)
+    }
+    fn compensate(&self, attempt: &EffectAttempt) -> EffectAttempt {
+        self.as_ref().compensate(attempt)
+    }
+    fn is_reversible(&self, token: &EffectToken) -> bool {
+        self.as_ref().is_reversible(token)
+    }
+}
+
 /// Invariante 20.4 (Kein Effekt ohne Token): "ExecuteEffect(e) = 1 =>
 /// Gate(e) = PASS UND TokenBound(e) = 1. Ein Adapteraufruf ohne
 /// gueltiges, nicht konsumiertes, nicht abgelaufenes Token erzeugt

@@ -541,8 +541,22 @@ fn check_package_cycle(regs: &Registers) -> Option<String> {
 /// (M21) - alle drei sind die urspruenglich von diesem Werkzeug gemeldeten
 /// psk-contract-Funde, alle drei durch eine numerierte Algorithmus-17.1-
 /// Stelle im tatsaechlichen Code belegt, keine erratene Ausnahme.
+///
+/// v1.0.19-Umsetzung: psk-scheduler implementiert Algorithmus 14.4 (tick(),
+/// zwoelf Phasen) und ist damit - trotz nomineller M25-Ownership - derselbe
+/// Fall wie psk-contract: ein Orchestrator, der modulueberschreitend in
+/// bereits vorhandene Funktionen anderer Module hineinruft, weil genau das
+/// seine Aufgabe ist (die Taktschleife selbst), nicht weil eine Portkante
+/// fehlt. Direkt an `dispatch.rs` verifiziert: jeder Match-Arm dort ruft
+/// eine bereits real existierende, einzeln getestete Funktion des
+/// jeweiligen Zielmoduls auf (M06 `compile_thought`, M07 `classify`, M08
+/// `register_field`, M09 `route_lens`, M10 `dependency_quotient`, M11
+/// `evaluate`, M12/M13 indirekt ueber deren Eingabetypen, M15/M16 `issue`/
+/// `execute_effect`, M18 `reconcile`, M24 `capsulate`/`ratchet`) - keine
+/// dieser Kanten umgeht eine bestehende Portgrenze, sie realisieren die im
+/// Werk selbst so vorgesehene zentrale Orchestrierung.
 fn is_orchestrator(package: &str) -> bool {
-    matches!(package, "psk-contract")
+    matches!(package, "psk-contract" | "psk-scheduler")
 }
 
 /// Kernpruefung von T-PORT-001: fuer jede Paket-zu-Paket-Cargo-Kante
@@ -720,7 +734,12 @@ mod tests {
         //     und eine echte vierte Verletzung stillschweigend verdeckt,
         //     statt sie zu loesen - deshalb die enge, aufgezaehlte Fassung.
         let regs = regs_from_real_workspace();
-        assert_eq!(check_module_cycle(&regs), None, "{:?}", check_module_cycle(&regs));
+        assert_eq!(
+            check_module_cycle(&regs),
+            None,
+            "{:?}",
+            check_module_cycle(&regs)
+        );
     }
 
     #[test]
@@ -806,7 +825,9 @@ mod tests {
         );
         let graph = module_graph_edges(&regs);
         assert!(
-            graph.get("M11").is_some_and(|targets| targets.contains("M12")),
+            graph
+                .get("M11")
+                .is_some_and(|targets| targets.contains("M12")),
             "P18 (M11->M12) muss trotz kind:request im Zyklengraphen bleiben: {graph:#?}"
         );
     }
@@ -952,7 +973,10 @@ mod tests {
         // psk-witness-Abhaengigkeit ist aus psk-adversarial/Cargo.toml
         // vollstaendig entfernt, nicht nur zu dev-dependencies verschoben
         // (die Tests brauchten sie ohnehin nur fuer einen Platzhalterwert,
-        // jetzt per Struct-Literal statt `make_evidence`). T-PORT-001 ist
+        // jetzt per Struct-Literal statt `make_evidence`).
+        // psk-schedulers neun Kanten (v1.0.19, Algorithmus 14.4) sind ueber
+        // dieselbe `is_orchestrator`-Ausnahme wie psk-contract gedeckt, an
+        // dispatch.rs verifiziert - siehe deren Kopfkommentar. T-PORT-001 ist
         // damit real gruen - alle Paketkanten sind portgedeckt oder
         // begruendet ausgenommen.
         let regs = regs_from_real_workspace();
@@ -964,23 +988,60 @@ mod tests {
     fn mutation_adds_an_unjustified_cross_module_dependency() {
         // T-PORT-001s eigenes Mutationsszenario: eine neue, nicht
         // portgedeckte Paketkante zwischen zwei modulbesitzenden Paketen.
-        // Delta statt absoluter Zahl: die reale Registerlage hat bereits
-        // einen unabhaengigen offenen Fund (psk-adversarial/psk-witness,
-        // siehe Test oben) - die Mutation muss GENAU EINEN zusaetzlichen
-        // Fund erzeugen, nicht den Gesamtzustand auf 1 zuruecksetzen.
+        // Delta statt absoluter Zahl: bleibt robust, falls die reale
+        // Registerlage je wieder einen unabhaengigen offenen Fund hat.
         let mut regs = regs_from_real_workspace();
         let before = check_unjustified_package_edges(&regs).len();
-        // psk-observe (M27) und psk-scheduler (M25): kein Port verbindet
-        // sie (M27 hat laut forbidden_edges gar keine ausgehende Kante).
+        // psk-observe (M27) und psk-witness (M12/M13): kein Port verbindet
+        // sie (M27 hat laut forbidden_edges gar keine ausgehende Kante),
+        // und keines der beiden Pakete ist ein `is_orchestrator`. Bewusst
+        // NICHT psk-scheduler als Ziel: das waere seit v1.0.19 selbst
+        // ausgenommen, der Test pruefte dann nichts mehr.
         regs.package_deps
             .entry("psk-observe".to_string())
             .or_default()
-            .insert("psk-scheduler".to_string());
+            .insert("psk-witness".to_string());
         let problems = check_unjustified_package_edges(&regs);
         assert_eq!(problems.len(), before + 1, "{problems:#?}");
         assert!(problems
             .iter()
-            .any(|p| p.contains("psk-observe") && p.contains("psk-scheduler")));
+            .any(|p| p.contains("psk-observe") && p.contains("psk-witness")));
+    }
+
+    #[test]
+    fn without_the_orchestrator_exception_psk_scheduler_would_be_flagged() {
+        // Zeigt, dass die v1.0.19-Ausnahme tatsaechlich traegt und nicht
+        // wirkungslos ist: psk-schedulers reale Cargo-Kanten (Algorithmus
+        // 14.4s dispatch()) sind ohne sie echte, nicht portgedeckte
+        // modulueberschreitende Kanten. Gegenprobe ueber dieselbe
+        // Pruefroutine, nur ohne die `is_orchestrator`-Vorabfilterung.
+        let regs = regs_from_real_workspace();
+        let scheduler_modules = regs
+            .modules_of
+            .get("psk-scheduler")
+            .expect("psk-scheduler besitzt M25");
+        let unported: Vec<&String> = regs
+            .package_deps
+            .get("psk-scheduler")
+            .expect("psk-scheduler hat Abhaengigkeiten")
+            .iter()
+            .filter(|dep| !is_foundational_dependency(dep))
+            .filter(|dep| regs.modules_of.contains_key(dep.as_str()))
+            .filter(|dep| {
+                let to = &regs.modules_of[dep.as_str()];
+                !any_port_connects(&regs.ports, scheduler_modules, to)
+            })
+            .collect();
+        assert!(
+            !unported.is_empty(),
+            "ohne die Orchestratorausnahme muessten psk-schedulers Kanten auffallen"
+        );
+        // Mit der Ausnahme meldet die reale Pruefung sie nicht.
+        let problems = check_unjustified_package_edges(&regs);
+        assert!(
+            !problems.iter().any(|p| p.contains("psk-scheduler")),
+            "{problems:#?}"
+        );
     }
 
     #[test]

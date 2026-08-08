@@ -63,8 +63,8 @@ use windows::Win32::System::Threading::{
     CreateProcessW, DeleteProcThreadAttributeList, GetExitCodeProcess,
     InitializeProcThreadAttributeList, OpenProcessToken, ResumeThread, TerminateProcess,
     UpdateProcThreadAttribute, WaitForSingleObject, CREATE_SUSPENDED, EXTENDED_STARTUPINFO_PRESENT,
-    INFINITE, LPPROC_THREAD_ATTRIBUTE_LIST, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
-    PROCESS_INFORMATION, STARTF_USESTDHANDLES, STARTUPINFOEXW,
+    INFINITE, LPPROC_THREAD_ATTRIBUTE_LIST, PROCESS_INFORMATION, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+    STARTF_USESTDHANDLES, STARTUPINFOEXW,
 };
 
 /// Eigener, rein synchroner `Read`/`Write`-Wrapper um ein rohes Pipe-
@@ -109,9 +109,7 @@ impl Read for PipeHandle {
             // Win32-Fehler) - Vergleich gegen den blossen Win32-Code
             // (109) OHNE `HRESULT::from_win32` schlaegt IMMER fehl (real
             // beobachtet: EOF kam als Err statt Ok(0) durch).
-            Err(e) if e.code() == windows::core::HRESULT::from_win32(ERROR_BROKEN_PIPE.0) => {
-                Ok(0)
-            }
+            Err(e) if e.code() == windows::core::HRESULT::from_win32(ERROR_BROKEN_PIPE.0) => Ok(0),
             Err(e) => Err(std::io::Error::from_raw_os_error(e.code().0)),
         }
     }
@@ -252,10 +250,22 @@ impl ChildProcess {
         // nach dem Spawn selbst noch eine ueberzaehlige Kopie der
         // KINDSEITIGEN Handles, was spaeteres EOF-Erkennen bricht, siehe
         // `shutdown()`).
-        unsafe { windows::Win32::Foundation::SetHandleInformation(stdin_write.0, HANDLE_FLAG_INHERIT.0, windows::Win32::Foundation::HANDLE_FLAGS(0)) }
-            .map_err(|_| PskError::BootPreconditionFailed)?;
-        unsafe { windows::Win32::Foundation::SetHandleInformation(stdout_read.0, HANDLE_FLAG_INHERIT.0, windows::Win32::Foundation::HANDLE_FLAGS(0)) }
-            .map_err(|_| PskError::BootPreconditionFailed)?;
+        unsafe {
+            windows::Win32::Foundation::SetHandleInformation(
+                stdin_write.0,
+                HANDLE_FLAG_INHERIT.0,
+                windows::Win32::Foundation::HANDLE_FLAGS(0),
+            )
+        }
+        .map_err(|_| PskError::BootPreconditionFailed)?;
+        unsafe {
+            windows::Win32::Foundation::SetHandleInformation(
+                stdout_read.0,
+                HANDLE_FLAG_INHERIT.0,
+                windows::Win32::Foundation::HANDLE_FLAGS(0),
+            )
+        }
+        .map_err(|_| PskError::BootPreconditionFailed)?;
 
         let stderr_handle = unsafe { GetStdHandle(STD_ERROR_HANDLE) }
             .map_err(|_| PskError::BootPreconditionFailed)?;
@@ -428,7 +438,9 @@ impl ChildProcess {
     /// Kommentar, kein `std::process::Child` verfuegbar).
     fn wait_for_exit(&self) -> Result<bool, PskError> {
         unsafe {
-            if WaitForSingleObject(self.process, INFINITE) != windows::Win32::Foundation::WAIT_OBJECT_0 {
+            if WaitForSingleObject(self.process, INFINITE)
+                != windows::Win32::Foundation::WAIT_OBJECT_0
+            {
                 return Err(PskError::BootPreconditionFailed);
             }
             let mut code = 0u32;

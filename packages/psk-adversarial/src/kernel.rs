@@ -352,6 +352,32 @@ pub fn check_hardening_permitted(
     }
 }
 
+/// Definition 22.2 (Kapselfixpunkt, v1.0.19). `before`/`after` sind eine
+/// Kapsel unmittelbar vor und nach einem `ratchet`-Schritt (`after` MUSS
+/// aus `ratchet(before, ...)` stammen; diese Funktion ruft `ratchet` nicht
+/// selbst auf und berechnet nichts neu). Woertlich: "Eine Kapsel c steht im
+/// Kapselfixpunkt, wenn ein weiterer ratchet-Schritt ihre Menge zulaessiger
+/// Nachfolger nicht mehr verkleinert: allowed_next(ratchet(c)) =
+/// allowed_next(c)."
+///
+/// "Erschoepft zuvor das Budget, so ist die Kapsel DARF NICHT als im
+/// Fixpunkt stehend zu fuehren, sondern nach RESIDUAL zu routen" - `ratchet`
+/// setzt `phase: Residual` bereits genau bei Budgeterschoepfung (Regel
+/// 12.7); diese Wache liest das Signal, statt die Rundenzaehlung ein
+/// zweites Mal zu fuehren, und schliesst Residual explizit aus, selbst
+/// wenn `allowed_next` im selben Schritt zufaellig auch stabil geblieben
+/// waere - beide Ausgaenge bleiben getrennt, wie die Definition verlangt.
+pub fn is_capsule_fixpoint(before: &CandidateCapsule, after: &CandidateCapsule) -> bool {
+    after.phase != Phase::Residual && after.allowed_next == before.allowed_next
+}
+
+/// Challenge-Abschlussbedingung (Definition 14.2: "Alle Kapseln im
+/// Kapselfixpunkt oder RESIDUAL") fuer eine einzelne Kapsel: ist sie nach
+/// diesem `ratchet`-Schritt in einem der beiden zulaessigen Endzustaende?
+pub fn is_capsule_resolved(before: &CandidateCapsule, after: &CandidateCapsule) -> bool {
+    after.phase == Phase::Residual || is_capsule_fixpoint(before, after)
+}
+
 /// Invariante 7.22 (Keine vorzeitige Oeffnung) ueber `status`: eine Kapsel
 /// DARF nicht als CLOSED gefuehrt werden, solange sie nicht kristallisiert
 /// oder abschliessend residual/quarantaeniert ist.
@@ -514,6 +540,39 @@ mod tests {
         let c = capsule(&["c1"]);
         let after = ratchet(&c, &[CapsuleId("c1".into())], 10, 10).unwrap();
         assert_eq!(after.phase, Phase::Residual);
+    }
+
+    #[test]
+    fn a_ratchet_step_that_does_not_shrink_the_successor_set_is_a_fixpoint() {
+        // Definition 22.2: allowed_next(ratchet(c)) = allowed_next(c).
+        let c = capsule(&["c1", "c2"]);
+        let after = ratchet(&c, &[CapsuleId("c1".into()), CapsuleId("c2".into())], 1, 10).unwrap();
+        assert_eq!(after.allowed_next, c.allowed_next);
+        assert!(is_capsule_fixpoint(&c, &after));
+        assert!(is_capsule_resolved(&c, &after));
+    }
+
+    #[test]
+    fn a_ratchet_step_that_still_shrinks_the_successor_set_is_not_yet_a_fixpoint() {
+        let c = capsule(&["c1", "c2", "c3"]);
+        let after = ratchet(&c, &[CapsuleId("c1".into())], 1, 10).unwrap();
+        assert_ne!(after.allowed_next, c.allowed_next);
+        assert!(!is_capsule_fixpoint(&c, &after));
+        assert!(!is_capsule_resolved(&c, &after));
+    }
+
+    #[test]
+    fn budget_exhaustion_is_never_a_fixpoint_even_if_the_set_also_happened_to_stabilize() {
+        // Definition 22.2, letzter Satz: beide Ausgaenge bleiben getrennt -
+        // RESIDUAL gewinnt, selbst wenn allowed_next im selben Schritt
+        // zufaellig unveraendert geblieben waere.
+        let c = capsule(&["c1"]);
+        let after = ratchet(&c, &[CapsuleId("c1".into())], 10, 10).unwrap();
+        assert_eq!(after.allowed_next, c.allowed_next, "Vorbedingung des Tests");
+        assert_eq!(after.phase, Phase::Residual);
+        assert!(!is_capsule_fixpoint(&c, &after));
+        // RESIDUAL ist trotzdem einer der beiden zulaessigen Challenge-Ausgaenge.
+        assert!(is_capsule_resolved(&c, &after));
     }
 
     #[test]

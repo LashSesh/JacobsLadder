@@ -57,12 +57,13 @@ use windows::Win32::Foundation::HANDLE;
 use windows::Win32::Security::Authorization::SetNamedSecurityInfoW;
 use windows::Win32::Security::Authorization::SE_FILE_OBJECT;
 use windows::Win32::Security::{
-    AddMandatoryAce, AdjustTokenPrivileges, CreateWellKnownSid, InitializeAcl,
-    SetTokenInformation, TokenIntegrityLevel, ACL, ACL_REVISION, CONTAINER_INHERIT_ACE,
+    AddMandatoryAce, AdjustTokenPrivileges, CreateWellKnownSid, InitializeAcl, SetTokenInformation,
+    TokenIntegrityLevel, WinLowLabelSid, ACL, ACL_REVISION, CONTAINER_INHERIT_ACE,
     LABEL_SECURITY_INFORMATION, OBJECT_INHERIT_ACE, PSID, TOKEN_MANDATORY_LABEL,
-    WinLowLabelSid,
 };
-use windows::Win32::System::SystemServices::{SE_GROUP_ENABLED, SYSTEM_MANDATORY_LABEL_NO_WRITE_UP};
+use windows::Win32::System::SystemServices::{
+    SE_GROUP_ENABLED, SYSTEM_MANDATORY_LABEL_NO_WRITE_UP,
+};
 
 /// Win32s eigene Obergrenze fuer die groesste je vorkommende SID (siehe
 /// `<sddl.h>`/`<winnt.h>`) - ein Byte-Puffer dieser Groesse ist fuer JEDE
@@ -132,8 +133,15 @@ pub fn lower_token_to_low_integrity(token: HANDLE) -> Result<(), PskError> {
     };
     let sid_ptr = combined.sid_bytes.as_mut_ptr();
     let mut sid_len = SECURITY_MAX_SID_SIZE as u32;
-    unsafe { CreateWellKnownSid(WinLowLabelSid, None, Some(PSID(sid_ptr.cast())), &mut sid_len) }
-        .map_err(|_| PskError::BootPreconditionFailed)?;
+    unsafe {
+        CreateWellKnownSid(
+            WinLowLabelSid,
+            None,
+            Some(PSID(sid_ptr.cast())),
+            &mut sid_len,
+        )
+    }
+    .map_err(|_| PskError::BootPreconditionFailed)?;
     combined.header.Label.Sid = PSID(sid_ptr.cast());
 
     let total_len = std::mem::size_of::<TOKEN_MANDATORY_LABEL>() as u32 + sid_len;
@@ -185,9 +193,7 @@ pub fn set_directory_low_integrity(path: &Path) -> Result<(), PskError> {
     }
     .map_err(|_| PskError::BootPreconditionFailed)?;
 
-    let wide_path: Vec<u16> = path
-        .as_os_str()
-        .encode_wide_null_terminated();
+    let wide_path: Vec<u16> = path.as_os_str().encode_wide_null_terminated();
 
     let result = unsafe {
         SetNamedSecurityInfoW(

@@ -20,15 +20,15 @@ mod external_record;
 pub use external_record::{ExternalRecord, FileObservation, ObservedPermissions};
 
 mod anchor;
-pub use anchor::{is_fresh, no_declared_uncertainty, seal_anchor, AnchorInputs};
+pub use anchor::{is_fresh, no_declared_uncertainty, request_reanchor, seal_anchor, AnchorInputs};
 
 mod ingress;
 pub use ingress::{bind_provenance, check_observer_separation};
 
 mod receipt;
 pub use receipt::{
-    build_receipt, ingress_p24, ingress_p24_via_exclusive_pipe, ObservationInputs, ObserverAdapter,
-    ProcessIdentity, RegisteredObserverIdentity,
+    build_receipt, ingress_p24, ingress_p24_via_exclusive_pipe, observe_unknown_effect,
+    ObservationInputs, ObserverAdapter, ProcessIdentity, RegisteredObserverIdentity,
 };
 
 mod observe_protocol;

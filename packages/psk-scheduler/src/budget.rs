@@ -3,9 +3,16 @@
 //!
 //! BudgetLedger traegt kein `id`-Feld (Struktur 14.10 fuehrt keines) und
 //! ist damit kein kanonisches Kapitel-7-Objekt - es lebt nur als
-//! Laufzeitzustand (Teil von Sigma, Definition 13.1: `Ft` und benachbarte
-//! Komponenten), nicht als inhaltsadressiertes Objekt. Es bleibt deshalb
+//! Laufzeitzustand, nicht als inhaltsadressiertes Objekt. Es bleibt deshalb
 //! hier ein reiner Rust-Typ, ohne Registrierung in object_schemas.yaml.
+//!
+//! v1.0.19-Praezisierung: BudgetLedger ist keine der elf benannten
+//! Sigma_t-Positionen (Definition 13.1 nennt C/I/At/Tt/Ft/Ht/Wt/Qt/Et/Lt/Rt
+//! woertlich, keine Budgetposition) - die fruehere Notiz hier ("Teil von
+//! Sigma, Ft und benachbarte Komponenten") war eine Vermutung aus der Zeit
+//! vor einem realen `Sigma`-Typ. Jetzt, wo `sigma::Sigma` real existiert,
+//! ist BudgetLedger dort ein eigenes, ausdruecklich als Zusatz markiertes
+//! Feld (`Sigma::budget`), keine Unterposition von `Ft` (Feldregister).
 //!
 //! Vertrag 14.11 (Keine implizite Unendlichkeit): "Jede Klasse besitzt ein
 //! deklariertes Limit; Erschoepfung erzeugt HOLD und ein ResidueRecord des

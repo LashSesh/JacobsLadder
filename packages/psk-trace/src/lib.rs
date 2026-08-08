@@ -29,3 +29,6 @@ pub use run::{
     DivergenceRecord, ExternalRecordRef, ReplayCheck, ReplayClass, ReplayManifest, RunDescriptor,
     RunInputs,
 };
+
+mod tick;
+pub use tick::{close_tick, open_tick, seal_phase, TickHandle};

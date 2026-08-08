@@ -97,6 +97,31 @@ fn str_field(v: &Value, name: &str) -> String {
 }
 
 /// `ir_encode(bundle: IRBundle) -> bytes` (Algorithmus 10.3).
+/// Compile-Abschlussbedingung (Definition 14.2): "IRBundle als Kandidat
+/// vorhanden." `ir_encode`/`ir_decode` unten runden bereits FERTIGE Bundles
+/// nur ab (Kanonisierung bzw. Deserialisierung) - keine Funktion hier oder
+/// in psk-dependency (M10) baut ein NEUES Kandidatenbundle aus Graph,
+/// Abhaengigkeiten, Projektionen und Gatberichten zusammen.
+///
+/// Blockiert: ein Kandidatenbundle braucht `graph: Graph` (Knoten + Kanten,
+/// Struktur 7.20), `field_projections`, `dependencies` (-> M10s
+/// `DependencyProfile`, real vorhanden), `capabilities`,
+/// `effect_contracts` und die Emissionsklassenwahl (Definition 11.17,
+/// EXECUTABLE/RESIDUAL/QUARANTINED/HOLD) - deren Herleitung ist Pass-
+/// C-Logik (Definition 11.1), fuer die dieses Werk zwar die Passfolge
+/// selbst (`architecture/pass_registry.yaml`), aber noch keine
+/// Bundle-Assemblierungsfunktion baut. Ein hier erfundener
+/// Zusammenbau wuerde die noch offene Passreihenfolge vorwegnehmen.
+pub fn compile_ir_bundle(
+    _graph_nodes: Vec<psk_types::objects::IRNode>,
+    _dependencies: psk_types::ObjectId,
+) -> ! {
+    unimplemented!(
+        "Compile 'IRBundle als Kandidat vorhanden': keine Bundle-Assemblierungsfunktion \
+         existiert noch (siehe Funktionskommentar)"
+    )
+}
+
 pub fn ir_encode(bundle: &IRBundle) -> Result<Vec<u8>, PskError> {
     let mut value = serde_json::to_value(bundle).map_err(|_| PskError::CanonicalizationFailed)?;
 

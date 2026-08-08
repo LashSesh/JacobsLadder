@@ -5,10 +5,13 @@
 //!
 //! WP14 (I5): `select` (Regel 14.5 - Prioritaetsordnung, total und
 //! replaystabil), `budget` (Struktur 14.10/Vertrag 14.11 - Ressourcen- und
-//! Risikobudgets, HOLD statt stillem Saettigen). Algorithmus 14.4 (Tick)
-//! selbst - die Taktschleife ueber M25.select/M25.charge und dispatch() -
-//! orchestriert ueber M19/M23 und weitere noch nicht gebaute Module und
-//! wird hier nicht nachgebildet.
+//! Risikobudgets, HOLD statt stillem Saettigen).
+//!
+//! v1.0.19-Umsetzung: Algorithmus 14.4 (Tick) selbst, jetzt real. `sigma`
+//! (Sigma, Definition 13.1), `dispatch` (die Taktschleife ruft je Phase in
+//! die real vorhandenen Modulfunktionen hinein - siehe dortigen Kopf fuer
+//! die Empfaenger-Tabelle je Phase) und `tick` (die Schleife selbst,
+//! `select`/`charge`/`dispatch`/`apply`/M19 zusammensetzend).
 
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
@@ -19,3 +22,15 @@ mod budget;
 pub use budget::{
     charge, charge_risk, BudgetLedger, ChargeOutcome, ResourceClass, ResourceKind, RiskClass,
 };
+
+mod sigma;
+pub use sigma::{GatesAndTokens, Sigma};
+
+mod dispatch;
+pub use dispatch::{dispatch, DispatchOutcome, DispatchResult, PendingWork};
+
+mod apply;
+pub use apply::apply;
+
+mod tick;
+pub use tick::{tick, QueuedItem};

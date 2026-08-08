@@ -18,8 +18,8 @@ include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
 mod closure360;
 pub use closure360::{
-    close360, close720, evaluate, semantically_closed, Close360Evidence, Close720Evidence,
-    ClosureReport, ReturnClassification,
+    close360, close720, evaluate, evaluate_with_gate_reports, semantically_closed,
+    Close360Evidence, Close720Evidence, ClosureReport, ReturnClassification,
 };
 
 mod seam;

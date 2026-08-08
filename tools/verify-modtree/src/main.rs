@@ -9,11 +9,23 @@
 //!
 //! Erkennt `mod X;` und `pub(...)? mod X {`-Deklarationen zeilenweise -
 //! keine echte Rust-Syntaxanalyse (keine `syn`-Abhaengigkeit, passend zum
-//! Rest dieses Werkzeugsatzes). Drei Annahmen ueber den tatsaechlichen
-//! Stil dieses Workspace werden dabei genutzt UND unten selbst prospektiv
-//! sicher behandelt: flache `mod`-Deklarationen, keine
-//! `#[path]`-Ueberschreibungen, `foo.rs`- oder `foo/mod.rs`-Konvention -
-//! kein Fall, den dieses Werkzeug nicht wenigstens versucht abzudecken.
+//! Rest dieses Werkzeugsatzes). Deckt `foo.rs`/`foo/mod.rs` sowie
+//! `#[path = "..."]`-Ueberschreibungen ab.
+//!
+//! Befund (v1.0.19-Umsetzung), ehrlich vermerkt statt still korrigiert:
+//! die urspruengliche Fassung dieses Kopfkommentars fuehrte "keine
+//! `#[path]`-Ueberschreibungen" als Annahme UND behauptete zugleich "kein
+//! Fall, den dieses Werkzeug nicht wenigstens versucht abzudecken" - beides
+//! zusammen war schon damals unhaltbar, und die T-SEC-001-Umsetzung
+//! (psk-lifecycle`s plattformbedingte Aufteilung in `process_windows.rs`/
+//! `process_unsupported.rs` ueber `#[cfg]` + `#[path]`) machte es real:
+//! das Werkzeug meldete vier Fehler auf voellig korrektem, auf BEIDEN
+//! Plattformen uebersetzbarem Code - zwei "mod verweist auf keine
+//! vorhandene Datei" und zwei "Datei ueber keine mod-Kette erreichbar",
+//! also genau die Fehlerklasse, die es finden soll, nur falsch herum.
+//! Ein Falschbefund dieser Art ist schlimmer als eine Deckungsluecke: er
+//! draengt dazu, richtigen Code an ein unvollstaendiges Werkzeugmodell
+//! anzupassen. Deshalb hier das Modell erweitert, nicht der Code verbogen.
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -58,18 +70,41 @@ fn workspace_members(root: &Path) -> Vec<PathBuf> {
     members
 }
 
-/// Ein `mod`-Fund: Name plus ob er einen eigenen Dateikoerper braucht
-/// (`mod X;`) oder inline ist (`mod X { ... }`, kein separates File).
+/// Ein `mod`-Fund: Name, ob er einen eigenen Dateikoerper braucht
+/// (`mod X;`) oder inline ist (`mod X { ... }`, kein separates File), und
+/// die etwaige `#[path = "..."]`-Ueberschreibung seines Dateinamens.
 struct ModDecl {
     name: String,
     inline: bool,
+    path_override: Option<String>,
+}
+
+/// Liest `#[path = "..."]` (auch `#![path = ...]`-freie Schreibvarianten mit
+/// abweichenden Leerzeichen) und gibt den Dateinamen zurueck.
+fn parse_path_attribute(line: &str) -> Option<String> {
+    let rest = line.strip_prefix("#[")?.trim_start();
+    let rest = rest.strip_prefix("path")?.trim_start();
+    let rest = rest.strip_prefix('=')?.trim_start();
+    let rest = rest.strip_prefix('"')?;
+    let (value, _) = rest.split_once('"')?;
+    Some(value.to_string())
 }
 
 fn scan_mod_decls(text: &str) -> Vec<ModDecl> {
     let mut out = Vec::new();
+    // Ein `#[path]`-Attribut steht auf einer eigenen Zeile VOR seinem `mod`
+    // und ueberlebt dazwischenliegende weitere Attribute (`#[cfg(...)]`) -
+    // genau die Form, die psk-lifecycle nutzt.
+    let mut pending_path: Option<String> = None;
     for raw_line in text.lines() {
         let line = raw_line.trim_start();
         if line.starts_with("//") {
+            continue;
+        }
+        if line.starts_with("#[") {
+            if let Some(p) = parse_path_attribute(line) {
+                pending_path = Some(p);
+            }
             continue;
         }
         // Ueberspringt optionales `pub`, `pub(crate)`, `pub(super)` etc.
@@ -80,6 +115,11 @@ fn scan_mod_decls(text: &str) -> Vec<ModDecl> {
         }
         .unwrap_or(line);
         let Some(after_mod) = after_pub.strip_prefix("mod ") else {
+            // Eine gewoehnliche Codezeile beendet die Attributgruppe - ein
+            // `#[path]` weit oberhalb gehoert nicht mehr zum naechsten `mod`.
+            if !line.is_empty() {
+                pending_path = None;
+            }
             continue;
         };
         let name_part = after_mod.trim_start();
@@ -99,9 +139,14 @@ fn scan_mod_decls(text: &str) -> Vec<ModDecl> {
             out.push(ModDecl {
                 name,
                 inline: false,
+                path_override: pending_path.take(),
             });
         } else if after_name.starts_with('{') {
-            out.push(ModDecl { name, inline: true });
+            out.push(ModDecl {
+                name,
+                inline: true,
+                path_override: pending_path.take(),
+            });
         }
     }
     out
@@ -124,6 +169,36 @@ fn collect_reachable(
         if decl.inline {
             continue; // kein eigenes File erwartet
         }
+        // `#[path = "..."]` ueberschreibt die Dateinamenskonvention
+        // vollstaendig; Submodule des so geladenen Moduls liegen danach
+        // unter dem Pfad OHNE Endung (Rusts eigene Regel: ein aus
+        // `dir/datei.rs` geladenes Modul sucht seine Kinder in
+        // `dir/datei/`), nicht unter dem Modulnamen.
+        if let Some(rel) = &decl.path_override {
+            let rel_path = prefix.join(rel);
+            if src_root.join(&rel_path).is_file() {
+                let next_prefix = rel_path.with_extension("");
+                if reachable.insert(rel_path.clone()) {
+                    collect_reachable(
+                        src_root,
+                        &src_root.join(&rel_path),
+                        &next_prefix,
+                        reachable,
+                        problems,
+                    );
+                }
+            } else {
+                problems.push(format!(
+                    "`#[path = \"{}\"] mod {}` in {} verweist auf keine vorhandene Datei ({})",
+                    rel,
+                    decl.name,
+                    entry_file.display(),
+                    src_root.join(&rel_path).display(),
+                ));
+            }
+            continue;
+        }
+
         let flat = prefix.join(format!("{}.rs", decl.name));
         let nested = prefix.join(&decl.name).join("mod.rs");
         // Beide Formen (`foo.rs` und `foo/mod.rs`) verschieben den Praefix
@@ -293,6 +368,90 @@ mod tests {
 
         let problems = check_crate(&dir);
         assert!(problems.is_empty(), "{problems:?}");
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn path_attribute_is_parsed_in_its_real_and_spaced_forms() {
+        assert_eq!(
+            parse_path_attribute("#[path = \"process_windows.rs\"]").as_deref(),
+            Some("process_windows.rs")
+        );
+        assert_eq!(
+            parse_path_attribute("#[path=\"a/b.rs\"]").as_deref(),
+            Some("a/b.rs")
+        );
+        // Kein path-Attribut: darf nicht faelschlich greifen.
+        assert_eq!(parse_path_attribute("#[cfg(windows)]"), None);
+        assert_eq!(parse_path_attribute("#[derive(Debug)]"), None);
+    }
+
+    #[test]
+    fn check_crate_resolves_the_real_cfg_plus_path_split_used_by_psk_lifecycle() {
+        // Genau psk-lifecycles Form (T-SEC-001): zwei `mod process;` unter
+        // gegensaetzlichem cfg, beide per #[path] auf eigene Dateien
+        // gelenkt. Vor dieser Erweiterung meldete das Werkzeug hier vier
+        // Fehler auf voellig korrektem Code.
+        let dir = scratch_crate("cfgpath");
+        fs::write(
+            dir.join("src/lib.rs"),
+            "#[cfg(windows)]\n#[path = \"process_windows.rs\"]\nmod process;\n\
+             #[cfg(not(windows))]\n#[path = \"process_unsupported.rs\"]\nmod process;\n\
+             pub use process::ChildProcess;\n",
+        )
+        .unwrap();
+        fs::write(
+            dir.join("src/process_windows.rs"),
+            "pub struct ChildProcess;\n",
+        )
+        .unwrap();
+        fs::write(
+            dir.join("src/process_unsupported.rs"),
+            "pub struct ChildProcess;\n",
+        )
+        .unwrap();
+
+        let problems = check_crate(&dir);
+        assert!(problems.is_empty(), "{problems:#?}");
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn a_path_attribute_pointing_at_a_missing_file_is_still_flagged() {
+        // Die Erweiterung darf die eigentliche Pruefung nicht abstumpfen:
+        // ein #[path] ins Leere bleibt ein Fehler.
+        let dir = scratch_crate("pathmissing");
+        fs::write(
+            dir.join("src/lib.rs"),
+            "#[path = \"nicht_da.rs\"]\nmod process;\n",
+        )
+        .unwrap();
+
+        let problems = check_crate(&dir);
+        assert_eq!(problems.len(), 1, "{problems:#?}");
+        assert!(problems[0].contains("nicht_da.rs"));
+
+        fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn an_orphan_file_is_still_flagged_even_when_a_path_module_exists() {
+        // Regressionswache: die #[path]-Erweiterung darf nicht dazu fuehren,
+        // dass danebenliegende, wirklich unerreichbare Dateien durchrutschen.
+        let dir = scratch_crate("pathorphan");
+        fs::write(
+            dir.join("src/lib.rs"),
+            "#[path = \"real.rs\"]\nmod process;\n",
+        )
+        .unwrap();
+        fs::write(dir.join("src/real.rs"), "pub fn f() {}\n").unwrap();
+        fs::write(dir.join("src/verwaist.rs"), "pub fn g() {}\n").unwrap();
+
+        let problems = check_crate(&dir);
+        assert_eq!(problems.len(), 1, "{problems:#?}");
+        assert!(problems[0].contains("verwaist.rs"));
 
         fs::remove_dir_all(&dir).ok();
     }

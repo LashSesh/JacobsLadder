@@ -97,6 +97,33 @@ pub struct ClosureReport {
 /// Wertet Close360 und Close720 aus der jeweiligen Evidenz aus (Definition
 /// 9.12/9.13) und bildet daraus den ClosureReport (Invariante 9.16:
 /// `executable_eligible` haengt ausschliesslich von `close720` ab).
+/// Verify-Abschlussbedingung (Definition 14.2): "ClosureReport UND alle
+/// GateReports vorhanden." `evaluate` unten liefert den ersten Teil allein
+/// aus Close360Evidence/Close720Evidence - `ClosureReport` selbst kennt
+/// gar kein GateReport-Feld (Struktur 12.9), und `psk_gate::GateReport`
+/// entsteht unabhaengig davon in M14. Keine Funktion in psk-closure oder
+/// psk-gate prueft, dass "alle" (im Sinne von: die fuer diesen Takt
+/// erwarteten) GateReports tatsaechlich vorliegen, bevor ein ClosureReport
+/// als vollstaendig gilt.
+///
+/// Blockiert: "alle GateReports" setzt eine Erwartungsmenge voraus (welche
+/// Gates fuer DIESEN Verify-Durchlauf ueberhaupt faellig sind) - diese
+/// Menge ist nirgends registerseitig hergeleitet (weder
+/// `gate_registry.yaml` noch `constitution/gate_policy.yaml` binden Gates
+/// an einen bestimmten Takt oder eine bestimmte Kapsel). Eine hier
+/// erfundene Vollstaendigkeitsregel wuerde eine Erwartung behaupten, die
+/// das Werk nicht stellt.
+pub fn evaluate_with_gate_reports(
+    _c360: &Close360Evidence,
+    _c720: &Close720Evidence,
+    _gate_reports: &[psk_types::objects::GateReport],
+) -> ! {
+    unimplemented!(
+        "Verify 'ClosureReport und alle GateReports vorhanden': keine Erwartungsmenge \
+         fuer 'alle' ist registerseitig hergeleitet (siehe Funktionskommentar)"
+    )
+}
+
 pub fn evaluate(c360: &Close360Evidence, c720: &Close720Evidence) -> ClosureReport {
     let close360 = close360(c360);
     let close720 = close720(c720);

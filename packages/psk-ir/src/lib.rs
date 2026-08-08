@@ -10,4 +10,4 @@
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
 mod codec;
-pub use codec::{ir_decode, ir_encode};
+pub use codec::{compile_ir_bundle, ir_decode, ir_encode};

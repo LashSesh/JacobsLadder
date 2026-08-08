@@ -16,6 +16,6 @@ mod kernel;
 pub use kernel::{
     capsulate, check_adversarial_closure, check_closure_state, check_hardening_permitted,
     check_monotone_contraction, check_repair_is_a_branch, check_support, contract,
-    effective_rank_of, ratchet, residue_flow_next, split, support, CapsuleInputs, HardeningClass,
-    SplitResult, SupportPaths,
+    effective_rank_of, is_capsule_fixpoint, is_capsule_resolved, ratchet, residue_flow_next, split,
+    support, CapsuleInputs, HardeningClass, SplitResult, SupportPaths,
 };

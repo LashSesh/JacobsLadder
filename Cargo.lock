@@ -1010,8 +1010,22 @@ dependencies = [
 name = "psk-scheduler"
 version = "0.0.0"
 dependencies = [
+ "psk-adversarial",
+ "psk-anchor",
+ "psk-canon",
+ "psk-closure",
  "psk-codegen",
+ "psk-dependency",
+ "psk-effect",
+ "psk-fields",
+ "psk-gate",
+ "psk-reconciliation",
+ "psk-thought",
+ "psk-trace",
  "psk-types",
+ "psk-witness",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
