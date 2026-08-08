@@ -275,14 +275,27 @@
 //!   konstruieren"). Das erste braucht keine Typversiegelung, sondern eine
 //!   Laufzeitpruefung an der Schreibstelle - was `severity: blocking`
 //!   gerade bezeichnet.
-//!   UMFANG, ehrlich: geprueft ist der EINZELFALL (eine Feldidentitaet
-//!   gegen die Systemidentitaet). I-FIELD-001 deckt daneben den MENGENFALL
-//!   ab - "keine MENGE aktiver Feldidentitaeten" darf die Systemidentitaet
-//!   ergeben, also auch keine Kombination/Aggregation mehrerer. Dieser Teil
-//!   ist NICHT gebaut und NICHT geprueft; er bleibt als offenes Residuum
-//!   benannt, nicht als erledigt ausgegeben. Was eine solche Aggregation
-//!   ueberhaupt waere (Vereinigung? Digest ueber die Menge?), legt das Werk
-//!   an dieser Stelle nicht fest.
+//!   UMFANG: der hier gepruefte Test deckt den EINZELFALL (eine
+//!   Feldidentitaet gegen die Systemidentitaet). Der MENGENFALL ist durch
+//!   die Capability-Matrix und die verbotenen Modulkanten abgedeckt, kein
+//!   eigener Test.
+//!   Begruendung: I-FIELD-001s zweiter Satz operationalisiert den ersten -
+//!   "Ein Feld DARF NICHT den Konstitutionskern, die globale Effektgrenze
+//!   oder die Identitaet eines anderen Feldes aus eigener Autoritaet
+//!   umschreiben." Der Mengenfall ist damit NICHT Digestgleichheit
+//!   irgendeiner Aggregation, sondern das Verbot, dass Felder in Summe
+//!   Kernautoritaet erlangen. Das erzwingen bereits verteilt, an echtem
+//!   Register gegengeprueft: `module_map.yaml` fuehrt M08 und M09 mit
+//!   `caps: []` (gar keine Capability), `capability_matrix.yaml`
+//!   verweigert ausdruecklich `{holder: "M08..M10", capability: "fs.*",
+//!   reason: field_has_no_effect}`, und die `forbidden_edges`
+//!   `[M08, M18]`/`[M09, M18]` ("Feld promoviert keinen Fakt") schneiden
+//!   den Weg zur Faktpromotion ab. Keine Summe von Feldern kann so
+//!   Kernautoritaet erreichen.
+//!   Ein eigener Test haette hier ein Aggregationspraedikat erfinden
+//!   muessen (Vereinigung? Digest ueber die Menge?), das das Werk nicht
+//!   fuehrt - und damit gegen eine selbstgebaute Lesart geprueft statt
+//!   gegen die Norm.
 //!
 //! ## (c) Derzeit nicht realisierbar (Befund, mit Begruendung)
 //! - T-OWN-001 (create_owned_object_from_foreign_module -> FAIL_PSK_E014):
