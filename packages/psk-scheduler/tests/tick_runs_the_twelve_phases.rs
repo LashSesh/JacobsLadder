@@ -5,7 +5,8 @@
 use std::collections::BTreeMap;
 
 use psk_scheduler::{
-    tick, BudgetLedger, PendingWork, PriorityTier, QueuedItem, ResourceKind, SchedulableItem, Sigma,
+    tick, BudgetLedger, PendingWork, PriorityTier, Profiling, QueuedItem, ResourceKind,
+    SchedulableItem, Sigma,
 };
 use psk_trace::{open_run, RunDescriptor, RunInputs};
 use psk_types::objects::{
@@ -129,7 +130,14 @@ fn thought_work() -> PendingWork {
 fn an_empty_tick_still_opens_seals_all_twelve_phases_and_closes() {
     let mut sigma = Sigma::new(manifest(ProfileId::Reference), budget());
     let rd = run_descriptor();
-    tick(&mut sigma, &rd, BTreeMap::new(), time()).unwrap();
+    tick(
+        &mut sigma,
+        &rd,
+        BTreeMap::new(),
+        time(),
+        &mut Profiling::off(),
+    )
+    .unwrap();
 
     // 1 tick.opened + 12 phase.sealed.* + 1 tick.closed
     assert_eq!(sigma.trace.segments().len(), 14);
@@ -143,7 +151,14 @@ fn an_empty_tick_still_opens_seals_all_twelve_phases_and_closes() {
 fn the_twelve_phases_are_sealed_in_definition_14_1_order() {
     let mut sigma = Sigma::new(manifest(ProfileId::Reference), budget());
     let rd = run_descriptor();
-    tick(&mut sigma, &rd, BTreeMap::new(), time()).unwrap();
+    tick(
+        &mut sigma,
+        &rd,
+        BTreeMap::new(),
+        time(),
+        &mut Profiling::off(),
+    )
+    .unwrap();
 
     let sealed: Vec<String> = sigma
         .trace
@@ -182,7 +197,7 @@ fn a_type_phase_item_reaches_its_real_receiver_and_lands_in_sigma() {
     let mut queues = BTreeMap::new();
     queues.insert(Phase::Type, vec![item(b"t1", thought_work())]);
 
-    tick(&mut sigma, &rd, queues, time()).unwrap();
+    tick(&mut sigma, &rd, queues, time(), &mut Profiling::off()).unwrap();
 
     // M06 compile_thought hat real gelaufen: der ThoughtBody liegt in Sigma
     // und traegt Regel 5.10s Anfangswerte.
@@ -208,7 +223,7 @@ fn an_exhausted_budget_opens_a_residue_and_skips_the_item() {
     let mut queues = BTreeMap::new();
     queues.insert(Phase::Type, vec![item(b"t1", thought_work())]);
 
-    tick(&mut sigma, &rd, queues, time()).unwrap();
+    tick(&mut sigma, &rd, queues, time(), &mut Profiling::off()).unwrap();
 
     assert!(
         sigma.thoughts.is_empty(),
@@ -237,7 +252,7 @@ fn a_phase_item_in_the_wrong_phase_is_rejected_not_silently_run() {
     queues.insert(Phase::Compile, vec![item(b"t1", thought_work())]);
 
     assert_eq!(
-        tick(&mut sigma, &rd, queues, time()),
+        tick(&mut sigma, &rd, queues, time(), &mut Profiling::off()),
         Err(PskError::UntypedInput)
     );
 }
@@ -246,8 +261,22 @@ fn a_phase_item_in_the_wrong_phase_is_rejected_not_silently_run() {
 fn two_ticks_chain_into_one_verifiable_trace() {
     let mut sigma = Sigma::new(manifest(ProfileId::Reference), budget());
     let rd = run_descriptor();
-    tick(&mut sigma, &rd, BTreeMap::new(), time()).unwrap();
-    tick(&mut sigma, &rd, BTreeMap::new(), time()).unwrap();
+    tick(
+        &mut sigma,
+        &rd,
+        BTreeMap::new(),
+        time(),
+        &mut Profiling::off(),
+    )
+    .unwrap();
+    tick(
+        &mut sigma,
+        &rd,
+        BTreeMap::new(),
+        time(),
+        &mut Profiling::off(),
+    )
+    .unwrap();
 
     assert_eq!(sigma.tick_no, 2);
     assert_eq!(sigma.trace.segments().len(), 28);
@@ -383,6 +412,7 @@ fn under_shadow_the_token_is_invalidated_and_the_adapter_never_runs() {
         &rd,
         execute_queue(adapter.clone(), &token),
         time(),
+        &mut Profiling::off(),
     )
     .unwrap();
 
@@ -415,6 +445,7 @@ fn under_readonly_the_token_is_likewise_invalidated() {
         &rd,
         execute_queue(adapter.clone(), &token),
         time(),
+        &mut Profiling::off(),
     )
     .unwrap();
 
@@ -444,6 +475,7 @@ fn under_reference_the_same_queue_does_run_the_adapter_for_real() {
         &rd,
         execute_queue(adapter.clone(), &token),
         time(),
+        &mut Profiling::off(),
     )
     .unwrap();
 

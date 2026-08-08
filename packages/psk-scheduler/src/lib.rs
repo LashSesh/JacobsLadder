@@ -12,6 +12,11 @@
 //! die real vorhandenen Modulfunktionen hinein - siehe dortigen Kopf fuer
 //! die Empfaenger-Tabelle je Phase) und `tick` (die Schleife selbst,
 //! `select`/`charge`/`dispatch`/`apply`/M19 zusammensetzend).
+//!
+//! `profiling` (T-OBSV-001, I-ARCH-015): der Profilingschalter, bewusst
+//! ausserhalb von `Sigma` gefuehrt - siehe dortigen Modulkopf fuer die
+//! zwei Schutzschichten und den Befund zum (noch nicht existierenden)
+//! Sigma-Digest.
 
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
@@ -31,6 +36,9 @@ pub use dispatch::{dispatch, DispatchOutcome, DispatchResult, PendingWork};
 
 mod apply;
 pub use apply::apply;
+
+mod profiling;
+pub use profiling::{PhaseMetric, Profiling};
 
 mod tick;
 pub use tick::{tick, QueuedItem};

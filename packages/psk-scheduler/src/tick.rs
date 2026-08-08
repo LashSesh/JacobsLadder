@@ -36,8 +36,8 @@ use psk_types::objects::{
 use psk_types::{DualTime, ModuleId, Phase, PskError, CANONICAL_PHASES};
 
 use crate::{
-    apply, charge, dispatch, select, ChargeOutcome, PendingWork, ResourceKind, SchedulableItem,
-    Sigma,
+    apply, charge, dispatch, select, ChargeOutcome, PendingWork, Profiling, ResourceKind,
+    SchedulableItem, Sigma,
 };
 
 /// Ein fuer eine Phase anstehendes Element: Planungsmetadaten
@@ -103,20 +103,31 @@ fn ordered_by_select(mut queue: Vec<QueuedItem>) -> Vec<QueuedItem> {
 /// Traceseg­ment unveraendert weitergereicht - reale Zeitfortschreibung je
 /// Ereignis ist Sache des Aufrufers (mehrere `tick()`-Aufrufe mit
 /// fortschreitendem `time`), nicht dieser Funktion.
+///
+/// `profiling` (T-OBSV-001, I-ARCH-015) ist ein eigener Parameter und
+/// KEIN Feld von `Sigma`: Messwerte duerfen den kanonischen Zustand nicht
+/// erreichen, auch nicht ueber einen kuenftigen Zustandsdigest. Es gibt
+/// nur diesen einen Codepfad - `record_phase` ist bei ausgeschaltetem
+/// Profiling ein No-op, wird aber unverae ndert aufgerufen (siehe
+/// `profiling.rs`s Modulkopf fuer beide Begruendungen).
 pub fn tick(
     state: &mut Sigma,
     rd: &RunDescriptor,
     mut queues: BTreeMap<Phase, Vec<QueuedItem>>,
     time: DualTime,
+    profiling: &mut Profiling,
 ) -> Result<(), PskError> {
     let handle = psk_trace::open_tick(&mut state.trace, state.tick_no, rd.digest, time.clone())?;
 
     for phase in CANONICAL_PHASES {
         let queue = queues.remove(&phase).unwrap_or_default();
+        let mut dispatched = 0u64;
+        let mut budget_skipped = 0u64;
         for item in ordered_by_select(queue) {
             let (kind, amount) = item.cost;
             if !matches!(charge(&mut state.budget, kind, amount), ChargeOutcome::Ok) {
                 budget_residue(state, phase, &item, time.clone())?;
+                budget_skipped += 1;
                 continue;
             }
             let result = dispatch(phase, item.work, state, time.clone())?;
@@ -124,7 +135,9 @@ pub fn tick(
                 state.trace.append(segment)?;
             }
             apply(state, result.outcome)?;
+            dispatched += 1;
         }
+        profiling.record_phase(phase, dispatched, budget_skipped);
         psk_trace::seal_phase(&mut state.trace, &handle, phase, time.clone())?;
     }
 

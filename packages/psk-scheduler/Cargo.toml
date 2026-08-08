@@ -19,7 +19,7 @@ psk-gate = { path = "../psk-gate" }
 psk-effect = { path = "../psk-effect" }
 psk-reconciliation = { path = "../psk-reconciliation" }
 psk-trace = { path = "../psk-trace" }
-serde = "1"
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [build-dependencies]

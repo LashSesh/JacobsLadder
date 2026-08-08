@@ -124,19 +124,50 @@
 //!   kompilieren - ein frueherer, unabsichtlicher Zustand, kein
 //!   beabsichtigter.
 //!
+//! - T-REPLAY-002 (Replay laeuft effektfrei): real gruen getestet in
+//!   `psk-scheduler/tests/tick_runs_the_twelve_phases.rs::under_shadow_the_
+//!   token_is_invalidated_and_the_adapter_never_runs` (plus derselbe
+//!   Nachweis fuer `readonly`). Die fruehere Einordnung unter (c) - "ein
+//!   Replaymodus ... ist nirgends modelliert" - war korrekt fuer den
+//!   damaligen Stand und wurde an der QUELLE geschlossen, nicht hier
+//!   umgedeutet: PSK-RA v1.0.19 Regel 22.3 ("Replay laeuft unter shadow")
+//!   loeste eine haengende Referenz auf - I-ARCH-012 und R-RA-012 nannten
+//!   ein "Replay-Profil", das `ProfileId` (readonly, shadow, sandbox,
+//!   reference) nie fuehrte. Kein fuenfter Profilwert: `shadow` leistet
+//!   woertlich, was Replay verlangt. Die Durchsetzung laeuft ueber die
+//!   BESTEHENDE Tokeninvalidierung (FSM-TOKEN-Operator `plan_changed`,
+//!   P37), nicht ueber eine zusaetzliche Modusabfrage in `dispatch()` -
+//!   der Adapter wird unter `shadow`/`readonly` nie aufgerufen
+//!   (Invariante 22.6, "Replay ist effektfrei"). Ein Gegentest unter
+//!   `reference` zeigt denselben Aufruf real ausfuehren, damit der
+//!   Negativnachweis nicht auch bei einem kaputten Match-Arm gruen waere.
+//! - T-OBSV-001 (mit/ohne Profiling identischer kanonischer Digest,
+//!   I-ARCH-015): real gruen getestet in `psk-scheduler/tests/
+//!   profiling_does_not_alter_the_canonical_digest.rs`. Der
+//!   Profilingschalter (`psk_scheduler::Profiling`) liegt bewusst
+//!   AUSSERHALB von `Sigma` und wird als eigener `tick()`-Parameter
+//!   gefuehrt; zusaetzlich heisst sein Datenfeld `runtime_metrics`, das
+//!   `architecture/volatile_fields.yaml` bereits als volatil fuehrt, so
+//!   dass `pi_vol` es in jeder Tiefe entfernt, falls es je serialisiert
+//!   eingebettet wird. Beide Schichten sind getrennt geprueft: identischer
+//!   Tracekopf/Objekt-IDs/Segmentzahl mit und ohne Profiling, UND ein
+//!   eingebettetes `runtime_metrics` laesst die Identitaet unveraendert,
+//!   waehrend der `record_digest` abweicht (Definition 6.6/6.7). Ein
+//!   Gegentest stellt sicher, dass der profilierte Lauf ueberhaupt etwas
+//!   sammelt - sonst verglichen beide Seiten denselben leeren Zustand.
+//!   Nur EIN Codepfad: `record_phase` ist bei ausgeschaltetem Profiling
+//!   ein No-op, wird aber unveraendert aufgerufen, damit der Test die
+//!   reale Implementierung prueft und nicht zwei verschiedene Zweige.
+//!
 //! ## (c) Derzeit nicht realisierbar (Befund, mit Begruendung)
-//! - T-CONC-001 (nebenlaeufiger Stresstest) und T-OBSV-001 (mit/ohne
-//!   Profiling identischer Digest): beide verlangen Infrastruktur, die
-//!   nicht existiert - einen nebenlaeufigen Ausfuehrungsharness bzw. einen
-//!   Profiling-Umschalter. M25/M26 realisieren `select`/`budget`, aber
-//!   keine parallele Taktschleife (siehe psk-scheduler Modulkopf).
-//! - T-REPLAY-002 (Replay loest echten Effekt aus -> FAIL_PSK_E015): ein
-//!   "Replaymodus", der sich von normaler Ausfuehrung unterscheidet und
-//!   dieselbe Idempotenzschluessel-Wiederverwendung ERLAUBT (um sie dann
-//!   zu verbieten), ist nirgends modelliert - `TokenLedger::consume_once`
-//!   verhindert Doppelausfuehrung bereits strukturell, aber mit E008
-//!   (EffectWithoutToken), nicht E015. Eine E015-Szene ohne einen echten
-//!   Replaymodus-Begriff waere erfunden, kein gefundener Fall.
+//! - T-CONC-001 (nebenlaeufiger Stresstest): verlangt einen nebenlaeufigen
+//!   Ausfuehrungsharness. `tick()` existiert seit v1.0.19 als reale,
+//!   sequentielle Taktschleife (Algorithmus 14.4); Regel 14.7
+//!   (Nebenlaeufigkeitsmodell) erlaubt Nebenlaeufigkeit INNERHALB einer
+//!   Phase und ausschliesslich fuer Operationen ohne gemeinsamen
+//!   Schreibzustand, mit Rueckordnung in die deterministische
+//!   Prioritaetsordnung vor der Anwendung. Diese Rueckordnung ist noch
+//!   nicht gebaut.
 //! - T-PASS-001 (Compiler-Passreihenfolge vertauschen -> divergence_report):
 //!   `pass_registry.yaml` ist deklaratives Metadatenregister, keine
 //!   ausfuehrbare Passpipeline mit vertauschbarer Reihenfolge existiert.
