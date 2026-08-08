@@ -16,4 +16,7 @@ pub use baselines::{run_baseline_comparison, BaselineComparison, BaselineMetrics
 mod feature_evidence;
 pub use feature_evidence::collect_feature_evidence;
 
+mod reports;
+pub use reports::{aggregate_reports, AggregatedReports, Report};
+
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));

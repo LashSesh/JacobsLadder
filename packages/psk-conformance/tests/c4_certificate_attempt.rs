@@ -136,6 +136,74 @@ fn attempt_to_issue_a_c4_certificate_and_report_the_full_contents() {
     // mit; er wiederholt intern den Zertifizierungslauf.
     let baseline = psk_conformance::run_baseline_comparison(&root)
         .expect("der Baselinevergleich selbst muss laufen");
+    // Die vier Berichtsdigests des Zertifikats zeigen ab jetzt auf reale
+    // aggregierte Berichte, nicht auf Platzhalter. Drei davon
+    // (negative_test_report, residue_report, capability_audit) stehen
+    // namentlich unter den acht Pflichtberichten.
+    let catalog_source =
+        std::fs::read_to_string(root.join("packages/psk-conformance/src/conformance_catalog.rs"))
+            .expect("Konformanzkatalog lesbar");
+    let reports = psk_conformance::aggregate_reports(
+        &[
+            &certification.first.boot_gate,
+            &certification.first.patch_gate,
+            &certification.second.boot_gate,
+            &certification.second.patch_gate,
+        ],
+        &certification.first.residues,
+        &certification.first.boot_report.runtime_manifest,
+        &catalog_source,
+    )
+    .expect("die Berichte muessen sich aggregieren lassen");
+
+    println!("=== Aggregierte Berichte (Struktur 7.46) ===");
+    for r in [
+        &reports.gate_report,
+        &reports.residue_report,
+        &reports.capability_audit,
+        &reports.negative_test_report,
+    ] {
+        println!("  {:<22} {}", r.name, r.digest);
+    }
+    println!();
+
+    // Zwei Laeufe desselben RunDescriptors muessen identische
+    // Berichtsdigests liefern. Das ist eine DETERMINISMUSaussage, nicht
+    // mehr: die Uhr des Golden Runs ist eine Konstante (in beiden Laeufen
+    // derselbe tau_e), also bestuende dieser Vergleich auch dann, wenn die
+    // Wanduhr im Digest saesse. Dass sie es nicht tut, beweist
+    // `reports::tests::the_wall_clock_does_not_reach_the_gate_report_digest`
+    // an Berichten, die sich ausschliesslich in tau_e unterscheiden. Hier
+    // steht die schwaechere, aber eigenstaendige Aussage: was der Lauf an
+    // Berichten hervorbringt, haengt nicht vom Lauf ab.
+    let per_run = |run: &psk_conformance::GoldenRunReport| {
+        psk_conformance::aggregate_reports(
+            &[&run.boot_gate, &run.patch_gate],
+            &run.residues,
+            &run.boot_report.runtime_manifest,
+            &catalog_source,
+        )
+        .expect("aggregierbar")
+    };
+    let first_reports = per_run(&certification.first);
+    let second_reports = per_run(&certification.second);
+    assert_eq!(
+        first_reports.gate_report.digest, second_reports.gate_report.digest,
+        "zwei identische Laeufe MUESSEN denselben Gatberichtsdigest liefern"
+    );
+    assert_eq!(
+        first_reports.residue_report.digest, second_reports.residue_report.digest,
+        "zwei identische Laeufe MUESSEN denselben Residuenberichtsdigest liefern"
+    );
+    assert_eq!(
+        first_reports.capability_audit.digest, second_reports.capability_audit.digest,
+        "zwei identische Laeufe MUESSEN denselben Fahigkeitsaudit liefern"
+    );
+    println!(
+        "  (Lauf 1 und Lauf 2 liefern dieselben Berichtsdigests: deterministisch.)
+"
+    );
+
     let evidence = psk_conformance::collect_feature_evidence(&certification, Some(&baseline));
     let derivation = psk_certify::derive_feature_coverage(&evidence);
 
@@ -187,12 +255,12 @@ fn attempt_to_issue_a_c4_certificate_and_report_the_full_contents() {
         features: derivation.covered.clone(),
         acceptance: c4_acceptance(),
         replay_class: MachineCertificateReplayClassKind::R2,
-        gate_report_digest: Digest::sha256(b"c4-attempt-gate-report"),
+        gate_report_digest: reports.gate_report.digest,
         trace_head: certification.first.trace_head,
         replay_manifest_digest: Digest::sha256(b"c4-attempt-replay-manifest"),
-        residue_report_digest: Digest::sha256(b"c4-attempt-residue-report"),
-        capability_audit_digest: Digest::sha256(b"c4-attempt-capability-audit"),
-        negative_test_report_digest: Digest::sha256(b"c4-attempt-negative-tests"),
+        residue_report_digest: reports.residue_report.digest,
+        capability_audit_digest: reports.capability_audit.digest,
+        negative_test_report_digest: reports.negative_test_report.digest,
         scope: scope.clone(),
         issued_at: psk_types::DualTime {
             tau_i: 2_000_000,

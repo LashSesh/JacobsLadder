@@ -121,6 +121,10 @@ pub struct GoldenRunReport {
     /// residualisiert werden). Bei einem PASS-Bootgate kann das durchaus 0
     /// sein - siehe die beiden golden_run-Tests (PASS- und HOLD-Fall).
     pub residues_opened: usize,
+    /// Die Residuensaetze selbst, nicht nur ihre Anzahl - Eingabe des
+    /// `residue_report_digest`, das Struktur 7.46 als einen der vier
+    /// Berichtsdigests verlangt. Ein Bericht ueber eine Zahl waere keiner.
+    pub residues: Vec<psk_types::objects::ResidueRecord>,
 }
 
 /// Ergebnis von Schritt 13 plus der beiden Laeufe, aus deren Vergleich die
@@ -792,6 +796,7 @@ pub fn run_golden_run(
         reconciliation,
         trace_head: trace.head(),
         residues_opened: residues.all().len(),
+        residues: residues.all().to_vec(),
     })
 }
 
