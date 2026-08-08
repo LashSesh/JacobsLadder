@@ -158,8 +158,38 @@ obligations:
         unabhaengig von der Benutzerkennung. Die v1.0.13-Praezisierung von
         Vertrag Herkunftsbeglaubigung an der Prozessgrenze bestaetigt das
         ausdruecklich fuer P24."
-    domain_declared: [namespace_und_rechtetrennung_pro_plattform]
-    test: null
+    domain_declared: [windows_rechteabbau_und_low_integrity_level]
+    test: T-SEC-001
     blocking_from: C4
-    resolution: null
-    resolution_version: null
+    resolution: "Windows-Deklaration (PSK-RA v1.0.16 Fehlerkorrektur 20.3 nennt
+      CreateProcessWithLogonW 'oder gleichwertig' - CreateProcessWithLogonW
+      selbst nicht gewaehlt: es setzt ein eigens angelegtes, dauerhaft
+      eingerichtetes Benutzerkonto mit verwalteten Zugangsdaten auf jeder
+      Maschine voraus, ausserhalb dessen, was Implementierung/Werkzeug ohne
+      Zugriff auf Systemkontenverwaltung leisten darf). Gleichwertig fuer
+      diese Domaene erklaert: ChildProcess::spawn (psk-lifecycle::process)
+      erzeugt das Kind angehalten (CREATE_SUSPENDED), sperrt sein Token VOR
+      dem ersten Instruktionsschritt (AdjustTokenPrivileges DisableAllPrivileges
+      + Absenkung auf Low Integrity Level, psk-lifecycle::sandbox) und
+      erlaubt per Mandatory-Label-Kennzeichnung Schreibzugriff exklusiv auf
+      das eine deklarierte sandbox_root-Verzeichnis - kein Zeitfenster mit
+      vollen Rechten, kein Vertrauen auf Anwendungscode. Real bewiesen statt
+      strukturell angenommen: psk-lifecycle/tests/spawn_and_request.rs::
+      a_path_escape_outside_sandbox_root_is_denied_by_the_substrate_not_the_adapter
+      zeigt, dass ein Pfadausbruch (den LocalFsAdapter::apply selbst nicht
+      prueft) vom Substrat verweigert wird, nicht vom Adaptercode. Diese
+      Aufloesung ist Windows-spezifisch (siehe resolution_platform) - PSK-RA
+      selbst schreibt kein Betriebssystem vor, und die eigene Norm nennt
+      fuer Linux ausdruecklich eine ANDERE, eigens zu deklarierende
+      Entsprechung ('Namespaces und Rechteabgabe'). psk-lifecycle::process
+      waehlt die Implementierung ueber #[cfg(windows)] (process_windows.rs
+      vs. process_unsupported.rs); Letzteres laesst den Workspace auf
+      anderen Plattformen weiter kompilieren, verweigert aber ChildProcess::
+      spawn selbst mit einer auf diesen Eintrag verweisenden Fehlermeldung -
+      faellt nie auf ungeschuetztes Spawnen zurueck. Real geprueft (nicht
+      angenommen): vor dieser Aufteilung liess das unbedingte `mod process`
+      (Windows-Crate ohne jede Plattformabsicherung) den GESAMTEN Workspace
+      unter `cargo check --target x86_64-unknown-linux-gnu` mit 18
+      kaskadierenden Fehlern nicht mehr kompilieren."
+    resolution_version: "I6"
+    resolution_platform: windows

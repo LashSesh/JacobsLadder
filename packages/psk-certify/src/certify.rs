@@ -36,6 +36,19 @@
 //! Digest fest; Signaturverfahren und Schluesselhaltung sind
 //! domaenenabhaengig zu deklarieren"): eine hier erfundene Signatur waere
 //! eine unbelegte Sicherheitsbehauptung.
+//!
+//! Regel 7.47 (Plattformgebundene Verpflichtungsaufloesung im Zertifikat,
+//! PSK-RA v1.0.17): ausgeloest durch OBL-010 (architecture/obligations.yaml,
+//! `resolution_platform: windows`, siehe psk-lifecycle::process_unsupported) -
+//! ein Zertifikat, dessen beanspruchte Klasse von einer NUR fuer eine
+//! bestimmte Plattform aufgeloesten Verpflichtung abhaengt, DARF NICHT ohne
+//! diese Angabe in `scope` ausgestellt werden, und auf jeder ANDEREN
+//! Plattform gilt die Verpflichtung als offen. `check_platform_bound_
+//! obligations` setzt das direkt in `issue_certificate` durch (dieselbe
+//! Ablehnung, PSK-E018/`ReleaseGateBlocked`, wie der bereits bestehende
+//! "unterhalb C0"-Fall) - der Aufrufer liefert die dafuer noetigen, aus dem
+//! Register bereits gelesenen Fakten (`ObligationPlatformBinding`), M21
+//! liest die Datei selbst nicht (siehe naechster Absatz).
 
 use std::collections::BTreeSet;
 
@@ -118,6 +131,75 @@ pub fn check_minimum_replay_class(achieved: ReplayClass) -> Result<(), PskError>
     }
 }
 
+/// Regel 7.47 (Plattformgebundene Verpflichtungsaufloesung im Zertifikat,
+/// PSK-RA v1.0.17): eine einzelne, bereits aus `architecture/
+/// obligations.yaml` gelesene Feststellung ueber EINE Verpflichtung - M21
+/// liest die Datei nicht selbst (siehe `CertificateInputs`-Kommentar: "Kein
+/// Feld wird hier gemessen"), der Aufrufer liefert genau die zwei Felder,
+/// die die Regel braucht. Verpflichtungen ohne `resolution_platform`
+/// (universell oder gar nicht aufgeloest) gehoeren NICHT in diese Liste -
+/// sie sind Regel 7.47s Gegenstand nicht.
+pub struct ObligationPlatformBinding {
+    /// z.B. "OBL-010" - nur fuer Fehlernachvollziehbarkeit, nicht Teil der
+    /// Pruefung selbst.
+    pub id: String,
+    /// `blocking_from` aus dem Register. `None` (`blocking_from: null`)
+    /// bedeutet: blockiert keine Klasse, fuer Regel 7.47 ohne Wirkung.
+    pub blocking_from: Option<Class>,
+    /// `resolution_platform` aus dem Register - immer `Some`, siehe
+    /// Struct-Kommentar (der Aufrufer filtert bereits vor).
+    pub resolution_platform: String,
+}
+
+fn class_rank(c: Class) -> u8 {
+    match c {
+        Class::C0 => 0,
+        Class::C1 => 1,
+        Class::C2 => 2,
+        Class::C3 => 3,
+        Class::C4 => 4,
+        Class::C5 => 5,
+    }
+}
+
+/// Regel 7.47, wortgetreu umgesetzt: fuer jede plattformgebundene
+/// Verpflichtung, die fuer `class` ueberhaupt relevant ist (`blocking_from
+/// <= class`), MUSS (a) `current_platform` GENAU `resolution_platform`
+/// entsprechen - sonst "gilt die Verpflichtung als offen und die davon
+/// abhaengige Konformanzklasse als nicht erreicht" - und (b) `scope` diese
+/// Bindung ausweisen (Konvention dieses Werks: enthaelt die Teilzeichenkette
+/// `"platform=<resolution_platform>"`) - sonst "behauptete [das Zertifikat]
+/// mehr, als geprueft wurde". Beide Faelle: Ausstellung verweigert
+/// (PSK-E018/`ReleaseGateBlocked`, dieselbe Reaktion wie beim bereits
+/// bestehenden "unterhalb C0"-Fall unten), keine stillschweigende
+/// Herabstufung auf eine niedrigere Klasse - der Aufrufer hat die Klasse
+/// selbst ueber `acceptance` angefordert und bekommt hier eine klare
+/// Ablehnung, keinen unerwarteten Ersatz.
+fn check_platform_bound_obligations(
+    class: Class,
+    current_platform: &str,
+    obligations: &[ObligationPlatformBinding],
+    scope: &ScopeExpr,
+) -> Result<(), PskError> {
+    let rank = class_rank(class);
+    for obligation in obligations {
+        let relevant = obligation
+            .blocking_from
+            .is_some_and(|b| class_rank(b) <= rank);
+        if !relevant {
+            continue;
+        }
+        if obligation.resolution_platform != current_platform {
+            return Err(PskError::ReleaseGateBlocked);
+        }
+        let marker = format!("platform={}", obligation.resolution_platform);
+        if !scope.0.contains(&marker) {
+            return Err(PskError::ReleaseGateBlocked);
+        }
+    }
+    Ok(())
+}
+
 /// Eingaben fuer `issue_certificate`. Kein Feld wird hier gemessen -
 /// jeder Digest kommt vom Modul, das ihn tatsaechlich gebildet hat
 /// (M19 fuer trace_head/replay_manifest_digest/residue_report_digest,
@@ -139,12 +221,22 @@ pub struct CertificateInputs {
     pub scope: ScopeExpr,
     pub issued_at: DualTime,
     pub signature: Signature,
+    /// Die tatsaechliche Plattform dieses Ausstellungslaufs (z.B.
+    /// `std::env::consts::OS`) - Regel 7.47 vergleicht sie gegen jede
+    /// plattformgebundene Verpflichtung in `platform_bound_obligations`.
+    pub current_platform: String,
+    /// Nur die Verpflichtungen aus `architecture/obligations.yaml`, die
+    /// `resolution_platform` tragen (siehe `ObligationPlatformBinding`) -
+    /// leer, wenn keine relevant ist oder der Aufrufer (wie `golden_run.rs`
+    /// derzeit) ohnehin nie eine davon abhaengige Klasse beansprucht.
+    pub platform_bound_obligations: Vec<ObligationPlatformBinding>,
 }
 
 /// M21: stellt ein MachineCertificate aus. Scheitert, wenn nicht einmal
 /// C0 erreicht ist (Regel 23.1 kennt keine Klasse darunter - ein
-/// "Zertifikat der Nichtkonformitaet" ist keine Struktur des Werkes) oder
-/// wenn Vertrag 22.2 (mindestens R2) verletzt ist.
+/// "Zertifikat der Nichtkonformitaet" ist keine Struktur des Werkes),
+/// wenn Vertrag 22.2 (mindestens R2) verletzt ist, oder wenn Regel 7.47
+/// (plattformgebundene Verpflichtungsaufloesung) nicht erfuellt ist.
 pub fn issue_certificate(inputs: CertificateInputs) -> Result<MachineCertificate, PskError> {
     check_minimum_replay_class(inputs.replay_class)?;
 
@@ -152,6 +244,13 @@ pub fn issue_certificate(inputs: CertificateInputs) -> Result<MachineCertificate
     if conformance_class == Class::C0 && !inputs.acceptance.artifact_conformant {
         return Err(PskError::ReleaseGateBlocked);
     }
+
+    check_platform_bound_obligations(
+        conformance_class,
+        &inputs.current_platform,
+        &inputs.platform_bound_obligations,
+        &inputs.scope,
+    )?;
 
     Ok(MachineCertificate {
         schema: "psk.machine-certificate/1.0".to_string(),
@@ -337,6 +436,8 @@ mod tests {
             scope: ScopeExpr("local_workspace".into()),
             issued_at: sample_time(),
             signature: Signature("unsigned-reference-build".into()),
+            current_platform: "windows".into(),
+            platform_bound_obligations: vec![],
         }
     }
 
@@ -362,6 +463,93 @@ mod tests {
             issue_certificate(inputs),
             Err(PskError::UnboundNondeterminismOrDivergence)
         );
+    }
+
+    /// Bringt `sample_inputs()` auf reale C4-Bedingungen (Tabelle 23.2:
+    /// FC0-FC6+FC8 und `reference_validated`) - derselbe Deckungsvektor wie
+    /// `highest_satisfied_class_wins_not_the_first_checked` oben, nur
+    /// wiederverwendbar fuer die Regel-7.47-Tests unten.
+    fn c4_inputs() -> CertificateInputs {
+        let mut inputs = sample_inputs();
+        inputs.features = vec![
+            FeatureCoverageId::Fc0,
+            FeatureCoverageId::Fc1,
+            FeatureCoverageId::Fc2,
+            FeatureCoverageId::Fc3,
+            FeatureCoverageId::Fc4,
+            FeatureCoverageId::Fc5,
+            FeatureCoverageId::Fc6,
+            FeatureCoverageId::Fc8,
+        ];
+        inputs.acceptance = AdditionalAcceptance {
+            artifact_conformant: true,
+            kernel_executable: true,
+            replay_valid: true,
+            sandbox_effect_safe: true,
+            reference_validated: true,
+            externally_reproduced: false,
+        };
+        inputs
+    }
+
+    // Regel 7.47 (PSK-RA v1.0.17): OBL-010-artige plattformgebundene
+    // Verpflichtung, blockierend ab C4 - derselbe Fall, der den v1.0.17-
+    // Fund ausgeloest hat (MachineCertificate wies C4 aus, ohne die
+    // Plattformbindung zu nennen).
+    fn windows_bound_obligation() -> ObligationPlatformBinding {
+        ObligationPlatformBinding {
+            id: "OBL-010".into(),
+            blocking_from: Some(Class::C4),
+            resolution_platform: "windows".into(),
+        }
+    }
+
+    #[test]
+    fn c4_on_the_resolved_platform_with_scope_declared_succeeds() {
+        let mut inputs = c4_inputs();
+        inputs.current_platform = "windows".into();
+        inputs.platform_bound_obligations = vec![windows_bound_obligation()];
+        inputs.scope = ScopeExpr("golden-run platform=windows".into());
+        let cert = issue_certificate(inputs).unwrap();
+        assert_eq!(cert.conformance_class, Class::C4);
+    }
+
+    #[test]
+    fn c4_on_a_fictional_foreign_platform_is_refused() {
+        // Der vom Nutzer verlangte Nachweis: ein C4-Zertifikat auf einer
+        // Plattform, fuer die OBL-010 keine Aufloesung deklariert, MUSS
+        // scheitern - nicht still auf eine niedrigere Klasse herabgestuft
+        // werden, sondern die Ausstellung selbst ablehnen (Regel 7.47:
+        // "gilt die Verpflichtung als offen und die davon abhaengige
+        // Konformanzklasse als nicht erreicht").
+        let mut inputs = c4_inputs();
+        inputs.current_platform = "plan9-risc-v".into(); // fiktiv, bewusst unbekannt
+        inputs.platform_bound_obligations = vec![windows_bound_obligation()];
+        inputs.scope = ScopeExpr("golden-run platform=plan9-risc-v".into());
+        assert_eq!(issue_certificate(inputs), Err(PskError::ReleaseGateBlocked));
+    }
+
+    #[test]
+    fn c4_on_the_resolved_platform_without_scope_declaration_is_refused() {
+        // Zweiter Fall der Regel: die Plattform stimmt, aber `scope`
+        // verschweigt die Bindung - das Zertifikat behauptete sonst mehr,
+        // als tatsaechlich geprueft/deklariert wurde.
+        let mut inputs = c4_inputs();
+        inputs.current_platform = "windows".into();
+        inputs.platform_bound_obligations = vec![windows_bound_obligation()];
+        inputs.scope = ScopeExpr("golden-run".into()); // keine Plattformangabe
+        assert_eq!(issue_certificate(inputs), Err(PskError::ReleaseGateBlocked));
+    }
+
+    #[test]
+    fn a_platform_bound_obligation_above_the_reached_class_does_not_interfere() {
+        // OBL-010 blockiert erst ab C4 - ein C0-Zertifikat (sample_inputs())
+        // auf einer Fremdplattform darf davon unberuehrt bleiben.
+        let mut inputs = sample_inputs();
+        inputs.current_platform = "plan9-risc-v".into();
+        inputs.platform_bound_obligations = vec![windows_bound_obligation()];
+        let cert = issue_certificate(inputs).unwrap();
+        assert_eq!(cert.conformance_class, Class::C0);
     }
 
     #[test]

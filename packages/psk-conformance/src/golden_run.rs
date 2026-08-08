@@ -461,6 +461,7 @@ fn issue_and_execute(
     let mut child = psk_lifecycle::ChildProcess::spawn(
         &exe,
         &[sandbox_root.to_str().ok_or(PskError::UntypedInput)?],
+        Some(sandbox_root),
     )?;
 
     let apply_payload = serde_json::to_vec(&psk_effect::EffectApplyRequest {
@@ -512,6 +513,7 @@ fn observe_and_receipt(
     let mut child = psk_lifecycle::ChildProcess::spawn(
         &exe,
         &[sandbox_root.to_str().ok_or(PskError::UntypedInput)?],
+        None,
     )?;
 
     let request_payload = serde_json::to_vec(&psk_anchor::ObserveReceiptRequest {
@@ -615,6 +617,16 @@ fn issue_golden_run_certificate(
         scope: ScopeExpr("golden-run".into()),
         issued_at: run_time(),
         signature: psk_types::Signature(vec![]),
+        // Regel 7.47 (PSK-RA v1.0.17): `features` oben (nur Fc0/Fc1) haelt
+        // diesen Lauf absichtlich unterhalb jeder Klasse, die OBL-010
+        // (blocking_from: C4) ueberhaupt betrifft - siehe `is_relevant` in
+        // `check_platform_bound_obligations`. Ein leerer Vektor ist hier
+        // deshalb kein uebersehener Fall, sondern der ehrliche Stand: diese
+        // Funktion beansprucht nie eine plattformgebundene Klasse. Ein
+        // kuenftiger Aufrufer, der tatsaechlich C4 beansprucht, MUSS
+        // `architecture/obligations.yaml` real laden und hier eintragen.
+        current_platform: std::env::consts::OS.to_string(),
+        platform_bound_obligations: vec![],
     })
 }
 

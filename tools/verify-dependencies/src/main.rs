@@ -37,6 +37,18 @@
 //! angeforderte P39-Korrektur hinaus, siehe `is_named_backflow`) - eine
 //! separate, spaeter zu entscheidende Erweiterung, kein stillschweigend
 //! behaupteter Deckungsgewinn.
+//!
+//! PSK-RA v1.0.16 ergaenzte die Art-Spalte (`kind`) fuer alle 42 Ports
+//! (zuvor nur neun Beispiele, siehe port_registry.yaml Kopfkommentar) und
+//! bestaetigte damit den vierten, zuvor offenen Zyklenfund (M08<->M20, P31/
+//! P32) als denselben Anruf-Ruecksprung-Fall wie P00/P05. Das machte
+//! "request" zum GEWOEHNLICHEN Fall (33 von 42) statt einer neunkoepfigen
+//! Ausnahmeliste - `module_graph_edges`s zweite Ausnahmeklasse wurde
+//! deshalb von "jeder kind:request-Port" auf eine kleine, an echtem Code
+//! verifizierte Aufzaehlung umgestellt (`is_verified_call_return_leg`);
+//! die alte, breite Fassung haette sonst 33 von 42 Kanten aus der
+//! Zyklenpruefung entfernt und T-ARCH-002 praktisch wirkungslos gemacht.
+//! Siehe dessen Kopfkommentar fuer die Einzelheiten.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
@@ -108,12 +120,14 @@ struct PortRegistry {
     ports: Vec<PortEntry>,
 }
 
+/// `kind` (Regel 4.7: request/event) steht im realen Register, treibt aber
+/// KEINE Pruefung mehr in diesem Werkzeug (siehe `is_verified_call_return_leg`s
+/// Kopfkommentar fuer den Grund) - deshalb hier bewusst nicht deserialisiert,
+/// statt eines gelesenen-aber-nie-benutzten Feldes.
 #[derive(Debug, Deserialize, Clone)]
 struct PortEntry {
     from: String,
     to: String,
-    #[serde(default)]
-    kind: Option<String>,
 }
 
 // ------------------------------------------------------ pass_registry.yaml
@@ -325,29 +339,42 @@ fn shares_a_pass(from: &str, to: &str, passes: &[PassEntry]) -> bool {
         .any(|p| p.modules.iter().any(|m| m == from) && p.modules.iter().any(|m| m == to))
 }
 
+/// PSK-RA v1.0.16, Fehlerkorrektur-Befund (20): Kapitel 4.2 traegt jetzt fuer
+/// alle 42 Ports eine Art-Spalte (`kind`), nicht mehr nur fuer neun Beispiele.
+/// Regel 4.7 (Synchronitaet) macht "request" damit zum GEWOEHNLICHEN Fall
+/// (33 von 42 Ports) - jeder synchrone Pipelineschritt innerhalb eines Ticks
+/// ist "request", unabhaengig davon, ob er architektonisch vorwaerts oder
+/// rueckwaerts zeigt. `kind` beschreibt Zustellzeitpunkt (Regel 4.7), NICHT
+/// Abhaengigkeitsrichtung (Invariante 2.3) - zwei orthogonale Eigenschaften.
+///
+/// Die FRUEHERE Fassung dieser Funktion behandelte JEDEN `kind: request`-Port
+/// als Ausnahme von der Zyklenpruefung - richtig fuer die neun ehemaligen
+/// Beispiele (jede Vorwaertskante darunter blieb ohnehin unproblematisch,
+/// da sie keine Rueckkante schliesst), aber FALSCH als generelle Regel:
+/// mechanisch auf alle 42 angewandt, entfernt sie 33 von 42 Kanten aus dem
+/// Graphen - darunter die gesamte gewoehnliche Vorwaertspipeline (P01-P04,
+/// P08-P20, P25, P34/P35, P40/P41 usw.) - und macht die Zyklenpruefung
+/// PRAKTISCH WIRKUNGSLOS: ein fast leerer Graph ist trivial azyklisch, ganz
+/// unabhaengig davon, ob die registrierten Abhaengigkeiten tatsaechlich
+/// azyklisch sind. Real beobachtet: nach Ergaenzung der 33 Eintraege meldete
+/// dieses Werkzeug PASS - aber nur, weil kaum noch Kanten uebrig waren, nicht
+/// weil der Graph gepruefte Azyklizitaet zeigte.
+///
 /// Modulgraph NUR aus konkreten (nicht-Wildcard-) Ports, ohne Definition
-/// 2.7s fuenf benannte Rueckflusskanaele, ohne `kind: request`-Ports und
-/// ohne Kanten zwischen gemeinsamen Passtraegern (Invariante 2.3, v1.0.15)
-/// - vier getrennt verifizierte Ausnahmeklassen, keine geratenen:
+/// 2.7s fuenf benannte Rueckflusskanaele, ohne verifizierte Anruf-
+/// Ruecksprung-Kanten und ohne Kanten zwischen gemeinsamen Passtraegern
+/// (Invariante 2.3, v1.0.15) - vier getrennt verifizierte Ausnahmeklassen,
+/// keine geratenen:
 ///
 /// 1. `"*"`-Ports (P28, P30) sind Fan-in/Fan-out-Sammel-/Streubeziehungen,
 ///    keine Punkt-zu-Punkt-Pipelinekanten - woertlich entfaltet wuerden
 ///    sie Scheinzyklen erzeugen (siehe `is_named_backflow` fuer P28s
 ///    eigentlichen Kanal; P30 hat keine Zielrichtung, die je in einen
 ///    Zyklus zurueckfuehren koennte, da M25 Schicht L0 ist).
-/// 2. `kind: request`-Ports (P00, P07, P21, P22, P28, P33, P38 - neun mit
-///    kind/sync/readonly annotierte Eintraege, woertlich aus Listing C.2,
-///    siehe port_registry.yaml Kopfkommentar) sind synchrone Anruf-und-
-///    Warte-Beziehungen: die tatsaechliche `psk_contract::boot()`-
-///    Implementierung (boot.rs) zeigt das direkt - EIN Funktionsaufruf
-///    fuehrt Schritt 1-21 (M00 bis M04, G-BOOT) sequenziell aus und gibt
-///    EIN `Result<BootReport, _>` zurueck; P00 (M26->M00, "BootRequest")
-///    und die implizite Rueckgabe (P05, M04->M26, "IdentityBinding")
-///    beschreiben zusammen EINE Aufruf-Ruecksprung-Grenze, keine zwei
-///    unabhaengigen Architekturkanten. Ungeprueft als eigenstaendige
-///    Kanten behandelt, erzeugt genau dieses Paar einen Scheinzyklus
-///    (M00->..->M04->M26->M00) - real gefunden, dann an boot.rs verifiziert,
-///    nicht angenommen.
+/// 2. Verifizierte Anruf-Ruecksprung-Kanten - siehe
+///    `is_verified_call_return_leg`. NICHT laenger "jeder kind:request-Port"
+///    (siehe Erklaerung oben), sondern eine explizite, an echtem Code
+///    verifizierte Aufzaehlung, genau wie Klasse 3.
 /// 3. Definition 2.7s fuenf benannte Rueckflusskanaele - siehe
 ///    `is_named_backflow`.
 /// 4. Gemeinsame Passtraeger (Invariante 2.3, v1.0.15) - siehe
@@ -361,7 +388,7 @@ fn module_graph_edges(regs: &Registers) -> BTreeMap<String, BTreeSet<String>> {
         if is_named_backflow(p) {
             continue;
         }
-        if p.kind.as_deref() == Some("request") {
+        if is_verified_call_return_leg(p) {
             continue;
         }
         if shares_a_pass(&p.from, &p.to, &regs.passes) {
@@ -373,6 +400,40 @@ fn module_graph_edges(regs: &Registers) -> BTreeMap<String, BTreeSet<String>> {
             .insert(p.to.clone());
     }
     edges
+}
+
+/// Explizit verifizierte Ruecksprung-Haelften synchroner Anruf/Ruecksprung-
+/// Grenzen (Regel 4.7: `kind: request` = synchron und blockierend innerhalb
+/// desselben Ticks) - Definition 4.4s "Port" bindet Erzeuger und Verbraucher
+/// symmetrisch, aber ein Ruecksprungwert, der denselben Aufruf abschliesst,
+/// ist keine ZWEITE, unabhaengige Architekturkante im Sinne von Invariante
+/// 2.3s Modulabhaengigkeitsgraph - er ist derselbe Aufruf, einmal hin und
+/// zurueck. Bewusst eine kleine, benannte Aufzaehlung (wie
+/// `is_named_backflow`), NICHT "jeder kind:request-Port" (siehe
+/// `module_graph_edges`s Kopfkommentar fuer den Unterschied) - jeder Eintrag
+/// hier ist einzeln an echtem Code verifiziert, nicht aus dem Registerfeld
+/// allein abgeleitet:
+///
+/// - (M04, M26): P05 "IdentityBinding", Ruecksprung von P00 "BootRequest".
+///   `psk_contract::boot()` (boot.rs, Algorithmus 17.1) ist EIN
+///   Funktionsaufruf, der Schritt 1-21 (M00 bis M04, G-BOOT) sequenziell
+///   ausfuehrt und EIN `Result<BootReport, _>` zurueckgibt - P00 (M26->M00)
+///   und P05 (M04->M26) beschreiben zusammen EINE Aufruf-Ruecksprung-Grenze.
+///   Ungeprueft als eigenstaendige Kante behandelt, schliesst P05 den Kreis
+///   M00->M01->M02->M03->M04->M26->M00 - real gefunden, an boot.rs
+///   verifiziert, nicht angenommen.
+/// - (M20, M08): P31 "MorphogenesisDecision", Ruecksprung von P32
+///   "SpawnRequest". `psk-fields/src/morphogenesis.rs`s `decide_transition`
+///   (M20s eigene Funktion) wertet das Gate aus und ruft bei PASS direkt
+///   `complete_transition` - M08s eigene Funktion, SELBES Cargo-Paket
+///   (psk-fields, module_map.yaml) - synchron im selben Aufruf auf. Derselbe
+///   Anruf-Ruecksprung-Charakter wie P00/P05, PSK-RA v1.0.16 bestaetigt
+///   (Fehlerkorrektur-Befund 20: "P31/P32 ... sind damit request - derselbe
+///   Aufruf/Ruecksprung-Charakter wie P00/P05 in boot(), nur zuvor nicht
+///   gekennzeichnet"). Ungeprueft behandelt, schliesst P31 den Kreis
+///   M08->M20->M08.
+fn is_verified_call_return_leg(p: &PortEntry) -> bool {
+    (p.from == "M04" && p.to == "M26") || (p.from == "M20" && p.to == "M08")
 }
 
 fn check_module_cycle(regs: &Registers) -> Option<String> {
@@ -608,7 +669,6 @@ mod tests {
             .map(|(f, t)| PortEntry {
                 from: f.to_string(),
                 to: t.to_string(),
-                kind: None,
             })
             .collect()
     }
@@ -637,36 +697,117 @@ mod tests {
     }
 
     #[test]
-    fn the_real_module_graph_has_exactly_one_open_cycle_finding_m08_m20() {
-        // Vorgeschichte, jeweils an der Quelle bzw. an echtem Code
-        // verifiziert, nicht geraten: (1) M09/M13 (P39) - PSK-RA v1.0.14
-        // korrigierte Invariante 2.3s invertierte Schichtungleichung und
-        // nahm P39 als fuenften benannten Rueckflusskanal auf. (2) M11/M22
-        // (P16/P17) - PSK-RA v1.0.15 ergaenzte die Ausnahme "gemeinsame
-        // Passtraeger" (Invariante 2.3): Pass C9 (pass_registry.yaml)
-        // fuehrt `modules: [M11, M22]` bereits gemeinsam, siehe
-        // `shares_a_pass`. Beide Funde sind hiermit real geschlossen -
-        // DIESER Test bestaetigt das UND deckt einen DRITTEN, zuvor
-        // verdeckten Zyklus auf: M08<->M20 (P32 M08->M20 "SpawnRequest",
-        // P31 M20->M08 "MorphogenesisDecision"). Anders als bei M11/M22
-        // (keine Implementierung gefunden) gibt es hier STARKE Evidenz:
-        // `psk-fields/src/morphogenesis.rs`s eigener Modulkopf sagt
-        // woertlich "M20 wertet das Gate aus, aber nur M08 (`registry::
-        // complete_transition`) konstruiert das neue FieldIdentity-Objekt.
-        // decide_transition ruft deshalb in DASSELBE MODUL zurueck" - M08
-        // und M20 sind sogar dasselbe Cargo-Paket (psk-fields,
-        // module_map.yaml). Strukturell derselbe Anruf/Ruecksprung-Fall
-        // wie boot()s P00/P05 - ABER weder P31 noch P32 tragen `kind:
-        // request` in der aktuellen Quelle (anders als P00), und keine der
-        // vier bestehenden Ausnahmeklassen deckt das Paar. Bewusst NICHT
-        // selbst als fuenfte Ausnahme erfunden, siehe Bericht.
+    fn the_real_module_graph_is_now_fully_acyclic_all_four_findings_closed() {
+        // Vier Funde, jeweils an der Quelle bzw. an echtem Code verifiziert,
+        // nicht geraten - keiner durch eine erratene Ausnahme geschlossen:
+        // (1) M09/M13 (P39) - PSK-RA v1.0.14 korrigierte Invariante 2.3s
+        //     invertierte Schichtungleichung und nahm P39 als fuenften
+        //     benannten Rueckflusskanal auf.
+        // (2) M11/M22 (P16/P17) - PSK-RA v1.0.15 ergaenzte die Ausnahme
+        //     "gemeinsame Passtraeger": Pass C9 (pass_registry.yaml) fuehrt
+        //     `modules: [M11, M22]` bereits gemeinsam, siehe `shares_a_pass`.
+        // (3) M08/M20 (P31/P32) - PSK-RA v1.0.16 ergaenzte die Art-Spalte
+        //     (`kind`) fuer alle 42 Ports und bestaetigte P31 explizit als
+        //     denselben Anruf-Ruecksprung-Charakter wie P00/P05
+        //     (Fehlerkorrektur-Befund 20) - an echtem Code bereits vorher
+        //     verifiziert (morphogenesis.rs: `decide_transition` ruft
+        //     `complete_transition`, M08s eigene Funktion, synchron im
+        //     selben Cargo-Paket auf), jetzt normativ bestaetigt statt nur
+        //     strukturell vermutet. Siehe `is_verified_call_return_leg`.
+        // (4) Keine weiteren - siehe die naechsten beiden Tests: die
+        //     mechanische Ausbreitung von `kind: request` auf alle 42 Ports
+        //     haette (falsch) auch jede gewoehnliche Vorwaertskante entfernt
+        //     und eine echte vierte Verletzung stillschweigend verdeckt,
+        //     statt sie zu loesen - deshalb die enge, aufgezaehlte Fassung.
         let regs = regs_from_real_workspace();
+        assert_eq!(check_module_cycle(&regs), None, "{:?}", check_module_cycle(&regs));
+    }
+
+    #[test]
+    fn is_verified_call_return_leg_matches_exactly_the_two_verified_pairs() {
+        // Bewusst eng: nur die beiden an echtem Code verifizierten
+        // Ruecksprung-Kanten, keine generische kind:request-Regel (siehe
+        // module_graph_edges' Kopfkommentar).
+        assert!(is_verified_call_return_leg(&PortEntry {
+            from: "M04".into(),
+            to: "M26".into(),
+        }));
+        assert!(is_verified_call_return_leg(&PortEntry {
+            from: "M20".into(),
+            to: "M08".into(),
+        }));
+        // Die dazugehoerigen VORWAERTS-Kanten (P00, P32) brauchen die
+        // Ausnahme nicht (sie schliessen keinen Kreis) und sind bewusst
+        // NICHT Teil dieser Aufzaehlung.
+        assert!(!is_verified_call_return_leg(&PortEntry {
+            from: "M26".into(),
+            to: "M00".into(),
+        }));
+        assert!(!is_verified_call_return_leg(&PortEntry {
+            from: "M08".into(),
+            to: "M20".into(),
+        }));
+        // Irgendein anderer kind:request-Port (z.B. P18, gewoehnliche
+        // Vorwaertspipeline) darf NICHT matchen - das ist genau der Fehler,
+        // den die alte, breite Fassung gemacht haette.
+        assert!(!is_verified_call_return_leg(&PortEntry {
+            from: "M11".into(),
+            to: "M12".into(),
+        }));
+    }
+
+    #[test]
+    fn without_the_call_return_exception_m08_m20_would_cycle() {
+        // Zeigt, dass die Ausnahme tatsaechlich traegt (nicht wirkungslos
+        // ist): P31 und P32 sind REALE, im Register eingetragene Kanten
+        // (aus dem echten Workspace gelesen, nicht erfunden) - ungeprueft
+        // als gewoehnliche Architekturkanten behandelt, bilden genau sie
+        // den Zyklus, den PSK-RA v1.0.16 als Nicht-Verstoss bestaetigt hat.
+        // Entfernen aus `regs.ports` waere hier der falsche Test (das
+        // entfernt die KANTE selbst, nicht nur ihre Ausnahme) - stattdessen
+        // `find_cycle` direkt auf das reale Paar angewandt, ohne jede
+        // Ausnahmelogik dazwischen.
+        let regs = regs_from_real_workspace();
+        let real_pair: BTreeMap<String, BTreeSet<String>> = regs
+            .ports
+            .iter()
+            .filter(|p| (p.from == "M08" && p.to == "M20") || (p.from == "M20" && p.to == "M08"))
+            .fold(BTreeMap::new(), |mut edges, p| {
+                edges
+                    .entry(p.from.clone())
+                    .or_default()
+                    .insert(p.to.clone());
+                edges
+            });
         assert_eq!(
-            check_module_cycle(&regs),
-            Some(
-                "T-ARCH-002: zyklische Modulabhaengigkeit im Portregister: M08 -> M20 -> M08"
-                    .to_string()
-            )
+            real_pair.values().map(|t| t.len()).sum::<usize>(),
+            2,
+            "P31 und P32 muessen beide als reale Kanten im Register stehen: {real_pair:?}"
+        );
+        let nodes: BTreeSet<String> = ["M08".to_string(), "M20".to_string()].into_iter().collect();
+        assert!(
+            !find_cycle(&nodes, &real_pair).is_empty(),
+            "M08<->M20 muss ohne die Ausnahme als Zyklus erkannt werden"
+        );
+    }
+
+    #[test]
+    fn ordinary_forward_pipeline_ports_stay_in_the_cycle_graph_despite_kind_request() {
+        // Regressionswache gegen genau den Fehler, den die fruehere, breite
+        // "jeder kind:request-Port ist ausgenommen"-Fassung gemacht haette:
+        // P18 (M11->M12, ClosureReport) ist seit PSK-RA v1.0.16 `kind:
+        // request` wie 32 andere gewoehnliche Vorwaertsports auch - keiner
+        // von ihnen ist ein Anruf-Ruecksprung-Fall, alle muessen im
+        // Zyklengraphen bleiben, sonst prueft T-ARCH-002 fast nichts mehr.
+        let regs = regs_from_real_workspace();
+        assert!(
+            regs.ports.iter().any(|p| p.from == "M11" && p.to == "M12"),
+            "P18 muss im realen Register existieren"
+        );
+        let graph = module_graph_edges(&regs);
+        assert!(
+            graph.get("M11").is_some_and(|targets| targets.contains("M12")),
+            "P18 (M11->M12) muss trotz kind:request im Zyklengraphen bleiben: {graph:#?}"
         );
     }
 
@@ -720,7 +861,6 @@ mod tests {
         regs.ports.push(PortEntry {
             from: "M04".into(),
             to: "M00".into(),
-            kind: None,
         });
         let cycle = check_module_cycle(&regs);
         assert!(

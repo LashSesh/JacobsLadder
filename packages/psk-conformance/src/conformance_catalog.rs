@@ -49,48 +49,82 @@
 //!   deklarierten `has_independent_evidence: bool`-Parameter ersetzt (M10/
 //!   M12 entscheiden das bereits frueher in der Pipeline), Cargo-
 //!   Abhaengigkeit vollstaendig entfernt statt eines neuen Ports.
+//! - T-ARCH-002 (zyklische Modulabhaengigkeit -> build_fail): real gruen
+//!   getestet in `tools/verify-dependencies`
+//!   (`the_real_module_graph_is_now_fully_acyclic_all_four_findings_closed`).
+//!   Vier Funde fuehrten hierher, alle vier behoben, keiner durch eine
+//!   erratene Ausnahme: (1) M09-M13 ueber P39 - ein Normfehler (Invariante
+//!   2.3s invertierte Schichtungleichung), an PSK-RA v1.0.14 korrigiert,
+//!   P39 als fuenfter benannter Rueckflusskanal aufgenommen. (2) M11-M22
+//!   ueber P16/P17 - kein Rueckfluss, sondern Zusammenarbeit INNERHALB von
+//!   Pass C9 (ClosureAndGluing, `modules: [M11, M22]`); PSK-RA v1.0.15
+//!   ergaenzte dafuer die Ausnahme "gemeinsame Passtraeger" in Invariante
+//!   2.3, siehe `shares_a_pass`. (3) M08-M20 ueber P31/P32 (M20->M08
+//!   "MorphogenesisDecision", M08->M20 "SpawnRequest") - strukturell
+//!   derselbe Anruf/Ruecksprung-Fall wie `psk_contract::boot()`s P00/P05
+//!   (`psk-fields/src/morphogenesis.rs`s `decide_transition` ruft
+//!   `complete_transition`, M08s eigene Funktion, synchron im selben
+//!   Cargo-Paket auf), an echtem Code verifiziert, dann durch PSK-RA
+//!   v1.0.16 (Fehlerkorrektur-Befund 20) normativ bestaetigt: P31 traegt
+//!   jetzt `kind: request`, "derselbe Aufruf/Ruecksprung-Charakter wie
+//!   P00/P05 ... nur zuvor nicht gekennzeichnet". (4) Ein potenzieller
+//!   VIERTER Fund, der beim Schliessen von (3) beinahe entstanden waere:
+//!   PSK-RA v1.0.16 ergaenzte `kind` fuer alle 42 Ports (zuvor nur neun
+//!   Beispiele) und machte "request" damit zum GEWOEHNLICHEN Fall (33 von
+//!   42) statt einer neunkoepfigen Ausnahme - `tools/verify-dependencies`s
+//!   fruehere Regel "jeder kind:request-Port ist von der Zyklenpruefung
+//!   ausgenommen" haette mechanisch auf alle 42 angewandt 33 von 42 Kanten
+//!   entfernt, darunter die gesamte gewoehnliche Vorwaertspipeline, und
+//!   T-ARCH-002 praktisch wirkungslos gemacht (ein fast leerer Graph ist
+//!   trivial azyklisch). Real beobachtet, nicht nur befuerchtet: das
+//!   Werkzeug meldete PASS, bevor die Ausnahme auf eine kleine, an echtem
+//!   Code verifizierte Aufzaehlung umgestellt wurde (`is_verified_call_
+//!   return_leg`, genau P05 und P31 - siehe dessen Kopfkommentar). Danach
+//!   erneut PASS, diesmal ueber einen Graphen, der die gewoehnliche
+//!   Pipeline nachweislich noch enthaelt (siehe `ordinary_forward_
+//!   pipeline_ports_stay_in_the_cycle_graph_despite_kind_request`).
+//! - T-SEC-001 (Adapter schreibt ausserhalb des Tokenscopes ->
+//!   substratblockiert): real gruen getestet in `psk-lifecycle/tests/
+//!   spawn_and_request.rs::a_path_escape_outside_sandbox_root_is_denied_
+//!   by_the_substrate_not_the_adapter`. Vertrag Capability-Erzwingung
+//!   verlangt echte Substraterzwingung, nicht Programmkonvention;
+//!   `LocalFsAdapter::apply` (`effect-local-fs/src/apply.rs`) bildet nach
+//!   wie vor blind `sandbox_root.join(&token.scope.0)` - KEINE eigene
+//!   Pfadausbruchspruefung, bewusst unveraendert. Die Erzwingung liegt
+//!   jetzt im Substrat: `ChildProcess::spawn` (`psk-lifecycle::process`)
+//!   erzeugt das Kind angehalten (`CREATE_SUSPENDED`), sperrt sein Token
+//!   VOR dem ersten Instruktionsschritt (`AdjustTokenPrivileges
+//!   DisableAllPrivileges` + Absenkung auf Low Integrity Level,
+//!   `psk-lifecycle::sandbox`) und markiert exklusiv `sandbox_root` als
+//!   fuer diese Stufe beschreibbar - kein Zeitfenster mit vollen Rechten.
+//!   Der Test beweist das ueber einen realen Pfadausbruchsversuch
+//!   (`scope: "..\<Datei>"`), den die Adapterlogik anstandslos
+//!   durchreicht: `EffectAttempt.outcome == Failed` UND die Zieldatei
+//!   entsteht nachweislich nicht - das Substrat verweigert, nicht der
+//!   Adapter. Windows-spezifisch deklariert (analog OBL-005), da PSK-RA
+//!   v1.0.16 fuer diese Domaene `CreateProcessWithLogonW oder gleichwertig`
+//!   verlangt und dessen woertliche Form (getrenntes, dauerhaft
+//!   eingerichtetes Benutzerkonto mit verwalteten Zugangsdaten) ausserhalb
+//!   dessen liegt, was Implementierung/Werkzeug ohne Zugriff auf
+//!   Systemkontenverwaltung leisten darf - siehe `architecture/
+//!   obligations.yaml` OBL-010 (`resolution`, `resolution_platform:
+//!   windows`) fuer die vollstaendige Begruendung der gewaehlten
+//!   Gleichwertigkeit (Rechteabbau + Low IL statt Kontowechsel). PSK-RA
+//!   selbst schreibt kein Betriebssystem vor - auf jeder Nicht-Windows-
+//!   Plattform gilt OBL-010 folgerichtig weiter als offen: `psk_lifecycle::
+//!   ChildProcess::spawn` (`process_unsupported.rs`, ueber `#[cfg(windows)]`
+//!   gewaehlt) verweigert sich dort mit einer auf OBL-010 verweisenden
+//!   Fehlermeldung, statt ungeschuetzt zu spawnen - dieser Test schlaegt
+//!   dort folglich LAUT fehl (`.expect(...)` auf dem `Err`), nicht
+//!   stillschweigend gruen. Real geprueft, nicht nur beabsichtigt: `cargo
+//!   check --target x86_64-unknown-linux-gnu --workspace --tests` compiliert
+//!   sauber (die Typoberflaeche ist plattformuebergreifend gleich); vor
+//!   dieser Aufteilung liess ein unbedingtes `mod process` den GESAMTEN
+//!   Workspace dort mit 18 kaskadierenden Fehlern gar nicht erst
+//!   kompilieren - ein frueherer, unabsichtlicher Zustand, kein
+//!   beabsichtigter.
 //!
 //! ## (c) Derzeit nicht realisierbar (Befund, mit Begruendung)
-//! - T-ARCH-002 (zyklische Modulabhaengigkeit -> build_fail): real
-//!   gepruedft in `tools/verify-dependencies`, aber noch nicht gruen -
-//!   die Zyklensuche legte bisher DREI Funde nacheinander frei, jeweils
-//!   erst sichtbar, nachdem der vorherige behoben war (DFS stoppt am
-//!   ersten Fund): (1) M09-M13 ueber P39 - ein Normfehler (Invariante 2.3s
-//!   invertierte Schichtungleichung), an PSK-RA v1.0.14 korrigiert, P39
-//!   als fuenfter benannter Rueckflusskanal aufgenommen. (2) M11-M22 ueber
-//!   P16/P17 - kein Rueckfluss, sondern Zusammenarbeit INNERHALB von Pass
-//!   C9 (ClosureAndGluing, `modules: [M11, M22]`); PSK-RA v1.0.15 ergaenzte
-//!   dafuer die Ausnahme "gemeinsame Passtraeger" in Invariante 2.3, siehe
-//!   `tools/verify-dependencies`s `shares_a_pass`. (3) M08-M20 ueber P31/
-//!   P32 (M20->M08 "MorphogenesisDecision", M08->M20 "SpawnRequest") -
-//!   NEU, noch offen. Anders als bei (2) existiert hier STARKE Evidenz:
-//!   `psk-fields/src/morphogenesis.rs`s Modulkopf sagt woertlich "M20
-//!   wertet das Gate aus, aber nur M08 (`registry::complete_transition`)
-//!   konstruiert das neue FieldIdentity-Objekt. decide_transition ruft
-//!   deshalb in DASSELBE MODUL zurueck" - M08 und M20 sind sogar dasselbe
-//!   Cargo-Paket (psk-fields). Strukturell derselbe Anruf/Ruecksprung-Fall
-//!   wie `psk_contract::boot()`s P00/P05 - aber weder P31 noch P32 tragen
-//!   `kind: request` in der aktuellen Quelle, und keine der vier
-//!   bestehenden Ausnahmeklassen deckt das Paar. Bewusst nicht selbst als
-//!   fuenfte Ausnahme erfunden. Siehe `tools/verify-dependencies/src/
-//!   main.rs::tests::the_real_module_graph_has_exactly_one_open_cycle_
-//!   finding_m08_m20`.
-//! - T-SEC-001 (Adapter schreibt ausserhalb des Tokenscopes ->
-//!   substratblockiert): verlangt echte Substraterzwingung (Vertrag
-//!   Capability-Erzwingung); dokumentierte Luecke seit WP12 (siehe
-//!   psk-effect/src/boundary.rs Modulkopf). Seit P24a praezisiert, nicht
-//!   geschlossen: `effect-local-fs` laeuft jetzt als echter, von M26
-//!   gespawnter Kindprozess, aber `LocalFsAdapter::apply` bildet
-//!   `sandbox_root.join(&token.scope.0)` weiterhin in Anwendungscode -
-//!   kein Chroot, keine ACL, kein Namespace/AppContainer begrenzt, WAS
-//!   dieser Prozess tatsaechlich schreiben darf. P24a loeste
-//!   Kommunikationsisolation (die exklusive Pipe, siehe
-//!   `psk_anchor::ingress_p24_via_exclusive_pipe`), nicht
-//!   Dateisystemisolation - das ist ein anderer Blocker, nicht derselbe
-//!   unter neuem Namen. Identisch mit OBL-010s offener Anforderung
-//!   (`architecture/obligations.yaml`: getrennte Benutzerkontexte/
-//!   Namespaces, blocking ab C4) - dieselbe Substratmassnahme wuerde
-//!   beides zugleich schliessen.
 //! - T-CONC-001 (nebenlaeufiger Stresstest) und T-OBSV-001 (mit/ohne
 //!   Profiling identischer Digest): beide verlangen Infrastruktur, die
 //!   nicht existiert - einen nebenlaeufigen Ausfuehrungsharness bzw. einen
