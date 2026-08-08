@@ -28,15 +28,15 @@
 //! zwei Golden Runs zeigt Determinismus, nicht Replayneutralitaet - er
 //! bestuende auch dann, wenn die Wanduhr voll im Digest saesse.
 //!
-//! BEFUND, nicht hier entschieden: `psk_trace::residue_digest` benutzt
-//! `can()` statt `identity_projection` und nennt in seinem Kopfkommentar
-//! ausdruecklich `residue_report_digest` als Verwendungszweck. Fuer einen
-//! Einzelsatzdigest zur Integritaetspruefung ist das die richtige Wahl
-//! (dieselbe Unterscheidung wie bei `segment_record_digest`, Regel 7.39);
-//! als Zertifikatsfeld waere es die falsche. Diese Datei nimmt deshalb
-//! nicht `residue_digest`, sondern projiziert selbst - der Kommentar dort
-//! bleibt unangetastet, weil die Entscheidung, welche der beiden Lesarten
-//! gilt, nicht in dieser Datei faellt.
+//! Entschieden durch Invariante 6.8 (Trennung von Inhalt und
+//! Aufzeichnung): "Kein Gate, kein Konsens, kein Konformanzurteil und
+//! keine Verklebung DARF den Recorddigest oder ein volatiles Feld
+//! auswerten." Ein MachineCertificate ist ein Konformanzurteil - seine
+//! vier Berichtsdigests entstehen deshalb HIER, ueber die projizierte
+//! Berichtsform, und nicht ueber `psk_trace::residue_digest`. Das bleibt
+//! als Einzelsatz-Integritaetsdigest (mit `can()`, Wanduhr inklusive)
+//! korrekt und unveraendert; sein Kopfkommentar grenzt die beiden Rollen
+//! inzwischen selbst ab.
 //!
 //! ## Was in einen Bericht kommt
 //!

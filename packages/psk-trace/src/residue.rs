@@ -211,8 +211,20 @@ impl ResidueLedger {
     }
 }
 
-/// H(Can(ResidueRecord)) fuer Referenzen von aussen (z.B. `residue_ref` in
-/// ObstructionRecord, `residue_report_digest` in MachineCertificate).
+/// H(Can(ResidueRecord)) als Einzelsatz-Integritaetsdigest, z.B. fuer
+/// `residue_ref` in ObstructionRecord - dieselbe Rolle wie
+/// `segment_record_digest` (Regel 7.39): `can()` ohne pi_vol, `opened_at`
+/// samt Wanduhr geht ein.
+///
+/// NICHT fuer Zertifikatsfelder. Invariante 6.8 (Trennung von Inhalt und
+/// Aufzeichnung): "Kein Gate, kein Konsens, kein Konformanzurteil und
+/// keine Verklebung DARF den Recorddigest oder ein volatiles Feld
+/// auswerten." Ein MachineCertificate ist ein Konformanzurteil; sein
+/// `residue_report_digest` entsteht deshalb in
+/// `psk_conformance::aggregate_reports` ueber die projizierte
+/// Berichtsform, nicht hier. Eine unabhaengige Instanz, die denselben
+/// Lauf reproduziert, bekaeme mit DIESER Funktion einen abweichenden
+/// Wert - womit C5 strukturell unerreichbar waere.
 pub fn residue_digest(record: &ResidueRecord) -> Result<psk_types::Digest, PskError> {
     let bytes = serde_json::to_vec(record).map_err(|_| PskError::CanonicalizationFailed)?;
     Ok(can(&bytes, Media::Json)?.digest())
