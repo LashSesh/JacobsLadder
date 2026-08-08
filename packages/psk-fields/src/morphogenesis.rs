@@ -230,6 +230,7 @@ mod tests {
                 dependency_profile_ref: ObjectId::new(SortId::Dependency, Digest::sha256(b"dep")),
                 budget: BudgetSpec("10 Einheiten".into()),
                 rollback: RollbackSpec("Snapshot vorher".into()),
+                system_identity: Digest::sha256(b"system-identity-not-a-field"),
             },
         )
         .unwrap()

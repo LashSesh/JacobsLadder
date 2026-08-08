@@ -315,6 +315,9 @@ fn run_static_field_family(
                 ),
                 budget: BudgetSpec("unbounded-demo".into()),
                 rollback: RollbackSpec("re-run".into()),
+                // I-FIELD-001: eine Systemidentitaet, die von jeder
+                // real erzeugbaren Feld-ID verschieden ist.
+                system_identity: Digest::sha256(b"system-identity-not-a-field"),
             },
         )?;
         projections.push(project_field(&field, anchor, reality_status, i)?);
@@ -570,6 +573,10 @@ fn run_reconciliation(
             finality: psk_types::objects::ReconciliationReportFinalityKind::Final,
             witness_ref: ObjectId::new(SortId::Witness, Digest::sha256(b"golden-run-witness")),
             opened_at: run_time(),
+            // T-UNKNOWN-001: ein Subjekt, dessen Realitaetsstatus die
+            // Promotion nicht sperrt.
+            subject_reality_status: psk_types::objects::RealityStatus::Actualized,
+            subject_facticity: psk_types::objects::FactStatus::Observed,
         },
         &mut residues,
     )

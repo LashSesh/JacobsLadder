@@ -228,15 +228,63 @@
 //!   privates Feld, `&`-Getter, `evaluate()` als einziger veraendernder
 //!   Weg und ausschliesslich anhaengend.
 //!
+//! - T-UNKNOWN-001 (verbal_uncertainty_without_internal_block -> FAIL):
+//!   real gruen in `psk_thought::reality::tests::t_unknown_001_unknown_
+//!   bars_every_promotion_regardless_of_fact_status` plus den beiden
+//!   M18-Tests in `psk_reconciliation::reconcile::tests`.
+//!   Die fruehere Einordnung ("verbale Unsicherheit ist nirgends als Typ
+//!   gefasst") verwechselte die Szenarienrahmung mit dem pruefbaren Kern.
+//!   Vertrag 7.11 enumeriert vier Formen, in denen sich Unwissen
+//!   materialisieren MUSS - das ist dieselbe Art Aufzaehlung, die
+//!   T-PERSONA-001 ueber Personas Feldliste traegt, nur ueber Zustaende
+//!   statt ueber Felder. Und `claim.text` ist ohnehin `non_canonical`,
+//!   fuer die Maschine also unsichtbar - genau der Grund fuer die
+//!   Materialisierungspflicht. Pruefbare Form: `reality_status == UNKNOWN`
+//!   sperrt JEDE Promotion.
+//!   Befund vor dem Bau: keine Promotionsstelle prueft e das. Es gab EINE
+//!   Wache (`check_promotion`, M07), die ausschliesslich `FactStatus`-Paare
+//!   gegen Invariante 5.9 pruefte, und eine ZWEITE, unabhaengige Ableitung
+//!   in M18 (`reconcile`s `fact_promotion`), die `reality_status` gar nicht
+//!   sah. Vertrag 7.11s "Promotionssperre" war damit beschreibend, nicht
+//!   wirksam.
+//!   Umsetzung: EINE Wache, ZWEI Aufrufer. `check_promotion` nimmt jetzt
+//!   auch `reality_status` und ist die einzige Stelle, die ueber Promotion
+//!   entscheidet; M18 ruft sie auf, statt selbst abzuleiten (Paketkante
+//!   M18->M06/M07, durch P26 gedeckt - kein neuer Port). Zwei getrennte
+//!   Guards waeren auseinandergedriftet, dieselbe Ueberlegung wie bei
+//!   `dispatch`/`dispatch_stateless`. Eine gesperrte Promotion senkt auf
+//!   NONE, statt die Reconciliation scheitern zu lassen - das Ergebnis
+//!   steht sichtbar im Bericht, ist also nicht still.
+//! - T-FIELD-001 (set_system_identity_to_field_id -> FAIL): real gruen an
+//!   BEIDEN Schreibstellen -
+//!   `psk_fields::registry::tests::t_field_001_a_field_whose_id_equals_the_
+//!   system_identity_is_refused` (M08) und
+//!   `psk_contract::identity_binder::tests::t_field_001_a_registered_field_
+//!   equal_to_the_system_identity_is_refused` (M04).
+//!   Beide, weil die Zeitachse beide Richtungen offen laesst: bei `bind()`
+//!   koennen bereits Felder existieren, nach `bind()` kommen neue hinzu -
+//!   eine Pruefung an nur einer Stelle liesse die andere offen. M08 bekommt
+//!   die Systemidentitaet als deklarierten Parameter (wie
+//!   `has_independent_evidence` in M24), kein neuer Port. In Sigma wird
+//!   ausdruecklich NICHT geprueft: das waere Feststellung nach Eintritt,
+//!   waehrend die Invariante einen Zustand benennt, der nicht entstehen
+//!   darf.
+//!   Die fruehere Einordnung als T-OWN-001-Folge war falsch und ist
+//!   zurueckgenommen: I-FIELD-001 ist ein WERTpraedikat ("welchen Wert darf
+//!   es tragen"), T-OWN-001 ein Konstruktionsverbot ("wer darf
+//!   konstruieren"). Das erste braucht keine Typversiegelung, sondern eine
+//!   Laufzeitpruefung an der Schreibstelle - was `severity: blocking`
+//!   gerade bezeichnet.
+//!   UMFANG, ehrlich: geprueft ist der EINZELFALL (eine Feldidentitaet
+//!   gegen die Systemidentitaet). I-FIELD-001 deckt daneben den MENGENFALL
+//!   ab - "keine MENGE aktiver Feldidentitaeten" darf die Systemidentitaet
+//!   ergeben, also auch keine Kombination/Aggregation mehrerer. Dieser Teil
+//!   ist NICHT gebaut und NICHT geprueft; er bleibt als offenes Residuum
+//!   benannt, nicht als erledigt ausgegeben. Was eine solche Aggregation
+//!   ueberhaupt waere (Vereinigung? Digest ueber die Menge?), legt das Werk
+//!   an dieser Stelle nicht fest.
+//!
 //! ## (c) Derzeit nicht realisierbar (Befund, mit Begruendung)
-//! - T-UNKNOWN-001 (verbale Unsicherheit ohne internen Block -> FAIL) und
-//!   T-FIELD-001 (Systemidentitaet auf Feld-ID setzen -> FAIL): beide
-//!   benennen Szenarien, zu denen keine registrierte Funktion eine
-//!   pruefbare Grenze zieht - "verbale Unsicherheit" und "Systemidentitaet"
-//!   sind im Werk an dieser Stelle nicht als konkrete Typen/Felder
-//!   gefasst (anders als z.B. Personas Feldliste bei T-PERSONA-001). Ohne
-//!   eine Konstruktion, die tatsaechlich existiert, waere jeder Test hier
-//!   ein erfundenes Szenario, keine reale Pruefung.
 //! - T-OWN-001 (create_owned_object_from_foreign_module -> FAIL_PSK_E014):
 //!   Vertrag 3.4 (siehe psk-types/src/lib.rs Modulkopf) bindet Ownership an
 //!   "welcher MODUL-CODE ein Objekt konstruieren/schreiben darf", nicht an
@@ -580,6 +628,10 @@ mod tests {
                     Digest::sha256(b"w"),
                 ),
                 opened_at: sample_time(),
+                // T-UNKNOWN-001: ein Subjekt, dessen Realitaetsstatus die
+                // Promotion nicht sperrt.
+                subject_reality_status: psk_types::objects::RealityStatus::Actualized,
+                subject_facticity: psk_types::objects::FactStatus::Observed,
             },
             &mut residues,
         );
@@ -702,6 +754,9 @@ mod tests {
                 ),
                 budget: psk_types::objects::BudgetSpec("0".into()),
                 rollback: psk_types::objects::RollbackSpec("none".into()),
+                // I-FIELD-001: eine Systemidentitaet, die von jeder
+                // real erzeugbaren Feld-ID verschieden ist.
+                system_identity: Digest::sha256(b"system-identity-not-a-field"),
             },
         )
         .unwrap()

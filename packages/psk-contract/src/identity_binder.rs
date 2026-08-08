@@ -55,7 +55,7 @@ use psk_types::objects::{
     AdapterId, CapabilityMatrixRef, IdentityBinding, OpId, ProfileId, RuntimeManifest,
     RuntimeManifestDeterminismClassKind, SemVer,
 };
-use psk_types::{Digest, DualTime, PskError};
+use psk_types::{Digest, DualTime, ObjectId, PskError};
 
 /// Regel 6.10: "I_M = H(Code||Schemas||Compiler||Profil)" - siehe
 /// Modulkopf fuer die Cargo.lock/I_C/I_A-Faktorisierung.
@@ -87,6 +87,30 @@ pub fn build_digest() -> Result<Digest, PskError> {
     let exe = std::env::current_exe().map_err(|_| PskError::BootPreconditionFailed)?;
     let bytes = fs::read(&exe).map_err(|_| PskError::BootPreconditionFailed)?;
     Ok(Digest::sha256(&bytes))
+}
+
+/// I-FIELD-001 (`no_field_identity_equals_system_identity`,
+/// severity: blocking), erste Haelfte.
+///
+/// Geprueft wird an BEIDEN Schreibstellen, weil die Zeitachse beide
+/// Richtungen offen laesst: HIER koennen bereits Feldidentitaeten
+/// existieren (Recovery-Boot, fortgesetzter Lauf), und keine davon darf
+/// gleich der zu bindenden Systemidentitaet sein. Die zweite Haelfte -
+/// neue Felder nach dem Binden - liegt in
+/// `psk_fields::register_field`.
+///
+/// `registered_fields` kommt vom Aufrufer: M04 fuehrt kein Feldregister
+/// (das ist M08s), und ein Selbstermitteln waere eine Kante, die kein
+/// Port deckt. Eine leere Liste ist der ehrliche Normalfall eines
+/// frischen Boots, kein Umgehen der Pruefung.
+pub fn check_no_field_identity_equals_system_identity(
+    i_t: Digest,
+    registered_fields: &[ObjectId],
+) -> Result<(), PskError> {
+    if registered_fields.iter().any(|f| f.digest == i_t) {
+        return Err(PskError::SelfAmendmentWithoutIdentity);
+    }
+    Ok(())
 }
 
 /// M04, Schritt 12: `bind(cid, aid, implementation_id(),
@@ -278,6 +302,39 @@ mod tests {
         sigma.tick_no += 1;
         let after = runtime_state_digest(&sigma).unwrap();
         assert_ne!(before, after, "I_t MUSS dem Laufzustand folgen");
+    }
+
+    /// I-FIELD-001, erste Schreibstelle (M04). Einzelfall geprueft;
+    /// Mengenfall NICHT - siehe conformance_catalog.rs.
+    #[test]
+    fn t_field_001_a_registered_field_equal_to_the_system_identity_is_refused() {
+        let field_digest = Digest::sha256(b"ein-feld");
+        let field = ObjectId::new(psk_types::objects::SortId::FieldIdentity, field_digest);
+
+        assert_eq!(
+            check_no_field_identity_equals_system_identity(field_digest, &[field]),
+            Err(PskError::SelfAmendmentWithoutIdentity),
+            "I-FIELD-001: keine bereits registrierte Feldidentitaet DARF gleich I_t sein"
+        );
+    }
+
+    #[test]
+    fn an_unrelated_field_set_does_not_block_binding() {
+        // Gegenprobe, und zugleich der ehrliche Normalfall: ein frischer
+        // Boot hat gar keine Felder.
+        let field = ObjectId::new(
+            psk_types::objects::SortId::FieldIdentity,
+            Digest::sha256(b"ein-feld"),
+        );
+        let i_t = Digest::sha256(b"eine-andere-systemidentitaet");
+        assert_eq!(
+            check_no_field_identity_equals_system_identity(i_t, &[field]),
+            Ok(())
+        );
+        assert_eq!(
+            check_no_field_identity_equals_system_identity(i_t, &[]),
+            Ok(())
+        );
     }
 
     #[test]

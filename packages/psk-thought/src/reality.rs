@@ -210,9 +210,38 @@ pub fn is_implicit_promotion(from: FactStatus, to: FactStatus) -> bool {
     )
 }
 
-/// Fail-closed-Wache fuer jede Faktizitaetsaenderung: eine implizite
-/// Promotion wird abgelehnt (PSK-E003, surface_invariant_collapse).
-pub fn check_promotion(from: FactStatus, to: FactStatus) -> Result<(), PskError> {
+/// Die EINZIGE Stelle, die ueber eine Faktpromotion entscheidet -
+/// T-UNKNOWN-001 / Vertrag 7.11.
+///
+/// Zwei Sperren, eine Wache:
+///
+/// 1. **UNKNOWN sperrt jede Promotion, unabhaengig vom FactStatus.**
+///    Vertrag 7.11 woertlich: UNKNOWN ist "ein wirksamer Status mit
+///    Promotionssperre, kein fehlender Wert". Genau das macht diese Zeile
+///    wirksam statt beschreibend - zuvor produzierte `classify_reality`
+///    UNKNOWN korrekt, aber nichts hinderte einen spaeteren Schritt
+///    daran, DAVON WEG zu promovieren.
+/// 2. Invariante 5.9s vier implizite Promotionen (siehe
+///    `is_implicit_promotion`), wie bisher.
+///
+/// **Warum eine Wache und nicht zwei:** M18 (`psk_reconciliation::
+/// reconcile`) leitete seine `fact_promotion` frueher selbst ab. Zwei
+/// getrennte Entscheidungsstellen driften auseinander - dieselbe
+/// Ueberlegung, aus der `dispatch`/`dispatch_stateless` sich EINE
+/// Match-Tabelle teilen (psk-scheduler). M18 ruft deshalb seit
+/// T-UNKNOWN-001 diese Funktion auf, statt eine eigene Ableitung zu
+/// fuehren; die dafuer noetige Signaturerweiterung ist der Preis dafuer,
+/// dass eine blockierende Invariante nicht nur halb durchgesetzt ist.
+pub fn check_promotion(
+    from: FactStatus,
+    to: FactStatus,
+    reality_status: RealityStatus,
+) -> Result<(), PskError> {
+    if reality_status == RealityStatus::Unknown {
+        // Die Sperre gilt fuer JEDE Promotion - auch fuer eine, die
+        // Invariante 5.9 fuer sich genommen erlauben wuerde.
+        return Err(PskError::SurfaceInvariantCollapse);
+    }
     if is_implicit_promotion(from, to) {
         Err(PskError::SurfaceInvariantCollapse)
     } else {
@@ -425,12 +454,56 @@ mod tests {
     #[test]
     fn check_promotion_fails_closed() {
         assert_eq!(
-            check_promotion(FactStatus::Simulated, FactStatus::Actualized),
+            check_promotion(
+                FactStatus::Simulated,
+                FactStatus::Actualized,
+                RealityStatus::Actualized
+            ),
             Err(PskError::SurfaceInvariantCollapse)
         );
         assert_eq!(
-            check_promotion(FactStatus::Observed, FactStatus::Actualized),
+            check_promotion(
+                FactStatus::Observed,
+                FactStatus::Actualized,
+                RealityStatus::Actualized
+            ),
             Ok(())
         );
+    }
+
+    #[test]
+    fn t_unknown_001_unknown_bars_every_promotion_regardless_of_fact_status() {
+        // Vertrag 7.11: "ein wirksamer Status mit Promotionssperre, kein
+        // fehlender Wert". Geprueft ueber ALLE neun FactStatus-Werte als
+        // Ausgang und die beiden realen Promotionsziele - eine Sperre,
+        // die nur fuer manche Ausgangswerte gilt, waere keine.
+        for from in FactStatus::ALL {
+            for to in [FactStatus::Observed, FactStatus::Actualized] {
+                assert_eq!(
+                    check_promotion(from, to, RealityStatus::Unknown),
+                    Err(PskError::SurfaceInvariantCollapse),
+                    "UNKNOWN MUSS {from:?} -> {to:?} sperren"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_non_unknown_status_still_allows_the_permitted_promotion() {
+        // Gegenprobe: ohne sie waere die Wache auch dann gruen, wenn sie
+        // schlicht alles sperrte - dann pruefte der Test oben nichts
+        // ueber UNKNOWN, sondern nur ueber eine kaputte Wache.
+        for status in RealityStatus::ALL {
+            let expected = if status == RealityStatus::Unknown {
+                Err(PskError::SurfaceInvariantCollapse)
+            } else {
+                Ok(())
+            };
+            assert_eq!(
+                check_promotion(FactStatus::Observed, FactStatus::Actualized, status),
+                expected,
+                "nur UNKNOWN sperrt, {status:?} nicht"
+            );
+        }
     }
 }

@@ -294,6 +294,26 @@ pub fn boot(
     boot_sigma.trace = trace.clone();
     boot_sigma.residues = residues.clone();
     let i_t = identity_binder::runtime_state_digest(&boot_sigma)?;
+
+    // I-FIELD-001 (severity: blocking), erste Haelfte: keine bereits
+    // registrierte Feldidentitaet darf gleich der zu bindenden
+    // Systemidentitaet sein. Die Feldliste kommt aus dem Laufzustand -
+    // bei einem frischen Boot leer, bei einem Recovery-Boot gefuellt.
+    // Als Gatebedingung statt als frueher Err: dieselbe Ordnung wie bei
+    // Schritt 6/11 (siehe Modulkopf) - `all_of(above)` soll die
+    // Bedingung sehen, nicht um sie verkuerzt werden.
+    let registered_field_ids: Vec<ObjectId> = boot_sigma.fields.iter().map(|f| f.id).collect();
+    let field_identity_condition =
+        match identity_binder::check_no_field_identity_equals_system_identity(
+            i_t,
+            &registered_field_ids,
+        ) {
+            Ok(()) => ConditionOutcome::True,
+            Err(_) => {
+                ConditionOutcome::False(ReasonCode("field-identity-equals-system-identity".into()))
+            }
+        };
+
     let identity = identity_binder::bind(cid, aid, i_m, i_t, trace.head(), inputs.bound_at.clone());
     eprintln!("boot: Schritt 12 OK.");
 
@@ -344,6 +364,7 @@ pub fn boot(
                 topology_condition,
                 architecture_condition,
                 profile_condition,
+                field_identity_condition,
                 operator_condition,
                 posture_condition,
             ],

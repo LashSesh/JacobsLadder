@@ -46,6 +46,16 @@ pub struct FieldRegistrationInputs {
     pub dependency_profile_ref: ObjectId,
     pub budget: BudgetSpec,
     pub rollback: RollbackSpec,
+    /// Die aktuelle Systemidentitaet (I_t), gegen die I-FIELD-001
+    /// prueft - siehe `register_field`.
+    ///
+    /// Deklarierter Parameter, kein Selbstermitteln: M08 kann die
+    /// Systemidentitaet nicht kennen, sie gehoert M04. Dasselbe Muster
+    /// wie `has_independent_evidence` in M24, nachdem dort die
+    /// Cargo-Abhaengigkeit auf psk-witness entfiel - kein neuer Port,
+    /// keine neue Kante, der Aufrufer entscheidet die Frage, die er
+    /// beantworten kann.
+    pub system_identity: Digest,
 }
 
 /// Baut das JSON-Vorbild ohne die selbstreferenzielle `id` und bildet
@@ -70,6 +80,27 @@ fn compute_identity(draft: &FieldIdentity) -> Result<(ObjectId, Digest), PskErro
 /// M08: registriert eine neue FieldIdentity fuer den gegebenen Archetyp.
 /// Lifecycle startet bei `field_fsm::INITIAL` (PROPOSED); `marginal_gain`
 /// startet bei "0" (noch keine Messung).
+/// I-FIELD-001 (`no_field_identity_equals_system_identity`,
+/// severity: blocking) / R-FIELD-001 ("No field identity is treated as
+/// the system identity") - T-FIELD-001s Mutation heisst
+/// `set_system_identity_to_field_id`.
+///
+/// Geprueft wird an BEIDEN Schreibstellen, weil die Zeitachse beide
+/// Richtungen offen laesst: bei `M04.bind()` koennen bereits Felder
+/// existieren, nach `bind()` kommen neue hinzu. Hier die zweite Haelfte -
+/// eine NEUE Feldidentitaet darf nicht gleich der aktuellen
+/// Systemidentitaet sein; die erste liegt in
+/// `psk_contract::identity_binder::bind`.
+///
+/// Bewusst NICHT in Sigma geprueft: das waere Feststellung nach Eintritt.
+/// Die Invariante sagt "ist nicht identisch" - ein Zustand, der gar nicht
+/// entstehen darf, nicht einer, den man hinterher bemerkt.
+///
+/// Verglichen wird der Digestanteil: `FieldIdentity.id` ist eine
+/// `ObjectId` (`psk:S-FLD:<digest>`), die Systemidentitaet ein blosser
+/// `Digest`. Gleichheit heisst hier: derselbe Digest - die Sortenhuelle
+/// wuerde einen Vergleich sonst immer scheitern lassen und die Pruefung
+/// wirkungslos machen.
 pub fn register_field(
     archetype: ArchetypeId,
     inputs: FieldRegistrationInputs,
@@ -99,6 +130,9 @@ pub fn register_field(
     };
 
     let (id, _record) = compute_identity(&draft)?;
+    if id.digest == inputs.system_identity {
+        return Err(PskError::SelfAmendmentWithoutIdentity);
+    }
     Ok(FieldIdentity { id, ..draft })
 }
 
@@ -264,7 +298,34 @@ mod tests {
             dependency_profile_ref: ObjectId::new(SortId::Dependency, Digest::sha256(b"dep")),
             budget: BudgetSpec("10 Einheiten".into()),
             rollback: RollbackSpec("Snapshot vorher".into()),
+            system_identity: Digest::sha256(b"system-identity-not-a-field"),
         }
+    }
+
+    /// I-FIELD-001, zweite Schreibstelle (M08). Der Einzelfall ist
+    /// gepruft; der Mengenfall NICHT - siehe conformance_catalog.rs.
+    #[test]
+    fn t_field_001_a_field_whose_id_equals_the_system_identity_is_refused() {
+        // Die Feld-ID folgt aus dem Inhalt, ist also nicht frei setzbar.
+        // Der Test dreht das um: er registriert einmal regulaer, nimmt die
+        // entstandene ID als Systemidentitaet und registriert DASSELBE
+        // Feld erneut - dann sind beide per Konstruktion gleich.
+        let first = register_field(ArchetypeId::Explorer, sample_inputs()).unwrap();
+
+        let mut colliding = sample_inputs();
+        colliding.system_identity = first.id.digest;
+        assert_eq!(
+            register_field(ArchetypeId::Explorer, colliding),
+            Err(PskError::SelfAmendmentWithoutIdentity),
+            "I-FIELD-001: keine Feldidentitaet DARF gleich der Systemidentitaet sein"
+        );
+    }
+
+    #[test]
+    fn an_ordinary_system_identity_does_not_block_registration() {
+        // Gegenprobe: ohne sie waere der Test oben auch gruen, wenn
+        // register_field grundsaetzlich abwiese.
+        assert!(register_field(ArchetypeId::Explorer, sample_inputs()).is_ok());
     }
 
     #[test]

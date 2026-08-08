@@ -1002,6 +1002,7 @@ dependencies = [
  "psk-anchor",
  "psk-canon",
  "psk-codegen",
+ "psk-thought",
  "psk-trace",
  "psk-types",
  "serde_json",
