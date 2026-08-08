@@ -142,7 +142,11 @@ pub enum PendingWork {
         token: EffectToken,
         current_tau_i: u64,
         started_at: DualTime,
-        adapter: Box<dyn EffectAdapter>,
+        /// `Send`, damit `PendingWork` als Ganzes zwischen Threads
+        /// wandern kann (Regel 14.7, siehe `concurrency_eligible`) - der
+        /// Adapter selbst laeuft nie nebenlaeufig, aber eine Variante
+        /// ohne `Send` machte das ganze Enum unbeweglich.
+        adapter: Box<dyn EffectAdapter + Send>,
     },
     Observe2Receipt(psk_anchor::ObservationInputs),
     Reconcile(psk_reconciliation::ReconcileInputs),
@@ -212,10 +216,76 @@ fn seg(
 /// `PendingWork::Observe`) - eine Fehlpaarung ist ein Aufruffehler des
 /// Taktschleifenverwalters (`tick()`/dessen Aufrufer), nicht etwas, das
 /// diese Funktion heilen sollte; sie scheitert dafuer mit `UntypedInput`.
+/// Regel 14.7 (Nebenlaeufigkeitsmodell): "Nebenlaeufigkeit ist zulaessig
+/// innerhalb einer Phase und ausschliesslich fuer Operationen ohne
+/// gemeinsamen Schreibzustand."
+///
+/// Genau vier Arbeitsarten haben gemeinsamen Schreibzustand, und sie sind
+/// hier abschliessend aufgezaehlt, nicht geschaetzt - jede ist an ihrem
+/// Match-Arm in `dispatch` nachlesbar:
+///
+/// - `VerifyGate`: `evaluate_gate` schreibt Trace UND Residuen selbst und
+///   unbedingt (Algorithmus 18.6, Invariante 18.7).
+/// - `ExecuteRun`: verbraucht bzw. invalidiert im `TokenLedger` - die
+///   Einmaligkeitsgarantie IST gemeinsamer Schreibzustand.
+/// - `Reconcile`: oeffnet Residuen (`residualize`).
+/// - `ArchiveGatherResidues`: liest den Residuenstand; sein Ergebnis
+///   haengt davon ab, welche Residuen zuvor geoeffnet wurden, ist also
+///   reihenfolgeabhaengig, auch ohne selbst zu schreiben.
+///
+/// Alles Uebrige berechnet ein Ergebnis aus seinen eigenen, bereits
+/// vollstaendigen Eingaben und beruehrt `Sigma` erst in `apply()` - das
+/// ist der Teil, den Regel 14.7 freigibt.
+pub fn concurrency_eligible(work: &PendingWork) -> bool {
+    !matches!(
+        work,
+        PendingWork::VerifyGate(_)
+            | PendingWork::ExecuteRun { .. }
+            | PendingWork::Reconcile(_)
+            | PendingWork::ArchiveGatherResidues
+    )
+}
+
+/// Die zustandsfreie Haelfte von `dispatch` - dieselbe Berechnung, aber
+/// ohne Zugriff auf `Sigma`, damit sie nebenlaeufig laufen DARF.
+///
+/// Gibt `UntypedInput` fuer jede nicht freigegebene Arbeitsart zurueck;
+/// `dispatch` unten ruft sie nur fuer freigegebene auf. Die Trennung ist
+/// damit nicht bloss dokumentiert, sondern typseitig wirksam: diese
+/// Funktion KANN keinen gemeinsamen Zustand veraendern, weil sie keinen
+/// bekommt.
+pub fn dispatch_stateless(
+    phase: Phase,
+    work: PendingWork,
+    time: DualTime,
+) -> Result<DispatchResult, PskError> {
+    if !concurrency_eligible(&work) {
+        return Err(PskError::UntypedInput);
+    }
+    let mut unused = None;
+    dispatch_inner(phase, work, &mut unused, time)
+}
+
 pub fn dispatch(
     phase: Phase,
     work: PendingWork,
     state: &mut Sigma,
+    time: DualTime,
+) -> Result<DispatchResult, PskError> {
+    dispatch_inner(phase, work, &mut Some(state), time)
+}
+
+/// Gemeinsame Implementierung beider Einstiege. `state` ist `Option`,
+/// damit `dispatch_stateless` denselben Code ohne Sigma benutzen kann -
+/// EINE Match-Tabelle statt zweier, die auseinanderlaufen koennten. Die
+/// vier zustandsbehafteten Arme fordern das `Some` ausdruecklich an; sie
+/// sind ueber `concurrency_eligible` ohnehin von `dispatch_stateless`
+/// ausgeschlossen, scheitern hier aber zusaetzlich fail-closed, statt
+/// stillschweigend etwas anderes zu tun.
+fn dispatch_inner(
+    phase: Phase,
+    work: PendingWork,
+    state: &mut Option<&mut Sigma>,
     time: DualTime,
 ) -> Result<DispatchResult, PskError> {
     match (phase, work) {
@@ -400,6 +470,7 @@ pub fn dispatch(
             })
         }
         (Phase::Verify, PendingWork::VerifyGate(inputs)) => {
+            let state = state.as_deref_mut().ok_or(PskError::UntypedInput)?;
             // evaluate_gate schreibt sein TraceSegment bereits selbst,
             // unbedingt (Algorithmus 18.6/Invariante 18.7) - kein
             // zusaetzliches aeusseres Segment (siehe Modulkopf).
@@ -432,47 +503,50 @@ pub fn dispatch(
                 started_at,
                 adapter,
             },
-        ) => match state.i.profile {
-            psk_types::objects::ProfileId::Shadow | psk_types::objects::ProfileId::Readonly => {
-                // Regel 22.3 (Replay laeuft unter shadow): "Plan und Token
-                // werden erzeugt, aber sofort invalidiert." Durchsetzung
-                // ueber die bestehende Tokeninvalidierung
-                // (FSM-TOKEN-Operator `plan_changed`, P37), NICHT ueber
-                // `execute_effect` - der Adapter wird nie aufgerufen.
-                let key = token.idempotency_key.clone();
-                state
-                    .gates_and_tokens
-                    .ledger
-                    .advance(&key, "plan_changed")?;
-                let segment = seg(ModuleId::EffectBoundary, phase, &key, time, vec![token.id])?;
-                Ok(DispatchResult {
-                    trace_segments: vec![segment],
-                    outcome: DispatchOutcome::EffectInvalidated {
-                        idempotency_key: key,
-                    },
-                })
+        ) => {
+            let state = state.as_deref_mut().ok_or(PskError::UntypedInput)?;
+            match state.i.profile {
+                psk_types::objects::ProfileId::Shadow | psk_types::objects::ProfileId::Readonly => {
+                    // Regel 22.3 (Replay laeuft unter shadow): "Plan und Token
+                    // werden erzeugt, aber sofort invalidiert." Durchsetzung
+                    // ueber die bestehende Tokeninvalidierung
+                    // (FSM-TOKEN-Operator `plan_changed`, P37), NICHT ueber
+                    // `execute_effect` - der Adapter wird nie aufgerufen.
+                    let key = token.idempotency_key.clone();
+                    state
+                        .gates_and_tokens
+                        .ledger
+                        .advance(&key, "plan_changed")?;
+                    let segment = seg(ModuleId::EffectBoundary, phase, &key, time, vec![token.id])?;
+                    Ok(DispatchResult {
+                        trace_segments: vec![segment],
+                        outcome: DispatchOutcome::EffectInvalidated {
+                            idempotency_key: key,
+                        },
+                    })
+                }
+                _ => {
+                    let attempt = psk_effect::execute_effect(
+                        &mut state.gates_and_tokens.ledger,
+                        &token,
+                        current_tau_i,
+                        started_at.clone(),
+                        &adapter,
+                    )?;
+                    let segment = seg(
+                        ModuleId::EffectBoundary,
+                        phase,
+                        &attempt,
+                        started_at,
+                        vec![attempt.id],
+                    )?;
+                    Ok(DispatchResult {
+                        trace_segments: vec![segment],
+                        outcome: DispatchOutcome::EffectExecuted(attempt),
+                    })
+                }
             }
-            _ => {
-                let attempt = psk_effect::execute_effect(
-                    &mut state.gates_and_tokens.ledger,
-                    &token,
-                    current_tau_i,
-                    started_at.clone(),
-                    &adapter,
-                )?;
-                let segment = seg(
-                    ModuleId::EffectBoundary,
-                    phase,
-                    &attempt,
-                    started_at,
-                    vec![attempt.id],
-                )?;
-                Ok(DispatchResult {
-                    trace_segments: vec![segment],
-                    outcome: DispatchOutcome::EffectExecuted(attempt),
-                })
-            }
-        },
+        }
 
         (Phase::Observe2, PendingWork::Observe2Receipt(inputs)) => {
             // "oder UNKNOWN_EFFECT": siehe psk_anchor::observe_unknown_effect
@@ -492,6 +566,7 @@ pub fn dispatch(
         }
 
         (Phase::Reconcile, PendingWork::Reconcile(inputs)) => {
+            let state = state.as_deref_mut().ok_or(PskError::UntypedInput)?;
             let report = psk_reconciliation::reconcile(inputs, &mut state.residues)?;
             let segment = seg(
                 ModuleId::ReconciliationEngine,
@@ -507,6 +582,7 @@ pub fn dispatch(
         }
 
         (Phase::Archive, PendingWork::ArchiveGatherResidues) => {
+            let state = state.as_deref_mut().ok_or(PskError::UntypedInput)?;
             let open_ids: Vec<ObjectId> = state.residues.open_residues().map(|r| r.id).collect();
             let segment = seg(
                 ModuleId::TraceReplayResidueStore,

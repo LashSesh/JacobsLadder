@@ -50,7 +50,7 @@ pub struct QueuedItem {
     pub work: PendingWork,
 }
 
-fn budget_residue(
+pub(crate) fn budget_residue(
     state: &mut Sigma,
     phase: Phase,
     item: &QueuedItem,
@@ -85,7 +85,7 @@ fn budget_residue(
 /// `Box<dyn EffectAdapter>`) zu duplizieren: `SchedulableItem` ist `Copy`,
 /// wird also fuer die Sortierung selbst extrahiert, `queue` danach anhand
 /// der sortierten Reihenfolge per `remove` umsortiert.
-fn ordered_by_select(mut queue: Vec<QueuedItem>) -> Vec<QueuedItem> {
+pub(crate) fn ordered_by_select(mut queue: Vec<QueuedItem>) -> Vec<QueuedItem> {
     let schedulables: Vec<SchedulableItem> = queue.iter().map(|q| q.schedulable).collect();
     let ordered = select(schedulables);
     let mut result = Vec::with_capacity(queue.len());

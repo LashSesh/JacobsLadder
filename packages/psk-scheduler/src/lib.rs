@@ -32,7 +32,10 @@ mod sigma;
 pub use sigma::{sigma_digest, GatesAndTokens, Sigma};
 
 mod dispatch;
-pub use dispatch::{dispatch, DispatchOutcome, DispatchResult, PendingWork};
+pub use dispatch::{
+    concurrency_eligible, dispatch, dispatch_stateless, DispatchOutcome, DispatchResult,
+    PendingWork,
+};
 
 mod apply;
 pub use apply::apply;
@@ -42,3 +45,6 @@ pub use profiling::{PhaseMetric, Profiling};
 
 mod tick;
 pub use tick::{tick, QueuedItem};
+
+mod concurrent;
+pub use concurrent::{tick_concurrent, tick_concurrent_with_order, ResultOrder};

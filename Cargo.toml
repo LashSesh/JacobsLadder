@@ -37,6 +37,7 @@ members = [
     "tools/refinement-gen",
     "tools/verify-modtree",
     "tools/verify-dependencies",
+    "tools/verify-test-ratchet",
 ]
 
 # Regel 26.7: SemVer. Vor C0 (Anhang gate_registry/release_gate,

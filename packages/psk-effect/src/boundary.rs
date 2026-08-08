@@ -71,7 +71,7 @@ pub trait EffectAdapter {
 /// generisch ueber jeden moeglichen Adaptertyp zu sein) braucht deshalb
 /// diese Bruecke - Standardmuster fuer Trait-Objekte, keine Erweiterung
 /// des Traits selbst.
-impl EffectAdapter for Box<dyn EffectAdapter> {
+impl EffectAdapter for Box<dyn EffectAdapter + Send> {
     fn id(&self) -> AdapterId {
         self.as_ref().id()
     }
