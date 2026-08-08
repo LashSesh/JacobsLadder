@@ -142,7 +142,7 @@ fn run_once(profiling: &mut Profiling) -> (Digest, Vec<ObjectId>, Vec<ObjectId>,
 }
 
 #[test]
-fn profiling_on_and_off_yield_the_identical_canonical_digest() {
+fn t_obsv_001_profiling_on_and_off_yield_the_identical_canonical_digest() {
     // Die im Testregister geforderte Eigenschaft selbst:
     // run: with_and_without_profiling -> expect: identical_canonical_digest.
     let mut off = Profiling::off();

@@ -395,7 +395,7 @@ fn execute_queue(
 }
 
 #[test]
-fn under_shadow_the_token_is_invalidated_and_the_adapter_never_runs() {
+fn t_replay_002_under_shadow_the_token_is_invalidated_and_the_adapter_never_runs() {
     // Regel 22.3 (Replay laeuft unter shadow) + Invariante 22.6 (Replay ist
     // effektfrei): "Plan und Token werden erzeugt, aber sofort invalidiert",
     // Durchsetzung ueber die bestehende Tokeninvalidierung (P37).

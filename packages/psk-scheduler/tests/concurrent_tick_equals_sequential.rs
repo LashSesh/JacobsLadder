@@ -154,7 +154,7 @@ fn sequential_digest() -> Digest {
 }
 
 #[test]
-fn a_concurrent_tick_yields_the_same_canonical_digest_as_the_sequential_one() {
+fn t_conc_001_a_concurrent_tick_yields_the_same_canonical_digest_as_the_sequential_one() {
     // Die im Register geforderte Eigenschaft selbst:
     // expect: canonical_digest_equals_sequential.
     let expected = sequential_digest();

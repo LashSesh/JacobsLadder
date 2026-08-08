@@ -159,15 +159,34 @@
 //!   ein No-op, wird aber unveraendert aufgerufen, damit der Test die
 //!   reale Implementierung prueft und nicht zwei verschiedene Zweige.
 //!
+//! - T-CONC-001 (nebenlaeufiger Stresstest, kanonischer Digest gleich dem
+//!   sequentiellen): real gruen getestet in `psk-scheduler/tests/
+//!   concurrent_tick_equals_sequential.rs::t_conc_001_a_concurrent_tick_
+//!   yields_the_same_canonical_digest_as_the_sequential_one`.
+//!   `tick_concurrent` (psk-scheduler::concurrent) setzt Regel 14.7s drei
+//!   Saetze je einzeln um: Nebenlaeufigkeit nur INNERHALB einer Phase;
+//!   nur fuer Operationen ohne gemeinsamen Schreibzustand
+//!   (`concurrency_eligible` zaehlt die vier Ausnahmen abschliessend auf,
+//!   die freigegebenen laufen ueber `dispatch_stateless`, das `Sigma` gar
+//!   nicht erst bekommt - typseitig erzwungen, nicht bloss dokumentiert);
+//!   und Ruecksortierung in die Prioritaetsordnung vor der Anwendung.
+//!   Vergleichswert ist `sigma_digest` (I_t), nicht der Tracekopf -
+//!   I-ARCH-009 spricht vom kanonischen Zustandsdigest.
+//!   Der Negativnachweis (ohne Ruecksortierung MUSS der Digest abweichen)
+//!   fand beim ersten Lauf einen realen Fehler im Harness selbst: die
+//!   Ergebnisse kamen ueber `join()` in Spawnreihenfolge zurueck, womit
+//!   der Sortierschritt toter Code war und der Positivtest die Ordnung
+//!   gar nicht prueft e. Seither ueber einen Kanal in echter
+//!   Fertigstellungsreihenfolge.
+//!   Befund zu M19s Anhaengereihenfolge: sie kann unter Nebenlaeufigkeit
+//!   nicht divergieren, und nicht aus Glueck - `TraceStore::append` nimmt
+//!   `&mut self`, `Sigma` wird nie geteilt, kein Thread KANN anhaengen.
+//!   Alle Segmente entstehen in der sequentiellen Anwendungsschleife in
+//!   `select()`-Ordnung. Der Grund ist Regel 14.7s eigener: der Trace IST
+//!   gemeinsamer Schreibzustand, also ist Anhaengen keine freigegebene
+//!   Operation - es braucht keine Sperre, weil es keinen Wettlauf gibt.
+//!
 //! ## (c) Derzeit nicht realisierbar (Befund, mit Begruendung)
-//! - T-CONC-001 (nebenlaeufiger Stresstest): verlangt einen nebenlaeufigen
-//!   Ausfuehrungsharness. `tick()` existiert seit v1.0.19 als reale,
-//!   sequentielle Taktschleife (Algorithmus 14.4); Regel 14.7
-//!   (Nebenlaeufigkeitsmodell) erlaubt Nebenlaeufigkeit INNERHALB einer
-//!   Phase und ausschliesslich fuer Operationen ohne gemeinsamen
-//!   Schreibzustand, mit Rueckordnung in die deterministische
-//!   Prioritaetsordnung vor der Anwendung. Diese Rueckordnung ist noch
-//!   nicht gebaut.
 //! - T-PASS-001 (Compiler-Passreihenfolge vertauschen -> divergence_report):
 //!   `pass_registry.yaml` ist deklaratives Metadatenregister, keine
 //!   ausfuehrbare Passpipeline mit vertauschbarer Reihenfolge existiert.

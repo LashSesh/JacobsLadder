@@ -1628,6 +1628,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "verify-catalog"
+version = "0.0.0"
+
+[[package]]
 name = "verify-dependencies"
 version = "0.0.0"
 dependencies = [
