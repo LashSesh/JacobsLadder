@@ -8,7 +8,7 @@
 //! 5.10: der ThoughtBody ist nach Konstruktion unveraenderlich, der
 //! geltende Status lebt im IRNode, und es gibt keinen Port M07 -> M06.
 //! Seit v1.0.7 traegt RealityClassification eine eigene Feldstruktur
-//! (Struktur 7.9, OBJ-RCL) und ist damit ein kanonisches Objekt, keine
+//! (Struktur 7.10, OBJ-RCL) und ist damit ein kanonisches Objekt, keine
 //! blosse Portnutzlast mehr.
 
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));

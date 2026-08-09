@@ -1,8 +1,8 @@
 //! M07 RealityTyper: klassifiziert einen ThoughtBody und emittiert das
 //! Ergebnis als eigenstaendiges Objekt `RealityClassification` (Struktur
-//! 7.9, OBJ-RCL) ueber P09 an M23.
+//! 7.10, OBJ-RCL) ueber P09 an M23.
 //!
-//! Regel 7.10 (Klassifikation ist ein eigenes Objekt): "M07 DARF NICHT in
+//! Regel 7.11 (Klassifikation ist ein eigenes Objekt): "M07 DARF NICHT in
 //! den ThoughtBody schreiben. Die Klassifikation verlaesst M07
 //! ausschliesslich als RealityClassification ueber P09." Deshalb nimmt
 //! `classify` den Koerper nur als unveraenderliche Referenz.
@@ -42,9 +42,9 @@ pub struct RealityEvidence {
     pub constructible: bool,
     /// Tatsaechlich aktualisiert (R_act).
     pub actualized: bool,
-    /// R_rea, dreiwertig statt zweiwertig: Struktur 7.9 fuehrt genau diese
+    /// R_rea, dreiwertig statt zweiwertig: Struktur 7.10 fuehrt genau diese
     /// Unterscheidung als eigenes Feld, weil `unexamined` und `refuted`
-    /// verschiedene Folgen haben (Regel 7.10).
+    /// verschiedene Folgen haben (Regel 7.11).
     pub reachability: RealityClassificationReachabilityKind,
 }
 
@@ -74,7 +74,7 @@ impl RealityEvidence {
 
 /// Definition 5.7: klassifiziert nach der hoechsten erreichten Sprosse der
 /// Realitaetsleiter. UNKNOWN ist dabei ein wirksamer Status mit
-/// Promotionssperre, kein fehlender Wert (Vertrag 7.11) - er entsteht,
+/// Promotionssperre, kein fehlender Wert (Vertrag 7.12) - er entsteht,
 /// sobald nicht einmal Kohaerenz festgestellt ist.
 ///
 /// Kein Default-Zweig auf einen positiven Status: OBL-002 ("Ein Verfahren,
@@ -100,7 +100,7 @@ pub fn classify_reality(evidence: &RealityEvidence) -> RealityStatus {
 /// Definition 5.11 (Ankerrelativ imaginaer):
 /// `imaginary(x,a) :<=> reality_status(x) in {COHERENT, LAWFUL} and not reachable(x,a)`.
 ///
-/// Regel 7.10 praezisiert die Nichterreichbarkeit: nur `refuted` traegt sie
+/// Regel 7.11 praezisiert die Nichterreichbarkeit: nur `refuted` traegt sie
 /// bezeugt. `unexamined` "fuehrt zu UNKNOWN und DARF NICHT zu IMAGINARY".
 /// IMAGINARY ist KEIN Wert von RealityStatus oder FactStatus, sondern ein
 /// daraus abgeleitetes Praedikat - deshalb ein bool und kein Statuswert.
@@ -114,10 +114,10 @@ pub fn is_imaginary(
 
 /// Was M07 zur Klassifikation braucht und nicht selbst feststellen kann.
 pub struct ClassificationInputs {
-    /// Anker, relativ zu dem klassifiziert wird (Struktur 7.9).
+    /// Anker, relativ zu dem klassifiziert wird (Struktur 7.10).
     pub anchor_ref: ObjectId,
     pub evidence: RealityEvidence,
-    /// Belege; "leer nur bei UNKNOWN" (Struktur 7.9).
+    /// Belege; "leer nur bei UNKNOWN" (Struktur 7.10).
     pub evidence_refs: Vec<ObjectId>,
     /// Das MethodPlugin, das die Evidenz geliefert hat (Vertrag 27.2).
     /// None bedeutet: kein Plug-in beteiligt - dann MUSS die Klassifikation
@@ -151,7 +151,7 @@ fn compute_identity(draft: &RealityClassification) -> Result<ObjectId, PskError>
 const CLASSIFICATION_SORT: SortId = SortId::Horizon;
 
 /// M07: klassifiziert einen ThoughtBody und gibt das Ergebnis als
-/// eigenstaendiges Objekt zurueck (Regel 7.10). Der Koerper wird nur
+/// eigenstaendiges Objekt zurueck (Regel 7.11). Der Koerper wird nur
 /// gelesen.
 ///
 /// `facticity` bleibt auf dem Anfangswert des Koerpers: jede
@@ -173,7 +173,7 @@ pub fn classify(
         return Err(PskError::UnboundNondeterminismOrDivergence);
     }
     if reality_status != RealityStatus::Unknown && inputs.evidence_refs.is_empty() {
-        // Struktur 7.9: "Grundlage; leer nur bei UNKNOWN".
+        // Struktur 7.10: "Grundlage; leer nur bei UNKNOWN".
         return Err(PskError::UnsupportedReachability);
     }
 
@@ -211,12 +211,12 @@ pub fn is_implicit_promotion(from: FactStatus, to: FactStatus) -> bool {
 }
 
 /// Die EINZIGE Stelle, die ueber eine Faktpromotion entscheidet -
-/// T-UNKNOWN-001 / Vertrag 7.11.
+/// T-UNKNOWN-001 / Vertrag 7.12.
 ///
 /// Zwei Sperren, eine Wache:
 ///
 /// 1. **UNKNOWN sperrt jede Promotion, unabhaengig vom FactStatus.**
-///    Vertrag 7.11 woertlich: UNKNOWN ist "ein wirksamer Status mit
+///    Vertrag 7.12 woertlich: UNKNOWN ist "ein wirksamer Status mit
 ///    Promotionssperre, kein fehlender Wert". Genau das macht diese Zeile
 ///    wirksam statt beschreibend - zuvor produzierte `classify_reality`
 ///    UNKNOWN korrekt, aber nichts hinderte einen spaeteren Schritt
@@ -304,7 +304,7 @@ mod tests {
 
     #[test]
     fn unknown_when_not_even_coherent() {
-        // Vertrag 7.11: UNKNOWN ist ein wirksamer Status, kein fehlender Wert.
+        // Vertrag 7.12: UNKNOWN ist ein wirksamer Status, kein fehlender Wert.
         assert_eq!(
             classify_reality(&RealityEvidence::default()),
             RealityStatus::Unknown
@@ -313,7 +313,7 @@ mod tests {
 
     #[test]
     fn unexamined_reachability_does_not_reach() {
-        // Regel 7.10: unexamined ist keine Erreichbarkeitsaussage.
+        // Regel 7.11: unexamined ist keine Erreichbarkeitsaussage.
         let e = RealityEvidence {
             coherent: true,
             lawful: true,
@@ -343,7 +343,7 @@ mod tests {
 
     #[test]
     fn imaginary_requires_refuted_not_merely_unexamined() {
-        // Regel 7.10: "refuted setzt bezeugte Nichterreichbarkeit voraus,
+        // Regel 7.11: "refuted setzt bezeugte Nichterreichbarkeit voraus,
         // unexamined fuehrt zu UNKNOWN und DARF NICHT zu IMAGINARY."
         assert!(is_imaginary(RealityStatus::Coherent, Reach::Refuted));
         assert!(
@@ -373,7 +373,7 @@ mod tests {
 
     #[test]
     fn classification_is_a_separate_object_referencing_the_body() {
-        // Regel 7.10: M07 schreibt nicht in den ThoughtBody.
+        // Regel 7.11: M07 schreibt nicht in den ThoughtBody.
         let body = sample_body();
         let before = body.clone();
         let cls = classify(&body, sample_inputs(evidence_up_to_lawful())).unwrap();
@@ -408,7 +408,7 @@ mod tests {
 
     #[test]
     fn positive_status_needs_evidence_refs() {
-        // Struktur 7.9: "Grundlage; leer nur bei UNKNOWN".
+        // Struktur 7.10: "Grundlage; leer nur bei UNKNOWN".
         let body = sample_body();
         let mut inputs = sample_inputs(evidence_up_to_lawful());
         inputs.evidence_refs.clear();
@@ -473,7 +473,7 @@ mod tests {
 
     #[test]
     fn t_unknown_001_unknown_bars_every_promotion_regardless_of_fact_status() {
-        // Vertrag 7.11: "ein wirksamer Status mit Promotionssperre, kein
+        // Vertrag 7.12: "ein wirksamer Status mit Promotionssperre, kein
         // fehlender Wert". Geprueft ueber ALLE neun FactStatus-Werte als
         // Ausgang und die beiden realen Promotionsziele - eine Sperre,
         // die nur fuer manche Ausgangswerte gilt, waere keine.

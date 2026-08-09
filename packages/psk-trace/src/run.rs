@@ -1,4 +1,4 @@
-//! M19 TraceReplayResidueStore, Laufteil: RunDescriptor (Struktur 7.42,
+//! M19 TraceReplayResidueStore, Laufteil: RunDescriptor (Struktur 7.44,
 //! OBJ-RUN) und ReplayManifest (Struktur 22.5, OBJ-RPM).
 
 use psk_canon::{can, Media};

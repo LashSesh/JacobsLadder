@@ -1,10 +1,10 @@
-//! M08 FieldRegistry: konstruiert FieldIdentity-Objekte (Struktur 7.12,
+//! M08 FieldRegistry: konstruiert FieldIdentity-Objekte (Struktur 7.13,
 //! OBJ-FLD) und fuehrt sie durch FSM-FIELD (Automat 13.x,
 //! `psk_types::automata::field`).
 //!
 //! Regel 32.7 (Feldfamilie der Referenzdomaene): "Genau sechs statische
 //! Feldidentitaeten." Das geschlossene `ArchetypeId`-Register (Struktur
-//! 7.12s Kommentar, sechs Werte) haelt diese Menge geschlossen - vor dieser
+//! 7.13s Kommentar, sechs Werte) haelt diese Menge geschlossen - vor dieser
 //! Korrektur generierte object_schemas.yaml `archetype` als freie
 //! Zeichenkette (derselbe Fehlerklasse wie RealityStatus/FactStatus vor
 //! WP06, siehe architecture/sort_registry.yaml#ArchetypeId).
@@ -31,7 +31,7 @@ use psk_types::{Digest, ObjectId, PskError};
 /// Eingaben fuer eine FieldIdentity-Konstruktion. `id`, `lifecycle` und
 /// `marginal_gain` fehlen hier absichtlich: FSM-FIELD legt den
 /// Anfangszustand fest (PROPOSED, `field_fsm::INITIAL`), und Delta-G ist
-/// "zuletzt gemessener Wert" (Struktur 7.12) - vor der ersten Messung gibt
+/// "zuletzt gemessener Wert" (Struktur 7.13) - vor der ersten Messung gibt
 /// es keinen.
 pub struct FieldRegistrationInputs {
     pub domain: DomainExpr,
@@ -145,7 +145,7 @@ pub fn register_field(
 ///   v1.0.8 - das Vorzeichen liegt vollstaendig im numerator, da
 ///   10^scale > 0 fuer scale >= 0 immer gilt; keine Gleitkommapruefung
 ///   mehr noetig).
-/// - `scope_declared`: Struktur 7.12 fuehrt kein Feld namens `scope` -
+/// - `scope_declared`: Struktur 7.13 fuehrt kein Feld namens `scope` -
 ///   gelesen als `domain` (D_lambda), das einzige Feld, das den
 ///   Wirkungsbereich eines Feldes beschreibt.
 /// - `dependency_profile`: `dependency_profile_ref` ist nicht optional,

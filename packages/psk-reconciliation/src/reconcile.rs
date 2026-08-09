@@ -46,7 +46,7 @@
 //! Berichtskonstruktion, es gibt nichts zu berichten.
 //!
 //! Befund gegen die eigene v1.0.10-Implementierung (gefunden beim
-//! Nachpruefen von Invariante 7.34 auf Anfrage): "Beobachterunabhaengigkeit"
+//! Nachpruefen von Invariante 7.35 auf Anfrage): "Beobachterunabhaengigkeit"
 //! ist im Text KEIN einzelner Vergleich, sondern zwei UND-verknuepfte:
 //! "ExternalReceipt.observer_adapter != EffectAttempt.adapter UND
 //! observer_identity != issuer_digest. Verletzung erzeugt PSK-E009." Die
@@ -95,31 +95,31 @@ pub struct ReconcileInputs {
     pub attempt: EffectAttempt,
     pub token_plan_digest: Digest,
     /// `EffectToken.issuer_digest` ("I_M von M15") des Tokens, unter dem
-    /// `attempt` lief - zweite Haelfte von Invariante 7.34, siehe Modulkopf.
+    /// `attempt` lief - zweite Haelfte von Invariante 7.35, siehe Modulkopf.
     pub token_issuer_digest: Digest,
     pub receipts: Vec<ExternalReceipt>,
     pub anchor_ref: ObjectId,
     pub diff: DiffOutcome,
-    /// Struktur 7.35 fuehrt `finality` ohne Berechnungsvorschrift - der
+    /// Struktur 7.36 fuehrt `finality` ohne Berechnungsvorschrift - der
     /// Text setzt es nur als Ergebnisfeld, leitet es nirgends her (anders
     /// als `promotion`, das Algorithmus 20.8 vollstaendig festlegt).
     /// Befund: von aussen entgegengenommen, nicht erfunden.
     pub finality: Finality,
     /// "ActualizationWitness bei ACTUALIZED" - kein Kapitel-7-Objekt
-    /// dieses Namens registriert. Das Feld ist in Struktur 7.35 nicht
+    /// dieses Namens registriert. Das Feld ist in Struktur 7.36 nicht
     /// optional; ausserhalb von ACTUALIZED bleibt sein Inhalt hier dem
     /// Aufrufer ueberlassen.
     pub witness_ref: ObjectId,
     pub opened_at: DualTime,
     /// Realitaetsstatus und Faktizitaet des Subjekts, dessen Promotion
-    /// hier entschieden wird (T-UNKNOWN-001, Vertrag 7.11). M18 kennt das
+    /// hier entschieden wird (T-UNKNOWN-001, Vertrag 7.12). M18 kennt das
     /// Subjekt nicht selbst - dieselbe Form wie `diff`/`finality`: vom
     /// Aufrufer deklariert, nicht hier ermittelt.
     ///
     /// Sie sind Pflichtfelder und nicht `Option`: ein Aufrufer, der sie
     /// nicht kennt, kann auch nicht sagen, ob eine Promotion zulaessig
     /// waere - ein Vorgabewert waere genau die stille Umgehung, die
-    /// Vertrag 7.11 verbietet.
+    /// Vertrag 7.12 verbietet.
     pub subject_reality_status: RealityStatus,
     pub subject_facticity: FactStatus,
 }
@@ -142,7 +142,7 @@ fn compute_identity(draft: &ReconciliationReport) -> Result<ObjectId, PskError> 
 }
 
 /// M18: Algorithmus 20.8. `residues` ist das laufende Residuenledger
-/// (Regel 8.2 / Axiom 7.41 ueber P28, `from: "*"` - M18 ist keine
+/// (Regel 8.2 / Axiom 7.43 ueber P28, `from: "*"` - M18 ist keine
 /// Ausnahme); `residualize(diff)` (Explicable/Contradictory) oeffnet dort
 /// ein Residuum des Typs `reconciliation`.
 pub fn reconcile(
@@ -165,7 +165,7 @@ pub fn reconcile(
     {
         return Err(PskError::ActualizationWithoutReconciliation);
     }
-    // Invariante 7.34, zweite Haelfte: observer_identity != issuer_digest.
+    // Invariante 7.35, zweite Haelfte: observer_identity != issuer_digest.
     // Wiederverwendet aus WP05 statt neu geschrieben - derselbe Vergleich,
     // dieselbe Fehlerursache (siehe Modulkopf).
     for r in &inputs.receipts {
@@ -195,7 +195,7 @@ pub fn reconcile(
         Verdict::Open | Verdict::Divergent => Promotion::Observed,
     };
 
-    // T-UNKNOWN-001 / Vertrag 7.11: die Promotionssperre entscheidet
+    // T-UNKNOWN-001 / Vertrag 7.12: die Promotionssperre entscheidet
     // `psk_thought::check_promotion` - die EINZIGE Wache dafuer. M18
     // fuehrt bewusst keine eigene Ableitung mehr: zwei getrennte
     // Entscheidungsstellen driften auseinander (dieselbe Ueberlegung wie
@@ -442,7 +442,7 @@ mod tests {
 
     #[test]
     fn a_receipt_from_the_effect_adapter_itself_fails() {
-        // Beobachterunabhaengigkeit, erste Haelfte von Invariante 7.34:
+        // Beobachterunabhaengigkeit, erste Haelfte von Invariante 7.35:
         // derselbe Adapterbezeichner darf nicht sein eigener Zeuge sein.
         let mut inputs = base_inputs(DiffOutcome::Empty);
         inputs.receipts = vec![sample_receipt("r1", "effect-local-fs")];
@@ -455,7 +455,7 @@ mod tests {
 
     #[test]
     fn a_receipt_sharing_the_issuers_identity_digest_fails() {
-        // Beobachterunabhaengigkeit, zweite Haelfte von Invariante 7.34:
+        // Beobachterunabhaengigkeit, zweite Haelfte von Invariante 7.35:
         // "observer_identity != issuer_digest" - unabhaengig vom
         // Adapterbezeichner. Das ist die staerkere Schranke: zwei
         // verschiedene AdapterId-Bezeichner koennten sich denselben
@@ -547,7 +547,7 @@ mod tests {
 
     #[test]
     fn t_unknown_001_an_unknown_subject_is_not_promoted_even_on_a_closed_verdict() {
-        // Vertrag 7.11 an der zweiten Aufrufstelle: derselbe Lauf, der
+        // Vertrag 7.12 an der zweiten Aufrufstelle: derselbe Lauf, der
         // sonst ACTUALIZED ergaebe, promoviert bei UNKNOWN nicht.
         let mut inputs = base_inputs(DiffOutcome::Empty);
         inputs.subject_reality_status = RealityStatus::Unknown;
@@ -562,7 +562,7 @@ mod tests {
         assert_eq!(
             report.fact_promotion,
             Promotion::None,
-            "UNKNOWN sperrt die Promotion (Vertrag 7.11), auch bei CLOSED"
+            "UNKNOWN sperrt die Promotion (Vertrag 7.12), auch bei CLOSED"
         );
     }
 

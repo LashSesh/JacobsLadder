@@ -25,7 +25,7 @@ use psk_types::objects::M13Address;
 use psk_types::CellId;
 
 /// IRGraph aus Schnittstelle 9.19 - der Graph-Teil eines IRBundle
-/// (Struktur 7.19, OBJ-IRB).
+/// (Struktur 7.20, OBJ-IRB).
 pub type IRGraph = psk_types::objects::Graph;
 
 /// Vertrag 9.7 (Zellclosure): die fuenf Bedingungen woertlich als Felder.

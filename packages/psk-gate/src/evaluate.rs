@@ -63,7 +63,7 @@
 //! `M11.seam_report(inputs)` fuer JEDES Gate zweiter Ordnung zu lesen (auch
 //! G-SELF-COMPILE, G-RELEASE - inhaltlich ohne M13-Zellbezug) waere eine
 //! Ueberdehnung von psk_closure::compare_restrictions (das ausdruecklich
-//! ueber M13Address-Zellen arbeitet, Struktur 7.28). Definition 18.2 spricht
+//! ueber M13Address-Zellen arbeitet, Struktur 7.29). Definition 18.2 spricht
 //! allgemein von "gemeinsamer Schliessbarkeit ihrer Relationen" - gelesen
 //! als: jedes Gate zweiter Ordnung liefert IRGENDEIN SeamReport-foermiges
 //! Kompatibilitaetsurteil, nicht zwingend M11s spezifisches. `seam_compatible`
@@ -175,7 +175,7 @@ pub fn evaluate_gate(
     residues: &mut ResidueLedger,
 ) -> Result<GateReport, PskError> {
     if inputs.order == 2 && inputs.seam_report_refs.is_empty() {
-        // Struktur 7.30: "seam_report_refs: [ObjectId] # Pflicht bei order = 2".
+        // Struktur 7.31: "seam_report_refs: [ObjectId] # Pflicht bei order = 2".
         return Err(PskError::UntypedInput);
     }
     if inputs.order == 2 && inputs.seam_compatible.is_none() {
@@ -365,7 +365,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(report.decision, Decision::Fail);
-        // Beide vorherigen Gruende bleiben erhalten (Axiom 7.41-artig: nichts
+        // Beide vorherigen Gruende bleiben erhalten (Axiom 7.43-artig: nichts
         // verschwindet stillschweigend), aber es geht nicht weiter danach.
         assert_eq!(
             report.reasons,

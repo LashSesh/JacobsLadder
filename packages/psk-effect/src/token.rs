@@ -12,7 +12,7 @@
 //! `psk_gate::authorization` fuer die vollstaendige Begruendung
 //! (T-SEC-001/R-RA-009, CapabilityMatrix-Denial token.issue fuer M16).
 //!
-//! `idempotency_key: string` (Struktur 7.31) - Sie: "ueber die
+//! `idempotency_key: string` (Struktur 7.32) - Sie: "ueber die
 //! Idempotenzschluessel [run_id, port_id, seq] aus dem Portvertrag."
 //! `psk.port-registry/1.0` (Kapitel 4) fuehrt `idempotency_key: [run_id,
 //! port_id, seq]` als SchluesselTUPEL fuer die Nachrichtenzustellung -
@@ -79,7 +79,7 @@ pub fn issue(auth: &GateAuthorization, inputs: IssueInputs) -> Result<EffectToke
     let draft = EffectToken {
         schema: "psk.effect-token/1.0".to_string(),
         id: ObjectId::new(psk_types::objects::SortId::Capability, Digest::sha256(b"")), // Platzhalter
-        subject: psk_types::ModuleId::EffectBoundary, // "ausschliesslich M16" (Struktur 7.31)
+        subject: psk_types::ModuleId::EffectBoundary, // "ausschliesslich M16" (Struktur 7.32)
         effect_class: inputs.effect_class,
         plan_digest: inputs.plan_digest,
         scope: inputs.scope,

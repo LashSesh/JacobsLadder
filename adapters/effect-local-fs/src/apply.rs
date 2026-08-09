@@ -19,7 +19,7 @@ use psk_types::objects::{
 use psk_types::{Digest, DualTime, ObjectId};
 
 /// Sandbox-Adapter: schreibt genau eine Datei relativ zu `sandbox_root`.
-/// `token.scope` traegt den relativen Pfad (Struktur 7.31: "scope: ...
+/// `token.scope` traegt den relativen Pfad (Struktur 7.32: "scope: ...
 /// Pfad-, Ressourcen- und Reichweitengrenze") - der Adapter schreibt
 /// NIRGENDS ausserhalb dessen, was das Token selbst benennt.
 pub struct LocalFsAdapter {

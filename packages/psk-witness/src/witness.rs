@@ -23,7 +23,7 @@ use psk_types::objects::{
 };
 use psk_types::{Digest, ObjectId, PskError, Signature, TraceRef};
 
-/// Eingaben fuer ein EvidenceObject (Struktur 7.23). `hash` und `id` fehlen:
+/// Eingaben fuer ein EvidenceObject (Struktur 7.24). `hash` und `id` fehlen:
 /// beide leiten sich aus dem Inhalt ab.
 pub struct EvidenceInputs {
     pub r#type: EvidenceObjectTypeKind,
@@ -34,7 +34,7 @@ pub struct EvidenceInputs {
     pub trace_ref: TraceRef,
     pub signature: Option<Signature>,
     pub status: EvidenceObjectStatusKind,
-    /// "aus DependencyProfile abgeleitet" (Struktur 7.23). Nicht frei
+    /// "aus DependencyProfile abgeleitet" (Struktur 7.24). Nicht frei
     /// waehlbar - siehe `independence_class_of`.
     pub independence_class: ClassId,
 }
@@ -45,7 +45,7 @@ const EVIDENCE_SORT: SortId = SortId::Witness;
 /// Abhaengigkeitsquotienten: der Index ihrer Quotientenklasse in
 /// `DependencyProfile.quotient_classes`.
 ///
-/// Struktur 7.23 sagt zu `independence_class` nur "aus DependencyProfile
+/// Struktur 7.24 sagt zu `independence_class` nur "aus DependencyProfile
 /// abgeleitet", ohne die Ableitung zu nennen. Die Quotientenklasse ist die
 /// einzige Groesse im Profil, die Facetten in Unabhaengigkeitsgruppen
 /// teilt - genau das, was Regel 12.4 braucht ("independence_class != der
@@ -61,7 +61,7 @@ pub fn independence_class_of(profile: &DependencyProfile, facet: &ObjectId) -> O
 fn compute_evidence_identity(draft: &EvidenceObject) -> Result<(ObjectId, Digest), PskError> {
     // `id` und `hash` sind beide selbstreferenziell und bleiben im Vorbild
     // aussen vor - dasselbe Muster wie AnchorSnapshot.digest (Struktur 7.4)
-    // und TraceSegment.segment_digest (Struktur 7.38).
+    // und TraceSegment.segment_digest (Struktur 7.39).
     let mut value = serde_json::to_value(draft).map_err(|_| PskError::CanonicalizationFailed)?;
     let obj = value
         .as_object_mut()

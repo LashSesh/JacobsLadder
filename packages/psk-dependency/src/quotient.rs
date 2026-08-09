@@ -16,7 +16,7 @@
 //! Modells in n Facetten DARF NICHT r_eff = n erzeugen." Genau das erzwingt
 //! die Quotientenbildung hier: geteilte Quelle => selbe Klasse.
 //!
-//! Struktur 7.25 (Matrix und Scaled), v1.0.8: Matrix ist "intern berechnet,
+//! Struktur 7.26 (Matrix und Scaled), v1.0.8: Matrix ist "intern berechnet,
 //! nicht domaenengeliefert" und quadratisch ueber EINER Achse
 //! (`axis: [SourceRef]`, Zeilen- und Spaltenachse identisch) - anders als
 //! die vorherige Kodierung dieses Moduls (Projektion x Knoten fuer W,
@@ -27,12 +27,12 @@
 //! W[i][j] = 1, wenn i und j zusaetzlich gemeinsam in einer Projektion mit
 //! nichtleerem `visible` auftreten (bezeugte Kodependenz). Diese
 //! Zellsemantik ist eine Implementierungsentscheidung im verbleibenden
-//! Raum (das Werk legt nur die FORM fest, Regel 7.26, nicht die Zellen);
+//! Raum (das Werk legt nur die FORM fest, Regel 7.27, nicht die Zellen);
 //! `partition_by_shared_source` arbeitet weiterhin direkt auf den
 //! Quellmengen je Projektion, nicht ueber D - D ist damit ein
 //! Berichtsartefakt, kein Berechnungsweg.
 //!
-//! Regel 7.26 (Kanonische Achsenordnung): "axis MUSS aufsteigend nach der
+//! Regel 7.27 (Kanonische Achsenordnung): "axis MUSS aufsteigend nach der
 //! kanonischen Form von SourceRef sortiert sein. Zeilen- und Spaltenachse
 //! sind identisch; eine Matrix mit abweichenden Achsen ist unzulaessig.
 //! [...] Verstoss erzeugt PSK-E102." SourceRef hat keine weitere Struktur
@@ -49,7 +49,7 @@ use psk_types::objects::{
 };
 use psk_types::{Digest, ObjectId, PskError};
 
-/// Regel 7.26: prueft, dass `axis` aufsteigend und ohne Wiederholung
+/// Regel 7.27: prueft, dass `axis` aufsteigend und ohne Wiederholung
 /// sortiert ist und dass `values` quadratisch genau darueber liegt.
 /// Verstoss erzeugt PSK-E102 (`CanonicalizationFailed`).
 pub fn check_canonical_axis_order(m: &Matrix) -> Result<(), PskError> {
@@ -64,7 +64,7 @@ pub fn check_canonical_axis_order(m: &Matrix) -> Result<(), PskError> {
 }
 
 /// Baut eine Matrix ueber `axis` (wird hier sortiert, nicht vom Aufrufer
-/// entgegengenommen - Regel 7.26 ist damit strukturell erfuellt, nicht nur
+/// entgegengenommen - Regel 7.27 ist damit strukturell erfuellt, nicht nur
 /// geprueft) und einer symmetrischen Zellrelation.
 fn build_square_matrix(
     axis_set: BTreeSet<SourceRef>,
@@ -163,7 +163,7 @@ fn build_dependency_matrix(
 /// `build_witness_matrix`: W[i][j] = 1, wenn i und j zusaetzlich zur
 /// Kodependenz gemeinsam in einer Projektion mit nichtleerem `visible`
 /// auftreten - was eine Linse nachweislich nicht aufloest (`occluded`,
-/// Regel 7.16), ist ein bezeugter Nichtbefund und traegt keine
+/// Regel 7.17), ist ein bezeugter Nichtbefund und traegt keine
 /// Zeugenschaft, deshalb zaehlt hier nur `visible`.
 fn build_witness_matrix(projections: &[FieldProjection], sources: BTreeSet<SourceRef>) -> Matrix {
     build_square_matrix(sources, 0, |a, b| {
@@ -421,7 +421,7 @@ mod tests {
 
     #[test]
     fn occluded_nodes_do_not_witness() {
-        // Regel 7.16: was eine Linse nicht aufloest, ist ein bezeugter
+        // Regel 7.17: was eine Linse nicht aufloest, ist ein bezeugter
         // Nichtbefund - W zaehlt nur `visible`.
         let mut p = projection("a", &["s1"], &["n1"]);
         p.occluded = vec![IRNodeId("n2".into()), IRNodeId("n3".into())];
@@ -440,7 +440,7 @@ mod tests {
 
     #[test]
     fn matrices_use_the_canonical_ascending_axis_order() {
-        // Regel 7.26: axis MUSS aufsteigend nach kanonischer Form von
+        // Regel 7.27: axis MUSS aufsteigend nach kanonischer Form von
         // SourceRef sortiert sein, unabhaengig von der Eingabereihenfolge.
         let a = run(&[projection("a", &["s2", "s1"], &["n2", "n1"])]);
         let b = run(&[projection("a", &["s1", "s2"], &["n1", "n2"])]);
@@ -457,7 +457,7 @@ mod tests {
 
     #[test]
     fn a_matrix_with_unsorted_or_repeated_axis_is_rejected() {
-        // Regel 7.26, woertlich: "eine Matrix mit abweichenden Achsen ist
+        // Regel 7.27, woertlich: "eine Matrix mit abweichenden Achsen ist
         // unzulaessig [...] Verstoss erzeugt PSK-E102."
         let unsorted = Matrix {
             schema: "psk.matrix/1.0".into(),

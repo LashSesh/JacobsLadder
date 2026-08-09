@@ -165,7 +165,7 @@ fn compute_receipt_identity(draft: &ExternalReceipt) -> Result<psk_types::Object
 /// zweiten - fuer den Fall, dass innerhalb der Frist kein Receipt eintraf.
 ///
 /// Blockiert: UNKNOWN_EFFECT ist `EffectAttemptOutcomeKind::UnknownEffect`
-/// (psk-effect, Struktur 7.33) - ein M16/M15-Typ, den psk-anchor nicht
+/// (psk-effect, Struktur 7.34) - ein M16/M15-Typ, den psk-anchor nicht
 /// benennen kann (psk-anchor haengt nicht von psk-effect ab, aus denselben
 /// Gruenden wie die verbotene Kante [M16,M17] in module_map.yaml
 /// umgekehrt gilt). Die naechstliegende reale Entscheidungslogik

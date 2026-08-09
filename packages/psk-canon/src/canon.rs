@@ -595,7 +595,7 @@ mod tests {
 
     #[test]
     fn non_canonical_claim_text_is_stripped_from_identity_but_kept_in_record() {
-        // Axiom 7.8: "Das Feld claim.text geht nicht in Can ein; es wird
+        // Axiom 7.9: "Das Feld claim.text geht nicht in Can ein; es wird
         // von pi_vol als non_canonical entfernt und ist damit weder
         // identitaetsbildend noch Gate-Eingabe. Im record_digest bleibt es
         // enthalten." Zwei ThoughtBodies, die sich NUR im Prosatext

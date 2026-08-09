@@ -1,4 +1,4 @@
-//! M27 ObservabilityProjector (Axiom 7.16, Struktur 7.1 Speicherklasse
+//! M27 ObservabilityProjector (Axiom 7.19, Struktur 7.1 Speicherklasse
 //! `none`).
 //!
 //! forbidden_edge `[M27, "*"]` ("Beobachtung hat keine Schreibkante",
@@ -15,7 +15,7 @@
 //! Konventionsgrenze wie bei M15/M16 in einem Crate, hier ueber eine
 //! Crate-Grenze mit absichtlichem Lesezugriff.
 //!
-//! Axiom 7.16 (Persona ist Apertur): "Eine Persona DARF Stil,
+//! Axiom 7.19 (Persona ist Apertur): "Eine Persona DARF Stil,
 //! Dialogkontinuitaet oder menschliche Lesbarkeit tragen. Sie DARF NICHT
 //! Systemidentitaet, Faktberechtigung, Witnessberechtigung oder
 //! Effektberechtigung erzeugen. Personaobjekte sind reine Ausgabeprofile
@@ -29,7 +29,7 @@
 use psk_trace::{ResidueLedger, ResidueRecord, TraceStore};
 use psk_types::{Digest, ObjectId, PskError};
 
-/// Axiom 7.16: "Stil, Dialogkontinuitaet oder menschliche Lesbarkeit" -
+/// Axiom 7.19: "Stil, Dialogkontinuitaet oder menschliche Lesbarkeit" -
 /// nicht mehr. Es gibt hier absichtlich kein Feld fuer Identitaet, Fakt-,
 /// Witness- oder Effektberechtigung; ein Aufrufer kann keines behaupten,
 /// weil der Typ keines hat.
