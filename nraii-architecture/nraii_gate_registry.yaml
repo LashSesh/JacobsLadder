@@ -1,0 +1,22 @@
+# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.1.pdf, Listing C.2.
+# Woertlich uebernommen.
+#
+# Die beiden Vorgabewerte sind die interessante Zeile: `HOLD` bei
+# unentscheidbar, `FAIL` bei fehlend. Das ist genau PSK-RAs
+# Gate-Semantik - `ConditionOutcome::Undecidable` haelt (HOLD), eine
+# fehlende Bedingung faellt (FAIL) - und die Trennlinie, die dieses
+# Projekt schon einmal gegen sich selbst durchsetzen musste:
+# unbeprueft ist nicht widerlegt.
+
+schema: psk.nraii.gate-registry/1.0
+gates:
+  - {id: N-DOMAIN, layer: L1, target: domain_contract_bound}
+  - {id: N-QUOTIENT, layer: L1, target: quotient_compat_checked}
+  - {id: N-BOUNDARY, layer: L2, target: no_silent_absorption}
+  - {id: N-WISH, layer: L5, target: distance_not_used_as_gate}
+  - {id: N-COUNTERHORIZON, layer: L4, target: counter_horizon_constructed_or_excluded}
+  - {id: N-RATCHET, layer: L6, target: monotone_lift_no_silent_reset}
+  - {id: N-444, layer: L8, target: c444_globally_checked}
+  - {id: N-SEAM, layer: L9, target: kappa_nq_evaluated}
+default_on_undecidable: HOLD
+default_on_missing: FAIL

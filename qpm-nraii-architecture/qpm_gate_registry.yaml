@@ -1,0 +1,23 @@
+# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.1.pdf, Listing B.1
+# (Kapitel B "QPM-Gate- und Passregister"). Woertlich uebernommen.
+#
+# pass_binding belegt PSK-RA-Paesse, ohne neue einzufuehren (Struktur 1.6:
+# "Die PSK-Passfolge C1-C11 bleibt vollstaendig erhalten; kein neuer Pass
+# wird eingefuehrt"). Belegt sind fuenf der elf; die uebrigen tragen keine
+# QPM-Gates - das ist eine Aussage des Werks, kein Loch.
+
+schema: psk.qpm.gate-registry/1.0
+binds_to: architecture/gate_registry.yaml
+gates:
+  - {id: Q-SCOPE, module: M14, target: PanopticScope_bound}
+  - {id: Q-QUALITY, module: M14, target: calibration_valid}
+  - {id: Q-OPENSET, module: M14, target: no_forced_nearest}
+  - {id: Q-CHROMATOGRAPH, module: M14, target: no_forced_peak_assignment}
+  - {id: Q-PARITY, module: "M14/M11", target: primary_counter_parity}
+  - {id: Q-RELEASE, module: "M14/M21", target: PanopticCrystal_eligible}
+pass_binding:
+  C3: [Q-SCOPE]
+  C7: [Q-OPENSET]
+  C9: [Q-PARITY]
+  C10: [Q-CHROMATOGRAPH, Q-QUALITY]
+  C11: [Q-RELEASE]

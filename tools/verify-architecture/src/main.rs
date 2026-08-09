@@ -5,7 +5,10 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use verify_architecture::{check_architecture_bundle, ARCHITECTURE_FILES_YAML};
+use verify_architecture::{
+    check_architecture_bundle, check_second_layer_binding, ARCHITECTURE_FILES_YAML,
+    SECOND_LAYER_REGISTERS,
+};
 
 fn workspace_root() -> PathBuf {
     let mut dir = std::env::current_dir().expect("cwd");
@@ -48,6 +51,29 @@ fn main() -> ExitCode {
         "verify-architecture: alle {} Register strukturell schemakonform.",
         ARCHITECTURE_FILES_YAML.len()
     );
+
+    // Zweitschicht (QPM/NRAII): geprueft, aber NICHT in I_A - eigene
+    // Identitaeten, und `shared-identity-in-certificate` ist dort ein
+    // blockierender Negativtest. Was `binds_to` behauptet, muss halten.
+    match check_second_layer_binding(&root) {
+        Ok(problems) if problems.is_empty() => {
+            eprintln!(
+                "verify-architecture: Zweitschicht — {} Register, alle Bindungen an PSK-RA aufgeloest (nicht in I_A).",
+                SECOND_LAYER_REGISTERS.len()
+            );
+        }
+        Ok(problems) => {
+            eprintln!("verify-architecture: FAIL — Zweitschichtbindung:");
+            for p in &problems {
+                eprintln!("    - {p}");
+            }
+            return ExitCode::FAILURE;
+        }
+        Err(e) => {
+            eprintln!("verify-architecture: FAIL — Zweitschicht nicht pruefbar: {e}");
+            return ExitCode::FAILURE;
+        }
+    }
 
     if !check.missing.is_empty() {
         eprintln!(

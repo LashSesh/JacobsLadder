@@ -1,0 +1,40 @@
+# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.1.pdf, Listing A.1
+# (Kapitel A "QPM-Objekt- und Sortenbindung"). Woertlich uebernommen;
+# die Kommentarzeilen unter QPM-OCW stehen so im Werk.
+#
+# WARUM NICHT UNTER architecture/: das Werk fuehrt eigenstaendige
+# Identitaeten (Symbolregister: "I_QPM, I_NRAII - Eigenstaendige
+# Identitaeten von QPM-RA und NRAII-RA"), und das Nahtregister fuehrt
+# "shared-identity-in-certificate" als blockierenden Negativtest. Diese
+# Register duerfen deshalb NICHT in I_A eingehen - laegen sie unter
+# architecture/, taeten sie es. Das Werk benennt die Verzeichnisse selbst
+# so (qpm-nraii-architecture/, nraii-architecture/); die Trennung ist
+# damit dokumentiert, nicht gewaehlt. Dieselbe Ueberlegung wie beim
+# DomainProfile unter domains/.
+#
+# binds_to zeigt auf das PSK-RA-Register, dessen Sorten hier belegt
+# werden: additiv, ohne neue Primaersorte (no_new_primary_sort: true).
+# Invariante 5.2 (Sortenabschluss) bleibt damit unberuehrt.
+
+schema: psk.qpm.object-registry/1.0
+binds_to: architecture/object_registry.yaml # PSK-RA, additiv, keine neue Primaersort
+objects:
+  - {id: QPM-PSC, name: PanopticScope, psk_sort: S-FLD, owner: M08}
+  - {id: QPM-APB, name: ApertureBank, psk_sort: S-FLD, owner: M08}
+  - {id: QPM-FCP, name: FocalProfile, psk_sort: S-FLD, owner: "M08/M09"}
+  - {id: QPM-PJC, name: ProjectionCone, psk_sort: S-PRJ, owner: M09}
+  - {id: QPM-PHR, name: PhaseRay, psk_sort: S-PRJ, owner: M09}
+  - {id: QPM-VIA, name: ViewArtifact, psk_sort: S-PRJ, owner: M09, canonical: false}
+  - {id: QPM-SGV, name: SignatureVector, psk_sort: S-WIT, owner: M12}
+  - {id: QPM-SGA, name: SignatureAtlas, psk_sort: S-WIT, owner: "M09/M12"}
+  - {id: QPM-CHR, name: StructuralChromatogram, psk_sort: S-WIT, owner: M12}
+  - {id: QPM-TPC, name: TemplateClass, psk_sort: S-DEP, owner: M10}
+  - {id: QPM-UNK, name: UnknownRecord, psk_sort: S-RES, owner: M19}
+  - {id: QPM-CTH, name: CounterHorizon, psk_sort: S-RES, owner: M24}
+  - {id: QPM-OCW, name: OrientationClosureWitness, psk_sort: S-WIT, owner: M11}
+  # Objekteigner M11 (erzeugt die Closure), Sorteneigner S-WIT ist M12.
+  # Zulaessig und praezedenzgedeckt (vgl. SeamReport), hier ausdruecklich vermerkt.
+  - {id: QPM-IDR, name: IdentificationReport, psk_sort: S-RCN, owner: M19, effect: false}
+  - {id: QPM-PXC, name: PanopticCrystal, psk_sort: S-WIT, owner: M11, lifetime: L-IMMUTABLE}
+count: 15
+no_new_primary_sort: true

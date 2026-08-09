@@ -1,0 +1,42 @@
+# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.1.pdf, Listing B.2.
+# Woertlich uebernommen.
+#
+# BEFUND (gemeldet, hier nicht aufgeloest): reference_phantoms_required
+# ist eine FESTE Zwoelferliste. Der Auftraggeber hat angekuendigt, dass
+# sie einer ABLEITBAREN Deckungsforderung weichen soll - in v1.0.1 steht
+# noch die feste Liste. Bis dahin gilt sie wie hier notiert; eine
+# ableitbare Forderung waere die Aufloesung derselben Klasse, die schon
+# bei den Objektzahlen, der Testzahl, der Kollisionszahl, den
+# Katalogeintraegen und den Registerrueckverweisen zugeschlagen hat:
+# ableiten oder pruefen, nicht pflegen.
+
+schema: psk.qpm.conformance/1.0.0
+levels:
+  QPM-0: "types, scope, run descriptor, canonicalization, claim ladder"
+  QPM-1: "aperture accounting, occlusion, counter-horizon, no-silent-loss"
+  QPM-2: "focals, split views, parallax, effective witness rank"
+  QPM-3: "linear time, phase lift, cycle index, channel switch witness"
+  QPM-4: "canonical signature grammar, reproducible multi-view atlas"
+  QPM-5: "structural chromatograph with residual and separability report"
+  QPM-6: "open-set catalog, five identity verdicts"
+  QPM-7: "leak register, focal saturation, scope-relative tightness"
+  QPM-8: "4pi closure, PHC, ledger, replay, reanalysis"
+  QPM-9: "phantom, unknown, null, mimicry, drift, negative suites"
+  QPM-10: "PSK integration, independent replay, signed release certificate"
+  QPM-LAB: "domain-specific calibration, validation, qualification"
+blocking_negative_tests:
+  [focus-without-aperture, dropped-occlusion, view-as-fact,
+   forced-nearest-known, unknown-to-zero, score-as-gate, 2pi-as-4pi,
+   unwitnessed-channel-switch, cycle-index-without-trace,
+   leak-deleted-by-tolerance-change, correlated-views-counted-as-independent,
+   expired-calibration, display-as-inversion, replay-divergence,
+   observatory-write-edge]
+phantoms: [P01, P02, P03, P04, P05, P06, P07, P08, P09, P10,
+           P11, P12, P13, P14, P15, P16, P17, P18, P19, P20,
+           P21, P22, P23, P24, P25]
+reference_phantoms_required: [P01, P03, P05, P12, P16, P17, P18, P19,
+                              P20, P21, P22, P24]
+primary_metrics:
+  [FalseKnownRate, UnknownRecall, KnownAccuracy, AmbiguityCoverage,
+   ResidualConservation, ChannelCoverage, LeakClosure, ReplayFidelity,
+   CycleConsistency, Repeatability, Reproducibility]

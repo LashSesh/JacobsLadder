@@ -169,3 +169,180 @@ pub fn check_architecture_bundle(root: &Path) -> Result<ArchitectureCheck, Strin
         stored_architecture_id: lock.architecture_id,
     })
 }
+
+/// Die Zweitschicht-Register (QPM/NRAII-RA v1.0.1, Listings A.1-D.1).
+///
+/// Sie liegen BEWUSST ausserhalb von `architecture/` und gehen deshalb
+/// NICHT in I_A ein: das Werk fuehrt eigenstaendige Identitaeten
+/// ("I_QPM, I_NRAII"), und sein Nahtregister fuehrt
+/// `shared-identity-in-certificate` als blockierenden Negativtest.
+/// Geprueft werden sie trotzdem - was `binds_to` behauptet, muss halten.
+pub const SECOND_LAYER_REGISTERS: &[&str] = &[
+    "qpm-nraii-architecture/qpm_object_registry.yaml",
+    "qpm-nraii-architecture/qpm_gate_registry.yaml",
+    "qpm-nraii-architecture/qpm_conformance.yaml",
+    "qpm-nraii-architecture/seam_registry.yaml",
+    "nraii-architecture/nraii_layer_registry.yaml",
+    "nraii-architecture/nraii_gate_registry.yaml",
+    "nraii-architecture/nraii_conformance.yaml",
+];
+
+/// Prueft die Bindungsbehauptungen der Zweitschicht gegen PSK-RA:
+/// jede genannte Sorte, jedes Modul und jeder Pass MUSS im gebundenen
+/// PSK-RA-Register wirklich existieren, und die deklarierten Zaehler
+/// muessen zu den Listen passen.
+///
+/// Ohne diese Pruefung waere `binds_to` eine Behauptung wie jede
+/// andere - dieselbe Klasse, die schon bei den Registerrueckverweisen
+/// zugeschlagen hat.
+pub fn check_second_layer_binding(root: &Path) -> Result<Vec<String>, String> {
+    let mut problems = Vec::new();
+
+    let load = |rel: &str| -> Result<Value, String> {
+        let path = root.join(rel);
+        let text = fs::read_to_string(&path).map_err(|e| format!("kann {rel} nicht lesen: {e}"))?;
+        serde_yaml::from_str::<Value>(&text).map_err(|e| format!("{rel} nicht lesbar: {e}"))
+    };
+
+    // Bekannte PSK-RA-Kennungen aus den versiegelten Registern.
+    let sorts = load("architecture/sort_registry.yaml")?;
+    let known_sorts: Vec<String> = sorts["sorts"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|s| s["id"].as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    let modules = load("architecture/module_map.yaml")?;
+    let known_modules: Vec<String> = modules["modules"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|m| m["id"].as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    let passes = load("architecture/pass_registry.yaml")?;
+    let known_passes: Vec<String> = passes["passes"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|p| p["id"].as_str().map(str::to_string))
+                .collect()
+        })
+        .unwrap_or_default();
+    if known_sorts.is_empty() || known_modules.is_empty() || known_passes.is_empty() {
+        return Err("PSK-RA-Register liefern keine Kennungen - Leser kaputt".to_string());
+    }
+
+    // Ein Eignerfeld kann mehrere Module nennen ("M08/M09").
+    let check_owner = |raw: &str, where_: &str, problems: &mut Vec<String>| {
+        for part in raw.split('/') {
+            let m = part.trim();
+            if !known_modules.iter().any(|k| k == m) {
+                problems.push(format!(
+                    "{where_}: Modul {m} steht nicht in module_map.yaml"
+                ));
+            }
+        }
+    };
+
+    // ---- Listing A.1: Sortenbindung.
+    let objects = load(SECOND_LAYER_REGISTERS[0])?;
+    let list = objects["objects"]
+        .as_array()
+        .ok_or("qpm_object_registry.yaml: objects fehlt")?;
+    for o in list {
+        let id = o["id"].as_str().unwrap_or("?");
+        match o["psk_sort"].as_str() {
+            Some(s) if known_sorts.iter().any(|k| k == s) => {}
+            Some(s) => problems.push(format!(
+                "qpm_object_registry.yaml: {id} bindet an Sorte {s}, die sort_registry.yaml nicht fuehrt"
+            )),
+            None => problems.push(format!("qpm_object_registry.yaml: {id} ohne psk_sort")),
+        }
+        if let Some(owner) = o["owner"].as_str() {
+            check_owner(
+                owner,
+                &format!("qpm_object_registry.yaml/{id}"),
+                &mut problems,
+            );
+        }
+    }
+    // "count: 15" ist eine Behauptung ueber die Liste daneben.
+    if let Some(claimed) = objects["count"].as_u64() {
+        if claimed as usize != list.len() {
+            problems.push(format!(
+                "qpm_object_registry.yaml: count {claimed}, Liste traegt {}",
+                list.len()
+            ));
+        }
+    }
+    // no_new_primary_sort: true heisst, KEIN Objekt fuehrt eine Sorte
+    // ein - das ist genau die obige Pruefung, hier nur benannt.
+    if objects["no_new_primary_sort"].as_bool() != Some(true) {
+        problems.push(
+            "qpm_object_registry.yaml: no_new_primary_sort nicht als true gefuehrt".to_string(),
+        );
+    }
+
+    // ---- Listing B.1: Gate- und Passbindung.
+    let gates = load(SECOND_LAYER_REGISTERS[1])?;
+    for g in gates["gates"].as_array().into_iter().flatten() {
+        let id = g["id"].as_str().unwrap_or("?");
+        if let Some(module) = g["module"].as_str() {
+            check_owner(
+                module,
+                &format!("qpm_gate_registry.yaml/{id}"),
+                &mut problems,
+            );
+        }
+    }
+    for (pass, _) in gates["pass_binding"]
+        .as_object()
+        .into_iter()
+        .flat_map(|m| m.iter())
+    {
+        if !known_passes.iter().any(|k| k == pass) {
+            problems.push(format!(
+                "qpm_gate_registry.yaml: pass_binding nennt {pass}, den pass_registry.yaml nicht fuehrt"
+            ));
+        }
+    }
+
+    // ---- Listing C.1: Schichtzaehler.
+    let layers = load(SECOND_LAYER_REGISTERS[4])?;
+    let ls = layers["layers"].as_array().map(|a| a.len()).unwrap_or(0);
+    if let Some(claimed) = layers["count"].as_u64() {
+        if claimed as usize != ls {
+            problems.push(format!(
+                "nraii_layer_registry.yaml: count {claimed}, Liste traegt {ls}"
+            ));
+        }
+    }
+
+    // ---- Listing D.1: die Naht zeigt auf PSK-RA-Module.
+    let seam = load(SECOND_LAYER_REGISTERS[3])?;
+    for p in seam["ports"].as_array().into_iter().flatten() {
+        let id = p["id"].as_str().unwrap_or("?");
+        for end in ["from", "to"] {
+            let Some(raw) = p[end].as_str() else { continue };
+            // Form "QPM.M19" / "NRAII.L9" - nur die QPM-Seite bindet an
+            // ein PSK-RA-Modul; die NRAII-Seite an eine eigene Schicht.
+            if let Some(module) = raw.strip_prefix("QPM.") {
+                check_owner(
+                    module,
+                    &format!("seam_registry.yaml/{id}.{end}"),
+                    &mut problems,
+                );
+            }
+        }
+    }
+
+    // Nullwache: die Register existieren, also MUSS geprueft worden sein.
+    if list.is_empty() {
+        return Err("Zweitschichtpruefung fand keine Objekte - Leser kaputt".to_string());
+    }
+    Ok(problems)
+}

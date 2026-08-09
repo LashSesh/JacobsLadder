@@ -1,0 +1,24 @@
+# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.1.pdf, Listing C.1
+# (Kapitel C "NRAII-Register"). Woertlich uebernommen.
+#
+# NRAII ist die INNERE, aktive Maschine (Symbolregister: "Q, N - QPM-RA
+# (aeussere, beobachtende Maschine), NRAII-RA (innere, aktive
+# Maschine)"). Ihre zehn Schichten L0-L9 sind NICHT die acht
+# PSK-RA-Architekturschichten aus Definition 2.1 - gleiche Schreibweise,
+# anderer Gegenstand. Wer L9 liest, meint hier die
+# Beobachtungskavitaet, nicht PSK-RAs Traegerschicht.
+
+schema: psk.nraii.layers/1.0
+layers:
+  - {id: L0, name: Nullanker, role: "zustandslose Ordnungsreferenz"}
+  - {id: L1, name: KanonischerZustandsraum, role: "Typen, Identitaet, Signatur, Quotient"}
+  - {id: L2, name: ReflexiveBoundaryClosureModus, role: "Involution, Inversion, Seam"}
+  - {id: L3, name: RadialeArmflaeche, role: "Probe, Orbit, Harvest, Condense, Anchor"}
+  - {id: L4, name: Diagnosefeld, role: "Marker, Horizonte, Attraktortriangulation"}
+  - {id: L5, name: DualeWunschinversion, role: "deklarativer und rekonstruktiver Wish"}
+  - {id: L6, name: PeristaltischeAssimilation, role: "Sedimentation, Akkretion, Ratchet"}
+  - {id: L7, name: StackUndProofHorizon, role: "Fold, Nullmodelle, Falsifikation"}
+  - {id: L8, name: IrreduziblerKern444, role: "Fix, dreifache Vierfachclosure, Replay"}
+  - {id: L9, name: GekoppelteBeobachtungskavitaet, role: "Membran zu QPM-RA, siehe Teil C"}
+count: 10
+no_kurzschluss: true

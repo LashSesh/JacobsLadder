@@ -1,0 +1,25 @@
+# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.1.pdf, Listing C.3.
+# Woertlich uebernommen.
+#
+# Die NRAII-Leiter laeuft eigenstaendig neben der QPM-Leiter; das
+# Nahtregister verlangt fuer SEAM-* beide zugleich (QPM>=QPM-8 UND
+# NRAII>=NRAII-7).
+
+schema: psk.nraii.conformance/1.0
+levels:
+  NRAII-0: "Typen, Domain-Vertrag, Nullanker-Statelessness"
+  NRAII-1: "Reflexive Boundary, Quotient"
+  NRAII-2: "Wunschkalkuel, Doppelprojektion"
+  NRAII-3: "Radiale Armtopologie, Wing-Mesh"
+  NRAII-4: "Diagnosefeld, Gegenhorizont"
+  NRAII-5: "Peristaltische Assimilation"
+  NRAII-6: "Boundary-Closure-Modus, Ratchet"
+  NRAII-7: "4-4-4-Closure"
+  NRAII-8: "Stack-Closure, irreduzibler Kern"
+  NRAII-9: "vollstaendige Negativ- und Konformanzsuite"
+  NRAII-LAB: "domaenenspezifische Qualifikation"
+blocking_negative_tests:
+  [physical-overreach-closure-mode, traversal-through-null-anchor,
+   score-as-gate, 2pi-as-4pi-closure, silent-ratchet-reset,
+   boundary-absorption-without-residue, local-c4-as-global-proof,
+   nraii-qpm-authority-merge]
