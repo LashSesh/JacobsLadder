@@ -430,6 +430,9 @@ const KNOWN_SCALARS: &[(&str, &str)] = &[
     ("bool", "bool"),
     ("string", "String"),
     ("uint64", "u64"),
+    // v1.0.26: RunDescriptor.ratchet_max_rounds (Regel 12.7) ist das
+    // erste und bisher einzige uint32 des Werks.
+    ("uint32", "u32"),
     // Struktur 7.25 (Scaled/Matrix): "integer" ohne "u"-Praefix, anders als
     // "uint64" andernorts - vorzeichenbehaftet gelesen, da nicht als
     // nichtnegativ bezeichnet (anders als bei `scale`, das laut Kommentar

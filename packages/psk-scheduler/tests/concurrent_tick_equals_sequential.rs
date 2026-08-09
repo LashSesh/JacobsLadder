@@ -84,6 +84,7 @@ fn run_descriptor() -> RunDescriptor {
         environment: EnvironmentProfile("test-env".into()),
         time_window: psk_types::objects::TimeWindow("PT1H".into()),
         nondeterminism_budget: NDBudget("none".into()),
+        ratchet_max_rounds: 4,
         canon: CanonicalizationProfile("psk.canon/1.0".into()),
     })
     .unwrap()

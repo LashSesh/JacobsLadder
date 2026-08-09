@@ -77,6 +77,13 @@ use psk_types::{
     SchemaId, TraceRef, Ulid,
 };
 
+/// Regel 12.7 / v1.0.26: das Ratchet-Rundenbudget dieses Laufs. EINE
+/// deklarierte Quelle fuer beide Verbraucher - der RunDescriptor traegt
+/// die Deklaration ("im RunDescriptor erzwungen"), die Challenge-Phase
+/// verbraucht denselben Wert. Zwei getrennte Zahlen waeren zwei
+/// Wahrheiten.
+const GOLDEN_RUN_RATCHET_MAX_ROUNDS: u32 = 4;
+
 /// Deterministische Laufzeit (Definition 24.2: "erwartetem kanonischen
 /// Zustandsdigest" - Replaystabilitaet verlangt eine feste, nicht eine
 /// systemuhrabhaengige Zeit).
@@ -1098,6 +1105,7 @@ pub fn run_golden_run_with_certificate(
         environment: psk_types::objects::EnvironmentProfile("golden-run-reference-domain".into()),
         time_window: TimeWindow("golden-run-window".into()),
         nondeterminism_budget: psk_types::objects::NDBudget("none-declared".into()),
+        ratchet_max_rounds: GOLDEN_RUN_RATCHET_MAX_ROUNDS,
         canon: psk_types::objects::CanonicalizationProfile("psk.canon/1.0".into()),
     })?;
 

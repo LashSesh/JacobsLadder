@@ -24,6 +24,9 @@ pub struct RunInputs {
     pub environment: EnvironmentProfile,
     pub time_window: psk_types::objects::TimeWindow,
     pub nondeterminism_budget: NDBudget,
+    /// Regel 12.7 (v1.0.26): das Rundenbudget des adversarialen Ratchets,
+    /// "im RunDescriptor erzwungen" - deklariert, nicht geraten.
+    pub ratchet_max_rounds: u32,
     pub canon: CanonicalizationProfile,
 }
 
@@ -55,6 +58,7 @@ pub fn open_run(inputs: RunInputs) -> Result<RunDescriptor, PskError> {
         environment: inputs.environment,
         time_window: inputs.time_window,
         nondeterminism_budget: inputs.nondeterminism_budget,
+        ratchet_max_rounds: inputs.ratchet_max_rounds,
         canon: inputs.canon,
         digest: Digest::sha256(b""), // Platzhalter
     };
@@ -156,6 +160,7 @@ mod tests {
             environment: EnvironmentProfile("test-env".into()),
             time_window: psk_types::objects::TimeWindow("PT1H".into()),
             nondeterminism_budget: NDBudget("none".into()),
+            ratchet_max_rounds: 4,
             canon: CanonicalizationProfile("psk.canon/1.0".into()),
         }
     }

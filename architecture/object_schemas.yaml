@@ -557,6 +557,10 @@ objects:
       - {name: environment, type: EnvironmentProfile, note: "deklarierte, replayrelevante Umgebung"}
       - {name: time_window, type: TimeWindow, note: "gebundene Zeitgrenzen fuer Entscheidungen"}
       - {name: nondeterminism_budget, type: NDBudget, note: "zulaessige, deklarierte Abweichungsquellen"}
+      - {name: ratchet_max_rounds, type: uint32, note: "Regel 12.7 (Ratchet-Terminierung), nachgetragen
+          in v1.0.26: die Regel verortete das Budget woertlich 'im RunDescriptor', das Feld fehlte -
+          haengende Referenz derselben Klasse wie seinerzeit T-M13-001. Deklariert, nicht geraten;
+          eine Ressourcenentscheidung ueber den Lauf, nicht ueber die Domaene."}
       - {name: canon, type: CanonicalizationProfile}
       - {name: digest, type: Digest}
 
