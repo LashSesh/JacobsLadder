@@ -1,6 +1,6 @@
 //! Die vier Berichtsdigests des Maschinenzertifikats, real aggregiert.
 //!
-//! Struktur 7.48 verlangt in `MachineCertificate` vier Digests, die auf
+//! Struktur 7.49 verlangt in `MachineCertificate` vier Digests, die auf
 //! Berichte zeigen: `gate_report_digest`, `residue_report_digest`,
 //! `capability_audit_digest`, `negative_test_report_digest`. Drei davon
 //! stehen namentlich unter den acht Pflichtberichten. Ein Platzhalter an

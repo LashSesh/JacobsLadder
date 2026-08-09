@@ -14,7 +14,7 @@ schema: psk.capability-matrix/1.0
 # Erzwingung allein durch Programmkonvention ist nicht konform und
 # erzeugt T-SEC-001-Fehlschlag."). Struktur 19.5 selbst war bis dahin nur
 # im Fliesstext gefuehrt, ohne maschinenlesbares Register - derselbe
-# Fehlerklasse wie Matrix vor v1.0.8 (Struktur 7.26): intern bedeutsam,
+# Fehlerklasse wie Matrix vor v1.0.8 (Struktur 7.27): intern bedeutsam,
 # aber nirgends als Register festgehalten.
 capabilities:
   - {id: fs.read.bundle, holders: [M00], scope: bundle_path}

@@ -1,4 +1,4 @@
-//! M21 CertificateReleaseEngine (Kapitel 23, Struktur 7.48).
+//! M21 CertificateReleaseEngine (Kapitel 23, Struktur 7.49).
 //!
 //! Regel 23.1 (Eine Konformanzleiter): "FC ist keine Klassifikation,
 //! sondern eine Pflichtangabe im Maschinenzertifikat und eine
@@ -24,7 +24,7 @@
 //! eines tatsaechlichen Laufs). M21 traegt die MONOTONE ABLEITUNG (welche
 //! Klasse aus welcher Evidenzkombination folgt), nicht die Einzelpruefungen.
 //!
-//! `MachineCertificate` (Struktur 7.48) hat - anders als jedes andere
+//! `MachineCertificate` (Struktur 7.49) hat - anders als jedes andere
 //! Kapitel-7-Objekt - kein `id: ObjectId`-Feld. Seine Identitaet SIND die
 //! vier Systemidentitaeten I_C/I_A/I_M/I_t; das uebliche
 //! pi_vol-Selbstreferenzmuster (Definition 6.6) hat hier nichts zu
@@ -37,7 +37,7 @@
 //! domaenenabhaengig zu deklarieren"): eine hier erfundene Signatur waere
 //! eine unbelegte Sicherheitsbehauptung.
 //!
-//! Regel 7.49 (Plattformgebundene Verpflichtungsaufloesung im Zertifikat,
+//! Regel 7.50 (Plattformgebundene Verpflichtungsaufloesung im Zertifikat,
 //! PSK-RA v1.0.17): ausgeloest durch OBL-010 (architecture/obligations.yaml,
 //! `resolution_platform: windows`, siehe psk-lifecycle::process_unsupported) -
 //! ein Zertifikat, dessen beanspruchte Klasse von einer NUR fuer eine
@@ -131,20 +131,20 @@ pub fn check_minimum_replay_class(achieved: ReplayClass) -> Result<(), PskError>
     }
 }
 
-/// Regel 7.49 (Plattformgebundene Verpflichtungsaufloesung im Zertifikat,
+/// Regel 7.50 (Plattformgebundene Verpflichtungsaufloesung im Zertifikat,
 /// PSK-RA v1.0.17): eine einzelne, bereits aus `architecture/
 /// obligations.yaml` gelesene Feststellung ueber EINE Verpflichtung - M21
 /// liest die Datei nicht selbst (siehe `CertificateInputs`-Kommentar: "Kein
 /// Feld wird hier gemessen"), der Aufrufer liefert genau die zwei Felder,
 /// die die Regel braucht. Verpflichtungen ohne `resolution_platform`
 /// (universell oder gar nicht aufgeloest) gehoeren NICHT in diese Liste -
-/// sie sind Regel 7.49s Gegenstand nicht.
+/// sie sind Regel 7.50s Gegenstand nicht.
 pub struct ObligationPlatformBinding {
     /// z.B. "OBL-010" - nur fuer Fehlernachvollziehbarkeit, nicht Teil der
     /// Pruefung selbst.
     pub id: String,
     /// `blocking_from` aus dem Register. `None` (`blocking_from: null`)
-    /// bedeutet: blockiert keine Klasse, fuer Regel 7.49 ohne Wirkung.
+    /// bedeutet: blockiert keine Klasse, fuer Regel 7.50 ohne Wirkung.
     pub blocking_from: Option<Class>,
     /// `resolution_platform` aus dem Register - immer `Some`, siehe
     /// Struct-Kommentar (der Aufrufer filtert bereits vor).
@@ -162,7 +162,7 @@ fn class_rank(c: Class) -> u8 {
     }
 }
 
-/// Regel 7.49, wortgetreu umgesetzt: fuer jede plattformgebundene
+/// Regel 7.50, wortgetreu umgesetzt: fuer jede plattformgebundene
 /// Verpflichtung, die fuer `class` ueberhaupt relevant ist (`blocking_from
 /// <= class`), MUSS (a) `current_platform` GENAU `resolution_platform`
 /// entsprechen - sonst "gilt die Verpflichtung als offen und die davon
@@ -222,7 +222,7 @@ pub struct CertificateInputs {
     pub issued_at: DualTime,
     pub signature: Signature,
     /// Die tatsaechliche Plattform dieses Ausstellungslaufs (z.B.
-    /// `std::env::consts::OS`) - Regel 7.49 vergleicht sie gegen jede
+    /// `std::env::consts::OS`) - Regel 7.50 vergleicht sie gegen jede
     /// plattformgebundene Verpflichtung in `platform_bound_obligations`.
     pub current_platform: String,
     /// Nur die Verpflichtungen aus `architecture/obligations.yaml`, die
@@ -235,7 +235,7 @@ pub struct CertificateInputs {
 /// M21: stellt ein MachineCertificate aus. Scheitert, wenn nicht einmal
 /// C0 erreicht ist (Regel 23.1 kennt keine Klasse darunter - ein
 /// "Zertifikat der Nichtkonformitaet" ist keine Struktur des Werkes),
-/// wenn Vertrag 22.2 (mindestens R2) verletzt ist, oder wenn Regel 7.49
+/// wenn Vertrag 22.2 (mindestens R2) verletzt ist, oder wenn Regel 7.50
 /// (plattformgebundene Verpflichtungsaufloesung) nicht erfuellt ist.
 pub fn issue_certificate(inputs: CertificateInputs) -> Result<MachineCertificate, PskError> {
     check_minimum_replay_class(inputs.replay_class)?;
@@ -492,7 +492,7 @@ mod tests {
         inputs
     }
 
-    // Regel 7.49 (PSK-RA v1.0.17): OBL-010-artige plattformgebundene
+    // Regel 7.50 (PSK-RA v1.0.17): OBL-010-artige plattformgebundene
     // Verpflichtung, blockierend ab C4 - derselbe Fall, der den v1.0.17-
     // Fund ausgeloest hat (MachineCertificate wies C4 aus, ohne die
     // Plattformbindung zu nennen).
@@ -519,7 +519,7 @@ mod tests {
         // Der vom Nutzer verlangte Nachweis: ein C4-Zertifikat auf einer
         // Plattform, fuer die OBL-010 keine Aufloesung deklariert, MUSS
         // scheitern - nicht still auf eine niedrigere Klasse herabgestuft
-        // werden, sondern die Ausstellung selbst ablehnen (Regel 7.49:
+        // werden, sondern die Ausstellung selbst ablehnen (Regel 7.50:
         // "gilt die Verpflichtung als offen und die davon abhaengige
         // Konformanzklasse als nicht erreicht").
         let mut inputs = c4_inputs();

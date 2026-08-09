@@ -6,7 +6,7 @@
 //! WP07 (I3): `registry` (M08, Regel 32.7 - sechs statische Archetypen,
 //! FieldIdentity-Konstruktion, Lebenszyklus ueber FSM-FIELD), `lens_router`
 //! (M09, FieldProjection bzw. ResidueRecord(scope)+PSK-E013 bei nicht
-//! anwendbarer Linse, Regel 7.16/7.16).
+//! anwendbarer Linse, Regel 7.17/7.16).
 //!
 //! WP15 (I7): `morphogenesis` (M20 - G-MORPH/G-EXCISION-Auswertung ueber
 //! `psk_gate::evaluate_gate`, ExcisionCertificate). Erst jetzt aktiviert:

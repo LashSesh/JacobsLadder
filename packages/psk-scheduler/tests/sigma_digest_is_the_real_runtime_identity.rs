@@ -152,7 +152,7 @@ fn i_t_is_deterministic_for_the_identical_state() {
 /// strukturell unerreichbar und damit kein Referenzrelease moeglich
 /// (Vertrag 22.4).
 ///
-/// PSK-RA v1.0.20 (Fehlerkorrektur 24, Regel 7.40) hat das an der Quelle
+/// PSK-RA v1.0.20 (Fehlerkorrektur 24, Regel 7.41) hat das an der Quelle
 /// aufgeloest, nach demselben Muster wie auf Objektebene: `segment_digest`
 /// wendet jetzt `pi_vol` an, das neue `segment_record_digest` traegt die
 /// vollstaendigen Bytes einschliesslich `tau_e`, und `verify_chain` prueft
@@ -193,7 +193,7 @@ fn the_record_digests_of_those_same_two_runs_do_differ() {
     );
 }
 
-/// Regel 7.40, beide Haelften an EINEM Segment gemessen - der Test, der
+/// Regel 7.41, beide Haelften an EINEM Segment gemessen - der Test, der
 /// eine Rueckkehr zum alten Verhalten auffallen laesst.
 ///
 /// Vorher hielt an dieser Stelle ein Test den damaligen BEFUND fest (die
@@ -214,11 +214,11 @@ fn segment_digest_excludes_the_wall_clock_and_segment_record_digest_includes_it(
     for (x, y) in sa.iter().zip(sb.iter()) {
         assert_eq!(
             x.segment_digest, y.segment_digest,
-            "segment_digest ist identitaetsbildend und DARF tau_e nicht tragen (Regel 7.40)"
+            "segment_digest ist identitaetsbildend und DARF tau_e nicht tragen (Regel 7.41)"
         );
         assert_ne!(
             x.segment_record_digest, y.segment_record_digest,
-            "segment_record_digest sichert die vollstaendigen Bytes und MUSS tau_e tragen (Regel 7.40)"
+            "segment_record_digest sichert die vollstaendigen Bytes und MUSS tau_e tragen (Regel 7.41)"
         );
     }
 

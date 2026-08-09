@@ -89,7 +89,7 @@ pub struct SplitResult {
     pub surface: SurfaceDescriptor,
     pub invariant_core: Vec<InvariantId>,
     /// Die Invarianten, die NICHT eintreten durften, weil ihnen unabhaengige
-    /// Evidenz fehlt. Sie verschwinden nicht still (Axiom 7.43, No Silent Loss).
+    /// Evidenz fehlt. Sie verschwinden nicht still (Axiom 7.44, No Silent Loss).
     pub rejected: Vec<InvariantId>,
 }
 
@@ -378,7 +378,7 @@ pub fn is_capsule_resolved(before: &CandidateCapsule, after: &CandidateCapsule) 
     after.phase == Phase::Residual || is_capsule_fixpoint(before, after)
 }
 
-/// Invariante 7.23 (Keine vorzeitige Oeffnung) ueber `status`: eine Kapsel
+/// Invariante 7.24 (Keine vorzeitige Oeffnung) ueber `status`: eine Kapsel
 /// DARF nicht als CLOSED gefuehrt werden, solange sie nicht kristallisiert
 /// oder abschliessend residual/quarantaeniert ist.
 pub fn check_closure_state(capsule: &CandidateCapsule) -> Result<(), PskError> {
@@ -701,7 +701,7 @@ mod tests {
 
     #[test]
     fn a_sealed_capsule_may_not_be_closed() {
-        // Invariante 7.23 (Keine vorzeitige Oeffnung).
+        // Invariante 7.24 (Keine vorzeitige Oeffnung).
         let premature = CandidateCapsule {
             status: Status::Closed,
             ..capsule(&["c1"])

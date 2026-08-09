@@ -32,7 +32,7 @@ use crate::{SegmentInputs, TraceStore};
 /// `tick_identity` ist H(Can(tick_no, run_descriptor_digest)) - die
 /// wanduhrfreie Kennung dieses Takts, NICHT der `segment_digest` des
 /// Eroeffnungssegments. Der Unterschied ist gemessen, nicht theoretisch:
-/// `segment_digest` schliesst nach Struktur 7.39 das Feld `time: DualTime`
+/// `segment_digest` schliesst nach Struktur 7.40 das Feld `time: DualTime`
 /// mit ein und traegt damit `tau_e`. Ein Handle, der ihn weiterreicht,
 /// schleppt die Wanduhr in jedes Folgesegment (`seal_phase`/`close_tick`
 /// setzen ihn als `payload_digest`) und von dort in jeden Digest ueber den

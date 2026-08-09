@@ -40,7 +40,7 @@
 //! gate_registry.yaml) folgen demselben Muster wie `psk_certify::
 //! evaluate_release_gate` fuer G-RELEASE (siehe psk-gate/evaluate.rs
 //! Modulkopf: `seam_compatible` ist ein von aussen bestimmtes Urteil, kein
-//! interner `M11.seam_report`-Aufruf, da SeamReport (Struktur 7.29) M13-
+//! interner `M11.seam_report`-Aufruf, da SeamReport (Struktur 7.30) M13-
 //! zellenfoermig ist und G-BOOT keinen M13-Zellbezug hat) - beides wird
 //! jetzt innerhalb von `psk_contract::boot` selbst gesetzt, siehe dort.
 
@@ -160,7 +160,7 @@ pub struct GoldenRunReport {
     /// Jede nicht gebaute Kante mit Grund.
     pub ir_omissions: Vec<psk_ir::EdgeOmission>,
     /// Die Residuensaetze selbst, nicht nur ihre Anzahl - Eingabe des
-    /// `residue_report_digest`, das Struktur 7.48 als einen der vier
+    /// `residue_report_digest`, das Struktur 7.49 als einen der vier
     /// Berichtsdigests verlangt. Ein Bericht ueber eine Zahl waere keiner.
     pub residues: Vec<psk_types::objects::ResidueRecord>,
 }
@@ -310,7 +310,7 @@ fn classify_thought_reality(
     // RealityEvidence, ohne method_ref, ohne Grundlage. classify()
     // erzwingt selbst, dass daraus nur UNKNOWN werden kann - und
     // UNKNOWN mit leerem evidence_refs IST die Materialisierung
-    // "fehlender Witness" aus Vertrag 7.12, kein fehlender Wert.
+    // "fehlender Witness" aus Vertrag 7.13, kein fehlender Wert.
     psk_thought::classify(
         thought,
         ClassificationInputs {
@@ -408,7 +408,7 @@ fn project_field(
 ///
 /// Kanten entstehen nur, wo ein reales Objektfeld die Verknuepfung
 /// festhaelt. `observed_by` (S-EFF -> S-RCP) ist deshalb NICHT dabei:
-/// ExternalReceipt traegt per Struktur 7.34 keine Referenz auf den
+/// ExternalReceipt traegt per Struktur 7.35 keine Referenz auf den
 /// Versuch - der Beobachter ist unabhaengig und sieht ihn nie. Eine Kante
 /// dort waere eine Verknuepfung, die kein Objekt bezeugt.
 #[allow(clippy::too_many_arguments)]
@@ -965,7 +965,7 @@ fn issue_golden_run_certificate(
         scope: ScopeExpr("golden-run".into()),
         issued_at: run_time(),
         signature: psk_types::Signature(vec![]),
-        // Regel 7.49 (PSK-RA v1.0.17): `features` oben (nur Fc0/Fc1) haelt
+        // Regel 7.50 (PSK-RA v1.0.17): `features` oben (nur Fc0/Fc1) haelt
         // diesen Lauf absichtlich unterhalb jeder Klasse, die OBL-010
         // (blocking_from: C4) ueberhaupt betrifft - siehe `is_relevant` in
         // `check_platform_bound_obligations`. Ein leerer Vektor ist hier
@@ -1128,7 +1128,7 @@ pub fn run_golden_run(
         // Die Werte des klassifizierten Subjekts, nicht eine Vorgabe:
         // reality_status aus der einzigen Klassifikation des Laufs,
         // facticity aus derselben (sie kopiert die des ThoughtBody,
-        // Regel 7.11).
+        // Regel 7.12).
         reality.reality_status,
         reality.facticity,
     )?;

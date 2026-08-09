@@ -1,4 +1,4 @@
-//! M06 ThoughtCompiler: konstruiert ThoughtBody-Objekte (Struktur 7.8,
+//! M06 ThoughtCompiler: konstruiert ThoughtBody-Objekte (Struktur 7.9,
 //! OBJ-THB).
 //!
 //! Regel 5.10 (Schreibpfad der Statusfelder), Schritt 1: "M06 setzt
@@ -8,7 +8,7 @@
 //! waehlbar. "ThoughtBody ist nach Konstruktion unveraenderlich": es gibt
 //! hier keine Setter, und M07 erhaelt den Koerper nur lesend (P08).
 //!
-//! Axiom 7.9 (Gedanke ist kein Satz): `claim.text` traegt Prosa, geht aber
+//! Axiom 7.10 (Gedanke ist kein Satz): `claim.text` traegt Prosa, geht aber
 //! nicht in Can() ein. Das erledigt pi_vol ueber den `non_canonical`-Eintrag
 //! in architecture/volatile_fields.yaml (v1.0.6, Fehlerkorrektur Punkt 8) -
 //! hier ist dafuer KEINE Sonderbehandlung noetig und es DARF auch keine
@@ -26,7 +26,7 @@ use psk_types::{Digest, ObjectId, PskError, TraceRef};
 /// keine Wahl des Aufrufers.
 pub struct ThoughtInputs {
     pub anchor_refs: Vec<ObjectId>,
-    /// Struktur 7.8: anchor_refs ">= 1, oder explizit unanchored:true".
+    /// Struktur 7.9: anchor_refs ">= 1, oder explizit unanchored:true".
     pub unanchored: bool,
     pub claim: Claim,
     pub models: Vec<ModelRef>,
@@ -39,7 +39,7 @@ pub struct ThoughtInputs {
 
 /// Vertrag 11.6 (C3): "Fuer jeden Knoten mit directionality = external MUSS
 /// eine Ankerreferenz existieren oder unanchored = true explizit gesetzt
-/// sein." Struktur 7.8 verlangt dasselbe strukturell fuer jeden
+/// sein." Struktur 7.9 verlangt dasselbe strukturell fuer jeden
 /// ThoughtBody.
 fn check_anchoring(inputs: &ThoughtInputs) -> Result<(), PskError> {
     if inputs.anchor_refs.is_empty() && !inputs.unanchored {
@@ -163,7 +163,7 @@ mod tests {
         let b = compile_thought(sample_inputs("Voellig anders formuliert.")).unwrap();
         assert_eq!(
             a.id, b.id,
-            "claim.text DARF NICHT in die Objekt-ID eingehen (Axiom 7.9)"
+            "claim.text DARF NICHT in die Objekt-ID eingehen (Axiom 7.10)"
         );
     }
 

@@ -99,9 +99,9 @@ closed_vocabularies:
     values: [SPECIFIED, POSSIBLE, SIMULATED, SELECTED, ATTEMPTED, OBSERVED,
              ACTUALIZED, RESIDUE, RETRACTED]
   - id: ArchetypeId
-    source: "Struktur 7.13 (FieldIdentity), Feld archetype; Regel 32.7
+    source: "Struktur 7.14 (FieldIdentity), Feld archetype; Regel 32.7
       (Feldfamilie der Referenzdomaene)"
-    note: "Struktur 7.13 traegt die Werte nur als Kommentar
+    note: "Struktur 7.14 traegt die Werte nur als Kommentar
       ('# explorer|falsifier|constructor|historian|auditor|integrator'),
       keine formale Mengenklammer wie bei RealityStatus/FactStatus - aber
       Regel 32.7 ist ausdruecklich 'genau sechs statische Feldidentitaeten'
@@ -119,7 +119,7 @@ closed_vocabularies:
     source: "Definition 12.1 (Instruktionsmenge): '|O| = 23. Die Menge ist abgeschlossen.'"
     note: "Die 23 ISA-Instruktionen. Bis hierher generierte
       object_schemas.yaml OBJ-FLD.operators als [freie Zeichenkette] - ein
-      Feld, das laut Struktur 7.13 ausdruecklich 'Teilmenge der ISA' ist."
+      Feld, das laut Struktur 7.14 ausdruecklich 'Teilmenge der ISA' ist."
     values_from: {register: isa_registry, path: "instructions[].op"}
   - id: GateId
     source: "Invariante 18.5 (Gateabschluss): 'Die Gatemenge ist abgeschlossen.'"
@@ -143,7 +143,7 @@ closed_vocabularies:
     source: "Regel 23.1 (Eine Konformanzleiter): 'Die Merkmalsstufen der
       Gesamtspezifikation werden als abgeleiteter Deckungsvektor
       FC = (FC0, ..., FC8) gefuehrt.'"
-    note: "Steht in Struktur 7.48 (MachineCertificate) als 'type: [FC0..FC8]'.
+    note: "Steht in Struktur 7.49 (MachineCertificate) als 'type: [FC0..FC8]'.
       Diese Notation ist kein Listentyp ueber einem Bezeichner, sondern ein
       Bereich; der Codegen las sie als Bezeichner 'FC0..FC8' und erzeugte
       Vec<FC0FC8> ueber freien Zeichenketten - einen Vektor beliebiger

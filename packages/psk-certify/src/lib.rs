@@ -4,7 +4,7 @@
 //! Modul realisiert (Regel 32.2).
 //!
 //! WP15 (I7): `certify` - Konformanzleiter (Regel 23.1/Tabelle 23.2),
-//! MachineCertificate (Struktur 7.48), G-RELEASE (eigenes Gate, ueber
+//! MachineCertificate (Struktur 7.49), G-RELEASE (eigenes Gate, ueber
 //! `psk_gate::evaluate_gate`).
 //!
 //! Boot-Realisierung (Algorithmus 17.1, Schritt 18): `posture`

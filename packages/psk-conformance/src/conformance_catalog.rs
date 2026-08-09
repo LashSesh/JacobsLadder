@@ -202,7 +202,7 @@
 //! - T-TRACE-001 (drop_previous_residue -> FAIL): real gruen als
 //!   `compile_fail`-Doctests an `psk_trace::ResidueLedger`. Die
 //!   Zusicherung IST die Abwesenheit von `remove`/`clear` und eines
-//!   Schreibzugriffs auf die Sammlung (Axiom 7.43) - ein Laufzeittest
+//!   Schreibzugriffs auf die Sammlung (Axiom 7.44) - ein Laufzeittest
 //!   kann das nicht leisten, weil man nicht aufrufen kann, was nicht
 //!   existiert. Eine Positivkontrolle daneben zeigt, dass derselbe Aufbau
 //!   uebersetzt: ohne sie bestuende ein `compile_fail` auch bei einem
@@ -234,7 +234,7 @@
 //!   M18-Tests in `psk_reconciliation::reconcile::tests`.
 //!   Die fruehere Einordnung ("verbale Unsicherheit ist nirgends als Typ
 //!   gefasst") verwechselte die Szenarienrahmung mit dem pruefbaren Kern.
-//!   Vertrag 7.12 enumeriert vier Formen, in denen sich Unwissen
+//!   Vertrag 7.13 enumeriert vier Formen, in denen sich Unwissen
 //!   materialisieren MUSS - das ist dieselbe Art Aufzaehlung, die
 //!   T-PERSONA-001 ueber Personas Feldliste traegt, nur ueber Zustaende
 //!   statt ueber Felder. Und `claim.text` ist ohnehin `non_canonical`,
@@ -778,7 +778,7 @@ mod tests {
     // ---- T-RECEIPT-001: replace_external_record_by_internal_simulation -> FAIL ----
     #[test]
     fn t_receipt_001_an_observer_sharing_the_effect_issuers_identity_is_rejected() {
-        // Invariante 7.35 (Beobachtertrennung): der Beobachter, der ein
+        // Invariante 7.36 (Beobachtertrennung): der Beobachter, der ein
         // ExternalReceipt liefert, darf nicht dieselbe Identitaet wie der
         // Token-Aussteller tragen - sonst koennte eine interne Simulation
         // sich selbst als unabhaengige Beobachtung ausgeben.

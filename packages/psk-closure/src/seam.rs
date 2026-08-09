@@ -11,7 +11,7 @@
 //!                                    severity: blocking}
 //! ```
 //!
-//! Vertrag 7.30 (Kein halluziniertes Gluing) und Invariante 11.14
+//! Vertrag 7.31 (Kein halluziniertes Gluing) und Invariante 11.14
 //! (Eindeutigkeit der Verklebung): "Der Compiler DARF NICHT zwischen
 //! mehreren globalen Sektionen waehlen; Mehrdeutigkeit ist ein Defekt und
 //! erzeugt PSK-E011." Deshalb gibt `unique_global_section` keinen "besten"
@@ -37,7 +37,7 @@ use psk_types::{Digest, ObjectId, PskError};
 /// dort geltenden Restriktionen.
 ///
 /// `overlap(a,b)` und `compare_restrictions(a,b)` sind in Algorithmus 11.13
-/// benannt, aber nicht ausgeschrieben - Struktur 7.22 (CandidateCapsule)
+/// benannt, aber nicht ausgeschrieben - Struktur 7.23 (CandidateCapsule)
 /// fuehrt weder Zellen noch Restriktionen als Felder. Die Zuordnung
 /// Kapsel -> (Zellen, Restriktionsdigest) ist damit eine Angabe von aussen,
 /// nicht aus der Kapsel ableitbar; sie wird hier als `CapsuleRestriction`
@@ -91,12 +91,12 @@ pub fn overlap(a: &CapsuleRestriction, b: &CapsuleRestriction) -> Vec<M13Address
 }
 
 /// `compare_restrictions(a, b)`: prueft `s_a|U = s_b|U` auf dem
-/// Ueberlappungsbereich U und erzeugt den SeamReport (Struktur 7.29).
+/// Ueberlappungsbereich U und erzeugt den SeamReport (Struktur 7.30).
 ///
 /// `tolerance_class` ist hier immer `exact`: eine `declared_equivalence`
 /// setzt eine deklarierte Aequivalenzrelation voraus, die es ohne
 /// DomainProfile nicht gibt. Eine hier angenommene Toleranz waere genau
-/// das halluzinierte Gluing, das Vertrag 7.30 verbietet.
+/// das halluzinierte Gluing, das Vertrag 7.31 verbietet.
 pub fn compare_restrictions(
     a: &CapsuleRestriction,
     b: &CapsuleRestriction,
@@ -150,7 +150,7 @@ fn restriction_digest_over(
 /// 11.13, woertlich).
 ///
 /// `residue_ref` verweist auf das Residuum, das M19 dazu fuehrt. M19 ist
-/// WP04 (Phase I5) und existiert noch nicht; das Feld ist in Struktur 7.29
+/// WP04 (Phase I5) und existiert noch nicht; das Feld ist in Struktur 7.30
 /// nicht optional. Der Aufrufer reicht die Referenz herein - erfunden wird
 /// sie hier nicht.
 pub fn obstruction_for(
@@ -418,7 +418,7 @@ mod tests {
 
     #[test]
     fn tolerance_class_is_never_silently_declared_equivalent() {
-        // Vertrag 7.30 (Kein halluziniertes Gluing): ohne deklarierte
+        // Vertrag 7.31 (Kein halluziniertes Gluing): ohne deklarierte
         // Aequivalenz gilt exakt.
         let a = restriction("a", &[("m13:0/c0", b"x")]);
         let b = restriction("b", &[("m13:0/c0", b"x")]);

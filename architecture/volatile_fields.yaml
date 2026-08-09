@@ -13,7 +13,7 @@ volatile: # nicht reproduzierbar zwischen Laeufen
   - path: "DualTime.tau_e"          # Wanduhr, Invariante Replayneutralitaet
   - path: "DualTime.clock_ref"      # Identitaet/Kalibrierstatus der Uhr
   - path: "DualTime.uncertainty_ns" # deklarierte Messunsicherheit
-  # Regel 7.40 (Zwei Digests je Segment): segment_record_digest deckt
+  # Regel 7.41 (Zwei Digests je Segment): segment_record_digest deckt
   # dieselben Felder MIT tau_e ab und "DARF NICHT Eingabe von I_t und
   # DARF NICHT Eingabe einer Gate-Entscheidung" sein. pi_vol ist der
   # einzige Ausschlusspfad (siehe purpose oben); der Eintrag erfuellt
@@ -24,7 +24,7 @@ volatile: # nicht reproduzierbar zwischen Laeufen
   - path: "*.persona_projection"    # Ausgabeprojektionen, M27
   - path: "*.view_*"                # Beobachtungsprojektionen, M27
 non_canonical: # reproduzierbar, aber nicht kanonischer Zustand
-  - path: "ThoughtBody.claim.text" # Axiom 7.9 "Gedanke ist kein Satz"
+  - path: "ThoughtBody.claim.text" # Axiom 7.10 "Gedanke ist kein Satz"
 not_removed:
   - path: "DualTime.tau_i" # Kausalzaehler, je run_id deterministisch
 enforcement:

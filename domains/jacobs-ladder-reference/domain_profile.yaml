@@ -57,8 +57,8 @@ edge_conditions:
       - "field.lifecycle == ACTIVE"
       - "projection.field_ref == field.id"
     postconditions:
-      - "projection.visible ist nicht leer (Regel 7.16)"
-      - "projection veraendert reality_status und facticity des Urbildes nicht (Regel 7.15)"
+      - "projection.visible ist nicht leer (Regel 7.17)"
+      - "projection veraendert reality_status und facticity des Urbildes nicht (Regel 7.16)"
 
   # S-PRJ -> S-DEP. Belegt durch DependencyProfile.quotient_classes.
   - relation_sort: shares_source
@@ -94,7 +94,7 @@ edge_conditions:
 # BEWUSST NICHT deklariert, mit Grund - damit die Auslassung selbst
 # nachlesbar ist und nicht als Vergesslichkeit erscheint:
 #
-#   observed_by (S-EFF -> S-RCP): ExternalReceipt traegt per Struktur 7.34
+#   observed_by (S-EFF -> S-RCP): ExternalReceipt traegt per Struktur 7.35
 #     KEINE ObjectId-Referenz auf den Versuch - der Beobachter ist
 #     unabhaengig und sieht den Versuch nie. Eine Kante hier waere eine
 #     Verknuepfung, die kein Objekt festhaelt: dieselbe Sorte Erfindung,

@@ -6,9 +6,9 @@ schema: psk.object-schemas/1.0
 #
 # Von den 29 Eintraegen in object_registry.yaml haben 28 eine explizite
 # Feldstruktur: die urspruenglichen 25, OBJ-PRJ (FieldProjection,
-# nachgetragen in v1.0.3, Fehlerkorrektur Punkt 4; Struktur 7.14, Regel
-# 7.15/7.15/7.16), OBJ-RCL (RealityClassification, nachgetragen in
-# v1.0.7, Fehlerkorrektur Punkt 10; Struktur 7.10, Regel 7.11) und OBJ-FCT
+# nachgetragen in v1.0.3, Fehlerkorrektur Punkt 4; Struktur 7.15, Regel
+# 7.16/7.15/7.16), OBJ-RCL (RealityClassification, nachgetragen in
+# v1.0.7, Fehlerkorrektur Punkt 10; Struktur 7.11, Regel 7.12) und OBJ-FCT
 # (Forecast, nachgetragen in v1.0.22; Struktur 20.10, Regel 20.11). Die
 # ersten beiden waren jeweils schon vorher im Objektregister und an einem
 # Port gefuehrt, nur ohne Felder; OBJ-FCT fehlte ganz, obwohl der Vertrag
@@ -26,7 +26,7 @@ schema: psk.object-schemas/1.0
 # uebernommen, nicht ergaenzt.
 count: 28
 
-# Struktur 7.26 (Matrix und Scaled), v1.0.8 (Fehlerkorrektur Punkt 12/13):
+# Struktur 7.27 (Matrix und Scaled), v1.0.8 (Fehlerkorrektur Punkt 12/13):
 # "Beide Typen sind intern berechnet, nicht domaenengeliefert, und gehen in
 # einen kanonischen Digest ein. Ihre Kodierung MUSS daher festgelegt sein."
 # Anders als LensSpec/PredicateExpr/RealityEvidence (Vertrag 27.2) sind das
@@ -48,7 +48,7 @@ shared_structs:
     - {name: scale, type: integer, note: "Wert = numerator / 10^scale, scale >= 0. Vertrag 6.3 verbietet Gleitkomma ohne exakte Dezimaldarstellung - Scaled ist der einzige nichtganzzahlige Typ des Werkes."}
   Matrix:
     - {name: schema, type: "psk.matrix/1.0"}
-    - {name: axis, type: "[SourceRef]", note: "Zeilen- UND Spaltenachse, identisch (Regel 7.27)"}
+    - {name: axis, type: "[SourceRef]", note: "Zeilen- UND Spaltenachse, identisch (Regel 7.28)"}
     - {name: scale, type: integer, note: "gemeinsamer Nenner aller Zellen"}
     - {name: values, type: "[[integer]]", note: "quadratisch, |axis| x |axis|; Zelle (i,j) = values[i][j] / 10^scale"}
 
@@ -138,7 +138,7 @@ objects:
       - {name: trace_ref, type: TraceRef}
     nested_structs:
       Claim:
-        - {name: text, type: string, note: "nur Projektion, nicht normativ; geht nicht in Can ein (Axiom 7.9)"}
+        - {name: text, type: string, note: "nur Projektion, nicht normativ; geht nicht in Can ein (Axiom 7.10)"}
         - {name: formal, type: ClaimExpr, note: "kanonischer Zustand"}
         - {name: directionality, type: "internal | external"}
 
@@ -150,7 +150,7 @@ objects:
       schon vorher Exklusivbesitz von M07 und Nutzlast von P09, besass aber
       in keinem Register eine Feldstruktur."
     rules:
-      - {id: "Regel 7.11", title: "Klassifikation ist ein eigenes Objekt",
+      - {id: "Regel 7.12", title: "Klassifikation ist ein eigenes Objekt",
           statement: "M07 DARF NICHT in den ThoughtBody schreiben. Die
             Klassifikation verlaesst M07 ausschliesslich als
             RealityClassification ueber P09. Das Feld reachability traegt die
@@ -203,23 +203,23 @@ objects:
       Eingang der Kernproduktionen ((ThoughtBody, FieldIdentity) => FieldProjection,
       {FieldProjection}_compat => ScopedCognitionGraph), fliesst ueber P13,
       Eingang von M10 und M11. v1.0.6 (Fehlerkorrektur Punkt 7): Feld
-      undefined_reason ersatzlos entfallen, Regel 7.15 geteilt - der Fall
-      der nicht anwendbaren Linse steht jetzt in Regel 7.16 und erzeugt gar
+      undefined_reason ersatzlos entfallen, Regel 7.16 geteilt - der Fall
+      der nicht anwendbaren Linse steht jetzt in Regel 7.17 und erzeugt gar
       keine Projektion."
     rules:
-      - {id: "Regel 7.15", title: "Projektion promoviert nicht",
+      - {id: "Regel 7.16", title: "Projektion promoviert nicht",
           statement: "Eine FieldProjection ist eine Sicht, kein Fakt. reality_status
             und facticity des Urbildes DARF NICHT durch eine Projektion veraendert
             werden; die Sorten-Port-Matrix verbietet die Relation (S-PRJ, S-RCN)
             vollstaendig."}
-      - {id: "Regel 7.16", title: "Nicht anwendbare Linse erzeugt keine Projektion",
+      - {id: "Regel 7.17", title: "Nicht anwendbare Linse erzeugt keine Projektion",
           statement: "Ist die Spektrallinse auf die Sortenmenge des Urbildes nicht
             anwendbar, so entsteht DARF NICHT eine FieldProjection. Statt dessen
             MUSS M09 einen ResidueRecord des Typs scope erzeugen und PSK-E013
             emittieren; dies ist die in Vertrag C5 verlangte Form. Eine
             FieldProjection mit leerem visible ist unzulaessig: Es gibt keine
             leere Projektion, sondern nur eine ausgebliebene."}
-      - {id: "Regel 7.17", title: "Occlusion ist explizit",
+      - {id: "Regel 7.18", title: "Occlusion ist explizit",
           statement: "occluded MUSS vollstaendig gefuehrt werden. Was eine Linse
             nicht aufloest, ist ein bezeugter Nichtbefund und DARF NICHT als
             Abwesenheit gewertet werden; andernfalls greift PSK-E005."}
@@ -230,7 +230,7 @@ objects:
       - {name: source_refs, type: "[ObjectId]", note: "ThoughtBody bzw. IR-Knoten des Urbildes"}
       - {name: lens_ref, type: LensSpec, note: "Pi_lambda, wie zum Zeitpunkt der Anwendung gebunden"}
       - {name: scope, type: ScopeSpec, note: "Geltungsbereich; erweitert sich nie ohne Gate"}
-      - {name: visible, type: "[IRNodeId]", note: "was die Linse aufloest; nie leer (Regel 7.16)"}
+      - {name: visible, type: "[IRNodeId]", note: "was die Linse aufloest; nie leer (Regel 7.17)"}
       - {name: occluded, type: "[IRNodeId]", note: "was sie nachweislich nicht aufloest"}
       - {name: distinctions, type: "[DistinctionSpec]", note: "intern erzeugte Unterscheidungen"}
       - {name: source_provenance, type: "[SourceRef]", note: "Grundlage des Abhaengigkeitsquotienten (M10); v1.0.8 (Fehlerkorrektur Punkt 14) auf SourceRef vereinheitlicht - SourceId existiert nicht mehr"}
@@ -494,7 +494,7 @@ objects:
     struktur: "7.38"
     schema_id: psk.trace-segment/1.0
     rules:
-      - {id: "Regel 7.40", title: "Zwei Digests je Segment",
+      - {id: "Regel 7.41", title: "Zwei Digests je Segment",
           statement: "segment_digest ist identitaetsbildend: es bildet die
             Hashkette, geht ueber L_t in I_t ein und MUSS daher pi_vol
             anwenden. Andernfalls ginge tau_e entgegen der blockierenden

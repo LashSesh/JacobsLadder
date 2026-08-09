@@ -6,7 +6,7 @@
 //! ist nicht konform, erzeugt T-SEC-001-Fehlschlag.' API-Form ist damit
 //! nicht ausreichend, kein offener Punkt."
 //!
-//! `GateReport` (Struktur 7.31) hat ausschliesslich `pub`-Felder - wie
+//! `GateReport` (Struktur 7.32) hat ausschliesslich `pub`-Felder - wie
 //! jedes generierte Kapitel-7-Objekt in diesem Werk. Das heisst: JEDER
 //! Code, der `psk_types::objects::GateReport` importiert, kann per
 //! Struct-Literal einen GateReport mit `decision: PASS` BEHAUPTEN, ohne

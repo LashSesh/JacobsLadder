@@ -1,4 +1,4 @@
-//! M17 ExternalRecordIngress, ExternalReceipt-Teil (Struktur 7.34, P24).
+//! M17 ExternalRecordIngress, ExternalReceipt-Teil (Struktur 7.35, P24).
 //!
 //! Schnittstelle 20.5 (Adapter), `interface ObserverAdapter`: "strikt
 //! getrennte Implementierung ... fn observe(scope: ScopeExpr) ->
@@ -157,7 +157,7 @@ fn compute_receipt_identity(draft: &ExternalReceipt) -> Result<psk_types::Object
 
 /// Baut ein ExternalReceipt aus einer bereits erfolgten Beobachtung.
 /// `result_digest = H(Can(record))` - der Digest des rohen, unvermischten
-/// Beobachtungsergebnisses (Struktur 7.34: "record: bytes # unveraendert,
+/// Beobachtungsergebnisses (Struktur 7.35: "record: bytes # unveraendert,
 /// unvermischt").
 /// Observe(2)-Abschlussbedingung (Definition 14.2), zweiter Ausgang:
 /// "ExternalReceipt vorhanden ODER UNKNOWN_EFFECT." `build_receipt`/
@@ -165,7 +165,7 @@ fn compute_receipt_identity(draft: &ExternalReceipt) -> Result<psk_types::Object
 /// zweiten - fuer den Fall, dass innerhalb der Frist kein Receipt eintraf.
 ///
 /// Blockiert: UNKNOWN_EFFECT ist `EffectAttemptOutcomeKind::UnknownEffect`
-/// (psk-effect, Struktur 7.34) - ein M16/M15-Typ, den psk-anchor nicht
+/// (psk-effect, Struktur 7.35) - ein M16/M15-Typ, den psk-anchor nicht
 /// benennen kann (psk-anchor haengt nicht von psk-effect ab, aus denselben
 /// Gruenden wie die verbotene Kante [M16,M17] in module_map.yaml
 /// umgekehrt gilt). Die naechstliegende reale Entscheidungslogik

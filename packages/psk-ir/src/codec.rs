@@ -3,7 +3,7 @@
 //! Definition 10.5 (Ordnungssemantische Listen): `normative_files`,
 //! `trajectories`, `allowed_next`, `transitions`, `observations`,
 //! `receipt_refs` DARF NICHT sortiert werden. IRBundle selbst fuehrt
-//! aktuell keines dieser Felder (Struktur 7.20), die Ausschlussliste steht
+//! aktuell keines dieser Felder (Struktur 7.21), die Ausschlussliste steht
 //! dennoch woertlich hier, damit ein spaeter hinzugefuegtes gleichnamiges
 //! Feld automatisch korrekt behandelt wird statt versehentlich sortiert.
 //!

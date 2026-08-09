@@ -343,7 +343,7 @@ pub fn generate_error_enum(cat: &ErrorCatalog) -> String {
     out.push_str("        }\n    }\n\n");
 
     out.push_str("    /// Umkehrung von `code()`. Noetig, weil EffectAttempt.error\n");
-    out.push_str("    /// (Struktur 7.32) einen Fehlercode als Feldwert traegt: die\n");
+    out.push_str("    /// (Struktur 7.33) einen Fehlercode als Feldwert traegt: die\n");
     out.push_str("    /// Drahtform ist der stabile Code, nicht der Variantenname.\n");
     out.push_str("    pub fn from_code(code: &str) -> Option<PskError> {\n        match code {\n");
     for e in cat

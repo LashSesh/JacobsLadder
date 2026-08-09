@@ -311,7 +311,7 @@ pub fn generate_sort_id_enum(reg: &SortRegistry) -> String {
 pub struct ObjectSchemas {
     pub objects: Vec<ObjectEntry>,
     /// Strukturen, die von MEHREREN Objekten referenziert werden (z.B.
-    /// Scaled, Matrix - Struktur 7.26). Anders als `nested_structs` (je
+    /// Scaled, Matrix - Struktur 7.27). Anders als `nested_structs` (je
     /// Objekt, dort auch erzeugt) wird jede hier genau einmal erzeugt und
     /// per Name referenziert; zwei Objekte, die dieselbe Struktur je
     /// eigenstaendig als nested_struct fuehren wuerden, kollidierten sonst.
@@ -433,7 +433,7 @@ const KNOWN_SCALARS: &[(&str, &str)] = &[
     // v1.0.26: RunDescriptor.ratchet_max_rounds (Regel 12.7) ist das
     // erste und bisher einzige uint32 des Werks.
     ("uint32", "u32"),
-    // Struktur 7.26 (Scaled/Matrix): "integer" ohne "u"-Praefix, anders als
+    // Struktur 7.27 (Scaled/Matrix): "integer" ohne "u"-Praefix, anders als
     // "uint64" andernorts - vorzeichenbehaftet gelesen, da nicht als
     // nichtnegativ bezeichnet (anders als bei `scale`, das laut Kommentar
     // "scale >= 0" ist, aber denselben Bezeichner "integer" traegt; die
@@ -532,7 +532,7 @@ impl TypeGen<'_> {
 
             // Eine Alternative kann selbst ein Typverweis sein statt eines
             // weiteren literalen Tags - z.B. "RollbackSpec |
-            // NO_ROLLBACK_JUSTIFIED" (EffectToken.rollback, Struktur 7.32).
+            // NO_ROLLBACK_JUSTIFIED" (EffectToken.rollback, Struktur 7.33).
             // Erkennbar an gemischter Gross-/Kleinschreibung ohne
             // Unterstrich (anders als "PASS" oder "NO_ROLLBACK_JUSTIFIED").
             // Vor dieser Korrektur erzeugte eine solche Alternative nur

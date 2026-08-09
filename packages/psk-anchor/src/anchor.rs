@@ -7,7 +7,7 @@
 //! Felder - ein Objekt kann aber nicht ueber sein eigenes, gerade erst zu
 //! bestimmendes Ergebnis hashen. Die Aufloesung folgt demselben Muster wie
 //! TraceSegment.segment_digest ("H(Can(alle VORSTEHENDEN Felder))", Struktur
-//! 7.36): `id` und `digest` werden ueber alle UEBRIGEN Felder gebildet,
+//! 7.37): `id` und `digest` werden ueber alle UEBRIGEN Felder gebildet,
 //! danach erst eingesetzt. `sealed` ist dabei ebenfalls ausgenommen - es
 //! ist ein Lebenszyklusstatus ("true nach Versiegelung"), kein Inhalt.
 

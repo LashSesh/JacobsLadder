@@ -7,7 +7,7 @@
 //! (M05: Versiegelung zu AnchorSnapshot), `ingress` (M17: Provenienzbindung).
 //!
 //! WP15 (I7): `receipt` (M17 - ExternalReceipt/ObserverAdapter, Struktur
-//! 7.34; P24-Ingress nach Vertrag 20.2, Herkunftsbeglaubigung an der
+//! 7.35; P24-Ingress nach Vertrag 20.2, Herkunftsbeglaubigung an der
 //! Prozessgrenze VOR jeder Deserialisierung).
 //!
 //! P24a (Prozesstopologie-Realisierung): `observe_protocol` - P06/P24
