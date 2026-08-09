@@ -72,6 +72,9 @@ pub struct FeatureEvidence {
     // ---- FC4: Feldprojektionen, Lineage, Abhaengigkeitsquotient.
     pub field_projections: usize,
     pub dependency_profiles: usize,
+    /// Zaehlt NICHTLEERE Lineages (Massstab: M08s `lineage_declared`,
+    /// trim + nicht leer). Eine vorhandene, aber leere Lineage ist kein
+    /// Herkunftsbeleg - dieselbe Linie wie beim Deckungsvektor selbst.
     pub field_lineages: usize,
 
     // ---- FC5: Kandidatenkapseln, adversariales Ratchet, Support, Residuenfluss.

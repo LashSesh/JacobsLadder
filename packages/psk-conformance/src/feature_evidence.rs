@@ -54,6 +54,16 @@ fn identity_pair(stored: Option<&str>, computed: Digest) -> Option<(Digest, Dige
     }
 }
 
+/// FC4s Lineage-Zaehlung: nichtleer nach demselben Massstab wie M08s
+/// `lineage_declared` (trim, dann nicht leer). Eigene Funktion, damit das
+/// Kriterium testbar ist, ohne einen ganzen Golden Run zu brauchen.
+fn count_nonempty_lineages(fields: &[psk_types::objects::FieldIdentity]) -> usize {
+    fields
+        .iter()
+        .filter(|f| !f.lineage.0.trim().is_empty())
+        .count()
+}
+
 /// Sammelt die Messwerte eines einzelnen Laufs ein.
 fn measure_run(run: &GoldenRunReport, evidence: &mut FeatureEvidence) {
     // ---- FC1: die lokale Seam-Closure. `section` ist `Some` nur bei
@@ -98,12 +108,15 @@ fn measure_run(run: &GoldenRunReport, evidence: &mut FeatureEvidence) {
         evidence.dependency_profiles += 1;
     }
 
-    // FC4, Lineage: `Lin_lambda` sitzt auf `FieldIdentity`, nicht auf der
-    // Projektion. Der Lauf BAUT eine Feldidentitaet mit echter Lineage,
-    // gibt sie aber nicht heraus - `FieldProjection.field_ref` ist eine
-    // ObjectId, also ein Verweis auf das Lineage tragende Objekt, nicht
-    // das Objekt. Damit ist die Lineage referenziert, nicht belegt, und
-    // `field_lineages` bleibt 0.
+    // FC4, Lineage: `Lin_lambda` sitzt auf `FieldIdentity`, und der Lauf
+    // gibt seine sechs Identitaeten seit dem FC2-Bau heraus. Gezaehlt
+    // wird NICHTLEER, nicht vorhanden - eine Lineage, die da ist, aber
+    // nichts sagt, belegt keine Herkunft. Das Kriterium ist nicht hier
+    // erfunden: es ist woertlich M08s eigene Aktivierungsbedingung
+    // (`lineage_declared` in psk-fields::registry::
+    // check_activation_requirements, "die jeweilige Zeichenkette ist
+    // nicht leer").
+    evidence.field_lineages += count_nonempty_lineages(&run.field_identities);
 
     // ---- FC5: der Golden Run durchlaeuft M24 nicht. Es entstehen keine
     // CandidateCapsules, kein Ratchet, keine Supportentscheidung und kein
@@ -171,4 +184,58 @@ pub fn collect_feature_evidence(
     evidence.baseline_comparison_passed = baseline.map(|b| b.kern_passes());
 
     evidence
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use psk_types::objects::{FieldIdentity, Lineage};
+
+    fn field_with_lineage(lineage: &str, salt: &str) -> FieldIdentity {
+        FieldIdentity {
+            schema: "psk.field-identity/1.0".into(),
+            id: psk_types::ObjectId::new(
+                psk_types::objects::SortId::FieldIdentity,
+                Digest::sha256(salt.as_bytes()),
+            ),
+            domain: psk_types::objects::DomainExpr("d".into()),
+            lens: psk_types::objects::LensSpec("l".into()),
+            operators: vec![],
+            questions: vec![],
+            witness_rules: psk_types::objects::WitnessPolicy("w".into()),
+            boundaries: psk_types::objects::BoundarySpec("b".into()),
+            gates: vec![],
+            time_window: psk_types::objects::TimeWindow("t".into()),
+            lineage: Lineage(lineage.into()),
+            lifecycle: psk_types::objects::FieldIdentityLifecycleKind::Active,
+            dependency_profile_ref: psk_types::ObjectId::new(
+                psk_types::objects::SortId::Dependency,
+                Digest::sha256(b"dep"),
+            ),
+            budget: psk_types::objects::BudgetSpec("bu".into()),
+            rollback: psk_types::objects::RollbackSpec("r".into()),
+            archetype: psk_types::objects::ArchetypeId::Explorer,
+            marginal_gain: psk_types::objects::Scaled {
+                schema: "psk.scaled/1.0".into(),
+                numerator: 0,
+                scale: 1,
+            },
+        }
+    }
+
+    /// Die Vorgabe woertlich: "eine Lineage, die vorhanden, aber leer
+    /// ist, ist kein Beleg." Leer und Nur-Whitespace zaehlen nicht;
+    /// Inhalt zaehlt - die Positivseite, ohne die der Test auch mit
+    /// einem Zaehler bestuende, der immer 0 liefert.
+    #[test]
+    fn an_empty_lineage_is_not_evidence() {
+        let fields = vec![
+            field_with_lineage("", "a"),
+            field_with_lineage("   ", "b"),
+            field_with_lineage("golden-run", "c"),
+            field_with_lineage("golden-run", "d"),
+        ];
+        assert_eq!(count_nonempty_lineages(&fields), 2);
+        assert_eq!(count_nonempty_lineages(&[]), 0);
+    }
 }

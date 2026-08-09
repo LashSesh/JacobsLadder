@@ -121,6 +121,12 @@ pub struct GoldenRunReport {
     /// residualisiert werden). Bei einem PASS-Bootgate kann das durchaus 0
     /// sein - siehe die beiden golden_run-Tests (PASS- und HOLD-Fall).
     pub residues_opened: usize,
+    /// Die sechs Feldidentitaeten des Laufs (Regel 32.7) - herausgegeben,
+    /// weil sie Lin_lambda tragen: FC4s Lineage-Beleg zaehlt NICHTLEERE
+    /// Lineages an realen Laufobjekten, und ein Objekt, das der Bericht
+    /// nicht enthaelt, kann nichts belegen. Dieselbe Ueberlegung, aus der
+    /// schon `residues` und der EffectToken herausgegeben wurden.
+    pub field_identities: Vec<FieldIdentity>,
     /// Der IRBundle-Kandidat dieses Laufs (Definition 14.2, Compile).
     /// `emission_class` ist HOLD - siehe psk_ir::assembly.
     pub ir_bundle: psk_types::objects::IRBundle,
@@ -1022,6 +1028,7 @@ pub fn run_golden_run(
         anchor,
         thought,
         reality,
+        field_identities,
         field_projections,
         dependency_profile,
         glue: glue_outcome,
