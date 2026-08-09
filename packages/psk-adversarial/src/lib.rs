@@ -9,8 +9,15 @@
 //! uebrigen vier haengen an Modulen spaeterer Phasen (siehe Modulkopf von
 //! `kernel`). Die Neunerliste ist damit nicht erweitert, nur teilweise
 //! realisiert.
+//!
+//! `cra` - PROPOSE_REVISION (Struktur 12.12, seit v1.0.29): verdichtet
+//! die real vorliegenden CRA-Eingaben zu genau einem RevisionProposal,
+//! fuehrt vorhandene und fehlende Eingaben getrennt (Regel 12.13).
 
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
+
+mod cra;
+pub use cra::{cra, CraInputs, ProposalInputs};
 
 mod kernel;
 pub use kernel::{

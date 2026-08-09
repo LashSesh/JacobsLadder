@@ -42,7 +42,7 @@ const FLOORS: &[(&str, usize)] = &[
     ("psk-thought", 31),
     ("psk-fields", 27),
     ("psk-dependency", 12),
-    ("psk-adversarial", 19),
+    ("psk-adversarial", 23),
     ("psk-closure", 20),
     ("psk-witness", 22),
     ("psk-gate", 20),

@@ -34,7 +34,7 @@ use crate::golden_run::{GoldenRunCertification, GoldenRunReport};
 /// Digest des Bundles vor und nach `ir_decode(ir_encode(..))`.
 /// `None` heisst: der Codec selbst scheiterte - dann ist nichts gemessen,
 /// und FC2 bekommt keinen halben Beleg.
-fn ir_round_trip(bundle: &psk_types::objects::IRBundle) -> Option<(Digest, Digest)> {
+pub(crate) fn ir_round_trip(bundle: &psk_types::objects::IRBundle) -> Option<(Digest, Digest)> {
     let encoded = psk_ir::ir_encode(bundle).ok()?;
     let decoded = psk_ir::ir_decode(&encoded).ok()?;
     let reencoded = psk_ir::ir_encode(&decoded).ok()?;
@@ -207,6 +207,17 @@ pub fn collect_feature_evidence(
 
     measure_run(&certification.first, &mut evidence);
     measure_run(&certification.second, &mut evidence);
+
+    // ---- FC7: seit dem CRA-Bau wird G-SELF-COMPILE real ausgewertet -
+    // ueber einen echten RevisionProposal aus den Laufresiduen und
+    // -obstruktionen. Der Messwert ist die Gatentscheidung selbst:
+    // Some(true) nur bei PASS. Ein HOLD/FAIL ist Some(false) - die
+    // Ableitung unterscheidet das von "nie ausgewertet" (None), und der
+    // Grund steht in den reasons des Gatberichts.
+    evidence.self_compile_gate_passed = Some(
+        certification.self_compile_gate.decision
+            == psk_types::objects::GateReportDecisionKind::Pass,
+    );
 
     // ---- FC8.
     evidence.baseline_comparison_passed = baseline.map(|b| b.kern_passes());

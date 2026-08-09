@@ -193,6 +193,14 @@ pub struct GoldenRunCertification {
     pub replay_check: psk_trace::ReplayCheck,
     pub replay_manifest: psk_types::objects::ReplayManifest,
     pub certificate: MachineCertificate,
+    /// PROPOSE_REVISION: der eine Vorschlag dieses Laufs (Struktur 12.12),
+    /// mit getrennt gefuehrten vorhandenen/fehlenden CRA-Eingaben.
+    pub revision_proposal: psk_types::objects::RevisionProposal,
+    /// G-SELF-COMPILE ueber den Vorschlag - das FC7-Artefakt. Sein
+    /// decision-Feld ist der Messwert, nicht das Ziel.
+    pub self_compile_gate: psk_types::objects::GateReport,
+    /// Die Residuen der Gateauswertung (Nicht-PASS residualisiert).
+    pub self_compile_residues: Vec<psk_types::objects::ResidueRecord>,
     /// Laufzeit NUR des ersten Laufs (`first`), getrennt von der
     /// Gesamtlaufzeit der Zertifizierung (die zusaetzlich den zweiten,
     /// nur der Replaypruefung dienenden Lauf einschliesst). Aufrufer, die
@@ -862,6 +870,168 @@ fn run_challenge(
     })
 }
 
+/// PROPOSE_REVISION plus G-SELF-COMPILE, auf Zertifizierungsebene - nach
+/// beiden Laeufen, weil die Vorbedingungen des Gates (Replay, Residuen)
+/// erst dort vollstaendig vorliegen.
+///
+/// Jede der sechs Bedingungen kommt aus einem realen Artefakt oder ist
+/// ehrlich FALSE mit benanntem Grund. Es wird nichts gesetzt, damit das
+/// Gate einen bestimmten Ausgang nimmt - faellt es, ist der Grund der
+/// Messwert.
+struct SelfCompileOutcome {
+    proposal: psk_types::objects::RevisionProposal,
+    gate_report: psk_types::objects::GateReport,
+    /// Die Residuen der Gateauswertung (Algorithmus 18.6: jede
+    /// Nicht-PASS-Entscheidung MUSS residualisiert werden) - eigenes
+    /// Ledger, weil der Schritt nach den Laeufen liegt.
+    residues: Vec<psk_types::objects::ResidueRecord>,
+}
+
+fn propose_and_evaluate_self_compile(
+    workspace_root: &Path,
+    first: &GoldenRunReport,
+    second: &GoldenRunReport,
+    replay_manifest_digest: Digest,
+    canon_profile: &str,
+) -> Result<SelfCompileOutcome, PskError> {
+    use psk_types::objects::RevisionProposalHardeningClassKind;
+
+    // ---- Die vier real vorliegenden CRA-Eingaben, je als Digest ueber
+    // dem echten Artefakt. Fork-Evidenz und Shadow-Witnesses existieren
+    // nicht und werden von cra() unter cra_inputs_absent gefuehrt.
+    let residue_bytes =
+        serde_json::to_vec(&first.residues).map_err(|_| PskError::CanonicalizationFailed)?;
+    let residue_ledger_digest =
+        psk_canon::identity_projection(&residue_bytes, psk_canon::Media::Json)?.digest();
+    let gate_policy_bytes = fs::read(workspace_root.join("constitution/gate_policy.yaml"))
+        .map_err(|_| PskError::UntypedInput)?;
+
+    // ---- Der Vorschlagsinhalt, aus Laufwerten: das Gegenmodell des
+    // Falsifikators in die stehende Negativsuite aufnehmen - die erste
+    // der sechs zugelassenen Klassen (Tests und Falsifikatoren).
+    let countermodels = crate::falsifier_countermodels(&first.contradictions);
+    let countermodel_name = countermodels
+        .first()
+        .map(|c| c.0.clone())
+        .ok_or(PskError::SelfAmendmentWithoutIdentity)?;
+
+    let identity = &first.boot_report.identity;
+    let proposal = psk_adversarial::cra(
+        psk_adversarial::CraInputs {
+            residue_ledger: Some(residue_ledger_digest),
+            replay_manifest: Some(replay_manifest_digest),
+            fork_evidence: None,
+            shadow_witnesses: None,
+            gate_policy: Some(Digest::sha256(&gate_policy_bytes)),
+            canonicalization: Some(Digest::sha256(canon_profile.as_bytes())),
+        },
+        psk_adversarial::ProposalInputs {
+            source_residues: first.residues.iter().map(|r| r.id).collect(),
+            source_evidence: first.obstructions.iter().map(|o| o.id).collect(),
+            hardening_class: RevisionProposalHardeningClassKind::TestsAndFalsifiers,
+            proposed_delta: psk_types::objects::DeltaSpec(format!(
+                "Gegenmodell {countermodel_name} als stehenden Falsifikator in die Negativsuite aufnehmen (neuer Branch, neue ID - Regel Branch statt Umschreibung)"
+            )),
+            parent_constitution: identity.I_C,
+            parent_architecture: identity.I_A,
+            parent_implementation: identity.I_M,
+            trace_ref: TraceRef(first.trace_head),
+        },
+    )?;
+
+    // check_hardening_permitted - bisher gebaut und ungerufen. Vor dem
+    // Gate prueft der Aufruf genau das, was vor dem Gate pruefbar ist:
+    // dass eine Verhaertung dieser Klasse ohne bestandenes G-SELF-COMPILE
+    // NICHT wirksam wird. Ein Ok hier waere ein Waechterdefekt.
+    if psk_adversarial::check_hardening_permitted(
+        Some(psk_adversarial::HardeningClass::TestsAndFalsifiers),
+        false,
+    )
+    .is_ok()
+    {
+        return Err(PskError::SelfAmendmentWithoutIdentity);
+    }
+
+    // ---- Die sechs Bedingungen, in der Reihenfolge des Gateregisters.
+    let parent_bound = proposal.parent_binding.constitution == identity.I_C
+        && proposal.parent_binding.architecture == identity.I_A
+        && proposal.parent_binding.implementation == identity.I_M;
+    let invariants_preserved = first.boot_gate.decision
+        == psk_types::objects::GateReportDecisionKind::Pass
+        && first.patch_gate.decision == psk_types::objects::GateReportDecisionKind::Pass
+        && second.boot_gate.decision == psk_types::objects::GateReportDecisionKind::Pass
+        && second.patch_gate.decision == psk_types::objects::GateReportDecisionKind::Pass;
+    let round_trip = crate::feature_evidence::ir_round_trip(&first.ir_bundle)
+        .map(|(a, b)| a == b)
+        .unwrap_or(false);
+    let residues_visible = !first.residues.is_empty() && !first.obstructions.is_empty();
+
+    let cond = |ok: bool, reason: &str| {
+        if ok {
+            ConditionOutcome::True
+        } else {
+            ConditionOutcome::False(ReasonCode(reason.into()))
+        }
+    };
+
+    let mut trace = TraceStore::new();
+    let mut residues = ResidueLedger::new();
+    let gate_report = evaluate_gate(
+        GateInputs {
+            gate_id: GateId::GSelfCompile,
+            order: 2,
+            input_digests: vec![proposal.id.digest],
+            conditions: vec![
+                cond(parent_bound, "Elternbindung verletzt"),
+                cond(invariants_preserved, "Invarianzerhalt verletzt"),
+                cond(round_trip, "Round-Trip des Bundles nicht verlustfrei"),
+                // Die zwei ehrlich UNENTSCHEIDBAREN: beide setzen den
+                // isolierten Kandidatenbau voraus (Algorithmus
+                // Revisionsvorschlag: build_in_isolation, getrennter
+                // Prozess), und der findet nicht statt. FALSE waere die
+                // Behauptung, die Suite sei GELAUFEN und durchgefallen -
+                // dieselbe Verwechslung von ungeprueft und widerlegt, die
+                // Regel Klassifikation-ist-eigenes-Objekt fuer die
+                // Erreichbarkeit verbietet. Undecidable fuehrt zu HOLD:
+                // "unvollstaendige, aber nicht verworfene Kandidaten".
+                // isolation_build_ref ist entsprechend None.
+                ConditionOutcome::Undecidable(ReasonCode(
+                    "kein isolierter Kandidatenbau: Negativsuite des Kandidaten nie gelaufen"
+                        .into(),
+                )),
+                ConditionOutcome::Undecidable(ReasonCode(
+                    "kein isolierter Kandidatenbau: kein Zweitprozess-Replay des Kandidaten".into(),
+                )),
+                cond(residues_visible, "keine sichtbaren Residuen"),
+            ],
+            seam_compatible: Some(first.glue.hold_reason.is_none()),
+            evidence_refs: first.obstructions.iter().map(|o| o.id).collect(),
+            seam_report_refs: vec![ObjectId::new(
+                SortId::Trace,
+                Digest::sha256(b"golden-run-effect-closure"),
+            )],
+            replay_descriptor: ReplayDescriptor("golden-run/1".into()),
+            decided_at: run_time(),
+            trace_ref: TraceRef(first.trace_head),
+        },
+        &mut trace,
+        &mut residues,
+    )?;
+
+    // gate_report_ref bleibt auf dem versiegelten Vorschlag None: das Feld
+    // ist laut Schema "gesetzt erst nach Auswertung", aber das Werk
+    // erklaert nicht, ob das Setzen die Objektidentitaet neu bildet (wie
+    // bei FieldIdentity.lifecycle) oder erhaelt (wie bei
+    // ResidueRecord.state). BEFUND, nicht hier entschieden - Vorschlag
+    // und Gatbericht werden nebeneinander publiziert, die Zuordnung
+    // traegt der Gatbericht selbst ueber input_digests.
+    Ok(SelfCompileOutcome {
+        proposal,
+        gate_report,
+        residues: residues.all().to_vec(),
+    })
+}
+
 fn evaluate_patch_gate(
     trace_ref: TraceRef,
     glue_outcome: &GlueOutcome,
@@ -1498,12 +1668,23 @@ pub fn run_golden_run_with_certificate(
         replay_manifest_digest,
     )?;
 
+    let self_compile = propose_and_evaluate_self_compile(
+        workspace_root,
+        &first,
+        &second,
+        replay_manifest_digest,
+        &run_descriptor.canon.0,
+    )?;
+
     Ok(GoldenRunCertification {
         first,
         second,
         replay_check: check,
         replay_manifest,
         certificate,
+        revision_proposal: self_compile.proposal,
+        self_compile_gate: self_compile.gate_report,
+        self_compile_residues: self_compile.residues,
         first_run_wall_clock,
     })
 }
@@ -1773,6 +1954,45 @@ mod tests {
             MachineCertificateReplayClassKind::R3
         );
         assert_eq!(result.certificate.I_C, Digest::sha256(b"golden-run-i-c"));
+
+        // PROPOSE_REVISION + G-SELF-COMPILE: der Vorschlag ist echt (vier
+        // von sechs CRA-Eingaben vorhanden, zwei benannt fehlend), und
+        // die Gatentscheidung ist der MESSWERT: HOLD, weil der isolierte
+        // Kandidatenbau nicht stattfindet - die reasons benennen genau
+        // das. Ein PASS hier waere ein Befund gegen die Bedingungen, kein
+        // Erfolg.
+        assert_eq!(result.revision_proposal.cra_inputs_present.len(), 4);
+        assert_eq!(
+            result.revision_proposal.cra_inputs_absent,
+            vec![
+                psk_types::objects::CRAInputId::ForkEvidence,
+                psk_types::objects::CRAInputId::ShadowWitnesses
+            ]
+        );
+        assert!(!result.revision_proposal.source_residues.is_empty());
+        assert!(!result.revision_proposal.source_evidence.is_empty());
+        assert_ne!(
+            result.revision_proposal.candidate_id.digest, result.first.boot_report.identity.I_M,
+            "der Kandidat DARF NICHT die aktive Instanz sein (PSK-E012)"
+        );
+        assert_eq!(
+            result.self_compile_gate.decision,
+            psk_types::objects::GateReportDecisionKind::Hold,
+            "HOLD am fehlenden isolierten Kandidatenbau - der gemessene Ausgang"
+        );
+        assert!(
+            result
+                .self_compile_gate
+                .reasons
+                .iter()
+                .any(|r| r.0.contains("isolierter Kandidatenbau")),
+            "der Grund MUSS den fehlenden Kandidatenbau benennen: {:?}",
+            result.self_compile_gate.reasons
+        );
+        assert!(
+            !result.self_compile_residues.is_empty(),
+            "eine Nicht-PASS-Entscheidung MUSS residualisiert sein (Algorithmus 18.6)"
+        );
 
         fs::remove_dir_all(&sandbox).ok();
     }
