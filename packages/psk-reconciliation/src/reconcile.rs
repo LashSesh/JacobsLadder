@@ -343,6 +343,81 @@ mod tests {
         }
     }
 
+    /// Ist das Feuern der UNKNOWN-Sperre aus dem Bericht ALLEIN
+    /// erkennbar - ohne Quellzugriff, nur aus den Artefakten?
+    ///
+    /// Die Frage entscheidet, ob FC3 ueberhaupt messbar ist. Ein Beleg
+    /// dafuer, dass "die Promotionssperre je griff", ist wertlos, wenn ein
+    /// Beobachter den gesperrten Fall nicht vom Fall "es war nichts zu
+    /// promovieren" unterscheiden kann - beide schreiben `NONE` in
+    /// dasselbe Feld.
+    ///
+    /// Der Test zaehlt die Faelle vollstaendig auf, statt die Antwort aus
+    /// dem Code zu lesen: `intended` ist genau bei `Verdict::Unknown`
+    /// gleich NONE. Also gilt
+    ///
+    ///     verdict != UNKNOWN  UND  fact_promotion == NONE   <=>   die Sperre griff
+    ///
+    /// und das Paar (verdict, fact_promotion) traegt die Unterscheidung.
+    #[test]
+    fn a_barred_promotion_is_distinguishable_from_nothing_to_promote() {
+        let diffs = || {
+            vec![
+                ("Empty", DiffOutcome::Empty),
+                (
+                    "WithinTolerance",
+                    DiffOutcome::WithinDeclaredTolerance(DiffTree("d".into())),
+                ),
+                ("Explicable", DiffOutcome::Explicable(DiffTree("d".into()))),
+                (
+                    "Contradictory",
+                    DiffOutcome::Contradictory(DiffTree("d".into())),
+                ),
+                ("ReceiptsInsufficient", DiffOutcome::ReceiptsInsufficient),
+            ]
+        };
+
+        // Ohne Sperre: fact_promotion == NONE genau dann, wenn der
+        // Verdict UNKNOWN ist.
+        for (name, diff) in diffs() {
+            let inputs = base_inputs(diff);
+            let mut ledger = ResidueLedger::new();
+            let r = reconcile(inputs, &mut ledger).expect(name);
+            assert_eq!(
+                r.fact_promotion == Promotion::None,
+                r.verdict == Verdict::Unknown,
+                "ohne Sperre ({name}): NONE MUSS genau UNKNOWN entsprechen"
+            );
+        }
+
+        // Mit Sperre: fact_promotion == NONE fuer JEDEN Verdict - und
+        // damit auch fuer solche, die ohne Sperre nie NONE ergaeben.
+        let mut barred_with_non_unknown_verdict = 0;
+        for (name, diff) in diffs() {
+            let mut inputs = base_inputs(diff);
+            inputs.subject_reality_status = RealityStatus::Unknown;
+            let mut ledger = ResidueLedger::new();
+            let r = reconcile(inputs, &mut ledger).expect(name);
+            assert_eq!(
+                r.fact_promotion,
+                Promotion::None,
+                "mit Sperre ({name}) MUSS jede Promotion auf NONE fallen"
+            );
+            if r.verdict != Verdict::Unknown {
+                barred_with_non_unknown_verdict += 1;
+            }
+        }
+
+        // Der eigentliche Punkt: es gibt Faelle, in denen das Paar
+        // (verdict, fact_promotion) NUR durch die Sperre zustande kommt.
+        // Ohne diese Zusicherung koennte der Test bestehen, obwohl die
+        // Sperre unsichtbar bliebe.
+        assert!(
+            barred_with_non_unknown_verdict >= 4,
+            "die Sperre MUSS in Faellen sichtbar werden, die ohne sie nie NONE ergaeben              (gefunden: {barred_with_non_unknown_verdict})"
+        );
+    }
+
     #[test]
     fn plan_digest_mismatch_fails_before_any_report() {
         let mut inputs = base_inputs(DiffOutcome::Empty);
