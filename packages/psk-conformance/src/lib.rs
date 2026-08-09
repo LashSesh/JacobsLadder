@@ -16,6 +16,11 @@ pub use baselines::{run_baseline_comparison, BaselineComparison, BaselineMetrics
 mod feature_evidence;
 pub use feature_evidence::collect_feature_evidence;
 
+mod ir_assembly;
+pub use ir_assembly::{
+    build_node, edge, edge_census, load_port_matrix, load_reference_domain_profile, NodeEnvelope,
+};
+
 mod reports;
 pub use reports::{aggregate_reports, AggregatedReports, Report};
 

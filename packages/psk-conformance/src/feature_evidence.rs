@@ -12,9 +12,10 @@
 //! Test ZEIGT. Die Unterscheidung ist nicht kosmetisch: ein Test belegt
 //! eine Eigenschaft des Codes, ein Laufartefakt belegt, dass die
 //! Eigenschaft im zertifizierten Betrieb auch zur Anwendung kam. Das
-//! Zertifikat behauptet Zweiteres. An zwei Stellen faellt die
-//! Unterscheidung ins Gewicht (FC2, FC3) - beide sind unten am Messpunkt
-//! selbst vermerkt, damit die kuerzere Antwort ihren Grund mitbringt.
+//! Zertifikat behauptet Zweiteres. Seit v1.0.24 faellt die Unterscheidung
+//! nur noch bei FC3 ins Gewicht - FC2 hat mit dem realen
+//! IRBundle-Kandidaten ein Laufartefakt bekommen. Der Messpunkt vermerkt
+//! es unten selbst, damit die kuerzere Antwort ihren Grund mitbringt.
 //!
 //! Diese Datei erfindet keine Zaehlung, die der Lauf nicht liefert. Wo ein
 //! Feld 0 oder `None` bleibt, ist das der Messwert, nicht eine Luecke im
@@ -25,6 +26,16 @@ use psk_types::Digest;
 
 use crate::baselines::BaselineComparison;
 use crate::golden_run::{GoldenRunCertification, GoldenRunReport};
+
+/// Digest des Bundles vor und nach `ir_decode(ir_encode(..))`.
+/// `None` heisst: der Codec selbst scheiterte - dann ist nichts gemessen,
+/// und FC2 bekommt keinen halben Beleg.
+fn ir_round_trip(bundle: &psk_types::objects::IRBundle) -> Option<(Digest, Digest)> {
+    let encoded = psk_ir::ir_encode(bundle).ok()?;
+    let decoded = psk_ir::ir_decode(&encoded).ok()?;
+    let reencoded = psk_ir::ir_encode(&decoded).ok()?;
+    Some((Digest::sha256(&encoded), Digest::sha256(&reencoded)))
+}
 
 /// Der deklarierte und der nachgerechnete Wert, sofern beides vorliegt.
 fn identity_pair(stored: Option<&str>, computed: Digest) -> Option<(Digest, Digest)> {
@@ -125,12 +136,12 @@ pub fn collect_feature_evidence(
             gate_sequence_match: certification.replay_check.gate_sequence_match,
         }),
 
-        // FC2, erste Haelfte: `ir_bundle_round_trip` bleibt `None`.
-        // `psk_ir::compile_ir_bundle` ist ein dokumentierter Stub mit
-        // Rueckgabetyp `!` - in keinem Lauf entsteht ein IRBundle, also
-        // gibt es auch keines, das man durch ir_encode/ir_decode schicken
-        // koennte. T-IR-001 rundet ein von Hand gebautes Testbundle ab und
-        // belegt damit den Codec, nicht das System.
+        // FC2, erste Haelfte: seit v1.0.24 bringt der Lauf einen echten
+        // IRBundle-Kandidaten hervor (Definition 14.2, Compile). Der
+        // Round-Trip wird an DIESEM Artefakt gemessen, nicht an einem
+        // Fixture - T-IR-001 belegt den Codec, dieser Messpunkt belegt das
+        // System.
+        ir_bundle_round_trip: ir_round_trip(&certification.first.ir_bundle),
         ..Default::default()
     };
 

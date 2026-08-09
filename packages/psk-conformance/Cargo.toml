@@ -12,6 +12,7 @@ psk-anchor = { path = "../psk-anchor" }
 psk-thought = { path = "../psk-thought" }
 psk-fields = { path = "../psk-fields" }
 psk-topology = { path = "../psk-topology" }
+psk-ir = { path = "../psk-ir" }
 psk-dependency = { path = "../psk-dependency" }
 psk-closure = { path = "../psk-closure" }
 psk-witness = { path = "../psk-witness" }
@@ -26,6 +27,7 @@ effect-local-fs = { path = "../../adapters/effect-local-fs" }
 observer-local-fs = { path = "../../adapters/observer-local-fs" }
 verify-bundle = { path = "../../tools/verify-bundle" }
 verify-architecture = { path = "../../tools/verify-architecture" }
+serde = { workspace = true }
 serde_json = "1"
 serde_yaml = { workspace = true }
 jsonschema = "0.35"

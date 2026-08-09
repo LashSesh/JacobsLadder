@@ -1,0 +1,114 @@
+# Domaenenprofil der Referenzdomaene: die Kantenbedingungen je
+# RelationSortId (Regel 10.8, PSK-RA v1.0.24).
+#
+# ## Warum diese Datei NICHT unter architecture/ liegt
+#
+# Regel 10.8: preconditions und postconditions sind vom Typ PredicateExpr
+# und damit domaenengeliefert. Vertrag 27.2 fuehrt PredicateExpr unter den
+# domain_supplied_opaque-Typen und sagt zu deren Herkunft: "Die
+# Entscheidung ist getroffen und lautet: extern."
+#
+# architecture/ ist der versiegelte Architekturkoerper, aus dem I_A
+# entsteht. Laege diese Datei dort, waeren die Praedikate der Domaene Teil
+# der Identitaet des Kerns - genau die Vermischung, die Regel 10.8
+# ausschliesst. Sie liegt deshalb ausserhalb und wird ueber
+# RunDescriptor.input_digests ("versiegelte Eingaben") an den Lauf
+# gebunden; damit ist ein Replay an dasselbe Profil gebunden, ohne dass
+# das Schema des RunDescriptor sich aendern muss.
+#
+# ## Was hier steht und was nicht
+#
+# Die Sorten-Port-Matrix (architecture/sort_registry.yaml) sagt, WELCHE
+# Relation zwischen zwei Sorten zulaessig ist - 23 Tripel. Diese Datei
+# sagt fuer die Relationen, die die Referenzdomaene tatsaechlich
+# verwendet, WAS sie voraussetzt und zusichert.
+#
+# Die uebrigen 16 Relationssorten sind bewusst NICHT deklariert. Fuer sie
+# entsteht keine Kante, sondern ein ResidueRecord des Typs scope - wie bei
+# der nicht anwendbaren Spektrallinse. "Ein leerer oder lueckenhafter
+# Graph ist ein ehrlicher Messwert; ein vollstaendiger Graph mit
+# erfundenen Bedingungen ist keiner."
+#
+# Kein Praedikat hier ist stets wahr. Regel 10.8 nennt das ausdruecklich
+# einen Konformitaetsdefekt, und `no_predicate_is_trivially_true` in
+# psk-ir prueft es mechanisch.
+schema: psk.domain-profile/1.0
+domain: jacobs-ladder-reference
+
+edge_conditions:
+  # S-ANC -> S-CTX. Belegt durch ThoughtBody.anchor_refs.
+  - relation_sort: grounds
+    preconditions:
+      - "anchor.sealed_at ist gebunden und anchor.observations ist nicht leer"
+      - "thought.anchor_refs enthaelt anchor.id"
+    postconditions:
+      - "thought traegt den Realitaetshorizont des Ankers, nicht einen eigenen"
+
+  # S-ANC -> S-HOR. Belegt durch RealityClassification.anchor_ref.
+  - relation_sort: defines
+    preconditions:
+      - "classification.anchor_ref == anchor.id"
+    postconditions:
+      - "der Realitaetsstatus gilt relativ zu genau diesem Anker"
+
+  # S-FLD -> S-PRJ. Belegt durch FieldProjection.field_ref.
+  - relation_sort: projects
+    preconditions:
+      - "field.lifecycle == ACTIVE"
+      - "projection.field_ref == field.id"
+    postconditions:
+      - "projection.visible ist nicht leer (Regel 7.15)"
+      - "projection veraendert reality_status und facticity des Urbildes nicht (Regel 7.14)"
+
+  # S-PRJ -> S-DEP. Belegt durch DependencyProfile.quotient_classes.
+  - relation_sort: shares_source
+    preconditions:
+      - "projection.id erscheint in genau einer Klasse von profile.quotient_classes"
+    postconditions:
+      - "profile.effective_rank zaehlt diese Projektion hoechstens einmal"
+
+  # S-GAT -> S-CAP. Belegt durch EffectToken.gate_report_ref.
+  - relation_sort: authorizes
+    preconditions:
+      - "gate.decision == PASS"
+      - "token.gate_report_ref == gate.id"
+    postconditions:
+      - "token.scope ist im scope des Gates enthalten"
+
+  # S-CAP -> S-EFF. Belegt durch EffectAttempt.token_ref.
+  - relation_sort: permits
+    preconditions:
+      - "attempt.token_ref == token.id"
+      - "token ist zum Versuchszeitpunkt nicht konsumiert"
+    postconditions:
+      - "attempt.scope ist im scope des Tokens enthalten"
+
+  # S-RCP -> S-RCN. Belegt durch ReconciliationReport.receipt_refs.
+  - relation_sort: feeds
+    preconditions:
+      - "reconciliation.receipt_refs enthaelt receipt.id"
+      - "receipt.observer_adapter != der Adapter des zugehoerigen Versuchs"
+    postconditions:
+      - "die Faktpromotion stuetzt sich auf dieses Receipt, nicht auf den Versuch"
+
+# BEWUSST NICHT deklariert, mit Grund - damit die Auslassung selbst
+# nachlesbar ist und nicht als Vergesslichkeit erscheint:
+#
+#   observed_by (S-EFF -> S-RCP): ExternalReceipt traegt per Struktur 7.33
+#     KEINE ObjectId-Referenz auf den Versuch - der Beobachter ist
+#     unabhaengig und sieht den Versuch nie. Eine Kante hier waere eine
+#     Verknuepfung, die kein Objekt festhaelt: dieselbe Sorte Erfindung,
+#     die Regel 10.8 fuer Praedikate verbietet.
+#
+#   quotients (S-DEP -> S-WIT), supports (S-WIT -> S-GAT): der
+#     Referenzlauf erzeugt kein EvidenceObject.
+#
+#   scopes, enables, yields, emits, records, views, promotes, blocks,
+#     bounds: setzen S-STA/S-TRN/S-EVT voraus; unter diesen Sorten wird im
+#     gesamten Workspace kein Objekt gepraegt.
+#
+#   forks, rebinds: setzen S-BRN voraus (CandidateCapsule); M24 laeuft im
+#     Referenzlauf nicht mit.
+#
+#   opens (S-GAT -> S-RES), preserves (S-TRC -> S-RES): der PASS-Lauf
+#     eroeffnet keine Residuen.

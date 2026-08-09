@@ -63,7 +63,7 @@ use psk_trace::{ResidueLedger, SegmentInputs, TraceStore};
 use psk_types::objects::{
     AnchorSnapshot, ArchetypeId, BoundarySpec, BudgetSpec, CapabilityId, Claim,
     ClaimDirectionalityKind, ClaimExpr, ConsequenceRef, ContextRef, DependencyProfile,
-    DependencyProfileConsensusScopeKind, DomainExpr, EffectAttempt, EffectClassId,
+    DependencyProfileConsensusScopeKind, DomainExpr, EffectAttempt, EffectClassId, EffectToken,
     EffectTokenRollbackKind, EventTypeId, ExternalReceipt, FeatureCoverageId, FieldIdentity,
     FieldProjection, GateId, IRNodeId, Lineage, M13Address, MachineCertificate,
     MachineCertificateReplayClassKind, ModelRef, ObligationExpr, Observation, OpId, PredicateExpr,
@@ -121,6 +121,22 @@ pub struct GoldenRunReport {
     /// residualisiert werden). Bei einem PASS-Bootgate kann das durchaus 0
     /// sein - siehe die beiden golden_run-Tests (PASS- und HOLD-Fall).
     pub residues_opened: usize,
+    /// Der IRBundle-Kandidat dieses Laufs (Definition 14.2, Compile).
+    /// `emission_class` ist HOLD - siehe psk_ir::assembly.
+    pub ir_bundle: psk_types::objects::IRBundle,
+    /// Regel 10.8: je Relationssorte ohne Deklaration im Domaenenprofil
+    /// ein ResidueRecord(scope).
+    ///
+    /// BEWUSST getrennt von `residues`: jene sind Gate-Residuen
+    /// (Algorithmus 18.6, "jede Nicht-PASS-Entscheidung MUSS
+    /// residualisiert werden"), diese halten eine fehlende
+    /// Domaenendeklaration fest. Beides in einen Topf zu werfen wuerde
+    /// zwei verschiedene Bedeutungen vermengen - und die Aussage von
+    /// `residues_opened == 0` ("ein vollstaendig PASSender Lauf darf
+    /// nichts residualisieren") zerstoeren, obwohl sie zutreffend bleibt.
+    pub ir_scope_residues: Vec<psk_types::objects::ResidueRecord>,
+    /// Jede nicht gebaute Kante mit Grund.
+    pub ir_omissions: Vec<psk_ir::EdgeOmission>,
     /// Die Residuensaetze selbst, nicht nur ihre Anzahl - Eingabe des
     /// `residue_report_digest`, das Struktur 7.46 als einen der vier
     /// Berichtsdigests verlangt. Ein Bericht ueber eine Zahl waere keiner.
@@ -293,7 +309,11 @@ fn classify_thought_reality(
 fn run_static_field_family(
     anchor: &AnchorSnapshot,
     reality_status: RealityStatus,
-) -> Result<Vec<FieldProjection>, PskError> {
+) -> Result<(Vec<FieldIdentity>, Vec<FieldProjection>), PskError> {
+    // Die Identitaeten werden mit herausgegeben, nicht mehr verworfen:
+    // Lin_lambda sitzt auf FieldIdentity, und `projects` (S-FLD -> S-PRJ)
+    // braucht sie als Quellknoten.
+    let mut fields = Vec::new();
     let mut projections = Vec::new();
     for (i, archetype) in ArchetypeId::ALL.into_iter().enumerate() {
         let field = register_field(
@@ -325,8 +345,9 @@ fn run_static_field_family(
             },
         )?;
         projections.push(project_field(&field, anchor, reality_status, i)?);
+        fields.push(field);
     }
-    Ok(projections)
+    Ok((fields, projections))
 }
 
 fn project_field(
@@ -354,6 +375,185 @@ fn project_field(
         LensOutcome::Projected(projection) => Ok(projection),
         LensOutcome::NotApplicable(_residue) => Err(PskError::FieldProjectionUndefined),
     }
+}
+
+/// Compile (Definition 14.2): den IRBundle-Kandidaten aus den realen
+/// Objekten dieses Laufs bauen.
+///
+/// Knoten entstehen nur fuer Sorten, die `psk_topology::place` ohne eine
+/// Traegerzelle platzieren kann (Regel 9.10 Punkte 1-3). Die
+/// zellgebundenen Sorten S-GAT/S-TRC/S-WIT/S-RES (Punkt 4) bleiben aussen
+/// vor - siehe den Kopfkommentar von `ir_assembly`.
+///
+/// Kanten entstehen nur, wo ein reales Objektfeld die Verknuepfung
+/// festhaelt. `observed_by` (S-EFF -> S-RCP) ist deshalb NICHT dabei:
+/// ExternalReceipt traegt per Struktur 7.33 keine Referenz auf den
+/// Versuch - der Beobachter ist unabhaengig und sieht ihn nie. Eine Kante
+/// dort waere eine Verknuepfung, die kein Objekt bezeugt.
+#[allow(clippy::too_many_arguments)]
+fn assemble_run_ir_bundle(
+    workspace_root: &std::path::Path,
+    anchor: &AnchorSnapshot,
+    thought: &ThoughtBody,
+    reality: &RealityClassification,
+    field_identities: &[FieldIdentity],
+    field_projections: &[FieldProjection],
+    dependency_profile: &DependencyProfile,
+    token_obj: &EffectToken,
+    attempt: &EffectAttempt,
+    receipt: &ExternalReceipt,
+    reconciliation: &ReconciliationReport,
+    boot_report: &psk_contract::BootReport,
+    trace_head: Digest,
+) -> Result<psk_ir::AssemblyOutcome, PskError> {
+    use crate::ir_assembly::{build_node, edge, NodeEnvelope};
+    use psk_types::objects::{RelationSortId, SortId};
+
+    let trace_ref = TraceRef(trace_head);
+    let env = NodeEnvelope {
+        // Der einzige reale ContextRef des Laufs - er sitzt auf dem Anker,
+        // und in genau diesem Kontext sind alle uebrigen Objekte entstanden.
+        context: anchor.context.clone(),
+        // Dieselbe Lineage, die der Lauf an ThoughtBody und FieldIdentity
+        // bereits deklariert (nicht hier erfunden).
+        lineage: Lineage("golden-run".into()),
+        reality_status: reality.reality_status,
+        facticity: thought.facticity,
+        anchor_ref: anchor.id,
+        trace_ref,
+    };
+
+    let mut nodes = Vec::new();
+    nodes.push(build_node(anchor, anchor.id, SortId::Anchor, &env)?);
+    nodes.push(build_node(thought, thought.id, SortId::Context, &env)?);
+    nodes.push(build_node(reality, reality.id, SortId::Horizon, &env)?);
+    for f in field_identities {
+        nodes.push(build_node(f, f.id, SortId::FieldIdentity, &env)?);
+    }
+    for p in field_projections {
+        nodes.push(build_node(p, p.id, SortId::Projection, &env)?);
+    }
+    nodes.push(build_node(
+        dependency_profile,
+        dependency_profile.id,
+        SortId::Dependency,
+        &env,
+    )?);
+    nodes.push(build_node(
+        token_obj,
+        token_obj.id,
+        SortId::Capability,
+        &env,
+    )?);
+    nodes.push(build_node(attempt, attempt.id, SortId::Effect, &env)?);
+    nodes.push(build_node(receipt, receipt.id, SortId::Receipt, &env)?);
+    nodes.push(build_node(
+        reconciliation,
+        reconciliation.id,
+        SortId::Reconciliation,
+        &env,
+    )?);
+
+    let mut candidates = Vec::new();
+    // grounds: ThoughtBody.anchor_refs enthaelt anchor.id.
+    if thought.anchor_refs.contains(&anchor.id) {
+        candidates.push(edge(
+            anchor.id,
+            thought.id,
+            RelationSortId::Grounds,
+            "ThoughtBody.anchor_refs",
+            trace_ref,
+        ));
+    }
+    // defines: RealityClassification.anchor_ref == anchor.id.
+    if reality.anchor_ref == anchor.id {
+        candidates.push(edge(
+            anchor.id,
+            reality.id,
+            RelationSortId::Defines,
+            "RealityClassification.anchor_ref",
+            trace_ref,
+        ));
+    }
+    // projects: FieldProjection.field_ref == field.id.
+    for p in field_projections {
+        if let Some(f) = field_identities.iter().find(|f| f.id == p.field_ref) {
+            candidates.push(edge(
+                f.id,
+                p.id,
+                RelationSortId::Projects,
+                "FieldProjection.field_ref",
+                trace_ref,
+            ));
+        }
+    }
+    // shares_source: die Projektion steht in einer Quotientenklasse.
+    for p in field_projections {
+        if dependency_profile
+            .quotient_classes
+            .iter()
+            .any(|class| class.contains(&p.id))
+        {
+            candidates.push(edge(
+                p.id,
+                dependency_profile.id,
+                RelationSortId::SharesSource,
+                "DependencyProfile.quotient_classes",
+                trace_ref,
+            ));
+        }
+    }
+    // authorizes: EffectToken.gate_report_ref. Deklariert und belegt -
+    // aber der GateReport traegt keinen Knoten (zellgebunden), also
+    // entsteht keine Kante, sondern EndpointMissing. Der Kandidat wird
+    // trotzdem vorgelegt, damit die Luecke im Bericht erscheint statt
+    // stillschweigend zu fehlen.
+    candidates.push(edge(
+        token_obj.gate_report_ref,
+        token_obj.id,
+        RelationSortId::Authorizes,
+        "EffectToken.gate_report_ref",
+        trace_ref,
+    ));
+    // permits: EffectAttempt.token_ref == token.id.
+    if attempt.token_ref == token_obj.id {
+        candidates.push(edge(
+            token_obj.id,
+            attempt.id,
+            RelationSortId::Permits,
+            "EffectAttempt.token_ref",
+            trace_ref,
+        ));
+    }
+    // feeds: ReconciliationReport.receipt_refs enthaelt receipt.id.
+    if reconciliation.receipt_refs.contains(&receipt.id) {
+        candidates.push(edge(
+            receipt.id,
+            reconciliation.id,
+            RelationSortId::Feeds,
+            "ReconciliationReport.receipt_refs",
+            trace_ref,
+        ));
+    }
+
+    psk_ir::assemble_ir_bundle(psk_ir::AssemblyInputs {
+        version: psk_types::objects::SemVer("1.0.0".into()),
+        constitution_id: boot_report.identity.I_C,
+        nodes,
+        edge_candidates: candidates,
+        declarations: &crate::ir_assembly::load_reference_domain_profile(workspace_root)?,
+        port_matrix: &crate::ir_assembly::load_port_matrix(workspace_root)?,
+        anchor_refs: vec![anchor.id],
+        field_projections: field_projections.iter().map(|p| p.id).collect(),
+        dependencies: dependency_profile.id,
+        // Kein EvidenceObject im Referenzlauf (siehe ir_assembly).
+        witnesses: Vec::new(),
+        residues: Vec::new(),
+        gate_reports: Vec::new(),
+        trace_ref,
+        opened_at: run_time(),
+        scope: ScopeExpr("jacobs-ladder-reference".into()),
+    })
 }
 
 /// Schritt 6: Abhaengigkeiten quotieren und die sechs Projektionen
@@ -437,7 +637,7 @@ fn issue_and_execute(
     scope_file: &str,
     content: &str,
     trace_ref: TraceRef,
-) -> Result<(GateAuthorization, EffectAttempt), PskError> {
+) -> Result<(GateAuthorization, EffectToken, EffectAttempt), PskError> {
     let auth = authorize(patch_gate)?;
     let token = issue_token(
         &auth,
@@ -499,7 +699,10 @@ fn issue_and_execute(
     child.shutdown()?;
 
     let _ = trace_ref;
-    Ok((auth, attempt))
+    // Der EffectToken wird mit herausgegeben, nicht mehr verworfen: er ist
+    // der einzige S-CAP-Knoten des Laufs und Zielpunkt von `authorizes`
+    // wie Quellpunkt von `permits`.
+    Ok((auth, token, attempt))
 }
 
 /// Schritt 11: unabhaengiger Beobachter liest den Dateibaum; ExternalReceipt
@@ -702,7 +905,8 @@ pub fn run_golden_run(
     )?;
     let _ = after_reality;
 
-    let field_projections = run_static_field_family(&anchor, reality.reality_status)?;
+    let (field_identities, field_projections) =
+        run_static_field_family(&anchor, reality.reality_status)?;
     let after_fields = record(
         &mut trace,
         "field-family.projected",
@@ -738,7 +942,7 @@ pub fn run_golden_run(
 
     let scope_file = "golden-run-patch.txt";
     let content = "hello golden run";
-    let (token_authorization, attempt) = issue_and_execute(
+    let (token_authorization, effect_token, attempt) = issue_and_execute(
         &patch_gate,
         sandbox_root,
         scope_file,
@@ -779,6 +983,27 @@ pub fn run_golden_run(
     )?;
     let _ = after_reconciliation;
 
+    // Compile (Definition 14.2, M10+M23): "IRBundle als Kandidat
+    // vorhanden." Der Schritt steht hier und nicht direkt nach dem
+    // Abhaengigkeitsquotienten, weil die Endpunkte von `permits` und
+    // `feeds` erst jetzt existieren - ein frueherer Zusammenbau haette
+    // dieselben Kanten nur weglassen muessen.
+    let ir = assemble_run_ir_bundle(
+        workspace_root,
+        &anchor,
+        &thought,
+        &reality,
+        &field_identities,
+        &field_projections,
+        &dependency_profile,
+        &effect_token,
+        &attempt,
+        &receipt,
+        &reconciliation,
+        &boot_report,
+        trace.head(),
+    )?;
+
     Ok(GoldenRunReport {
         boot_gate,
         boot_report,
@@ -797,6 +1022,9 @@ pub fn run_golden_run(
         trace_head: trace.head(),
         residues_opened: residues.all().len(),
         residues: residues.all().to_vec(),
+        ir_bundle: ir.bundle,
+        ir_scope_residues: ir.residues,
+        ir_omissions: ir.omissions,
     })
 }
 
