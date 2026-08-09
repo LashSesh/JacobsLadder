@@ -1,4 +1,4 @@
-//! Sigma (Definition 13.1 / CPSK-Vertrag Definition 5.2): der volle
+//! Sigma (Definition 13.1 / CPSK-Vertrag CPSK Definition 5.2): der volle
 //! Laufzustand, den `tick()` durch die zwoelf Phasen traegt.
 //!
 //! `constitution/type_registry.yaml` (TY-SIGT) und die Referenzarchitektur

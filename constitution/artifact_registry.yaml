@@ -1,7 +1,7 @@
 # Quelle: CPSK_Konstitutioneller_Maschinenvertrag.md
 # - Datei-/Verzeichnisliste: Kapitel 41 "Bundle-Struktur", Zeilen 803-831
 #   (Listing 41.1 "Kanonische Bundle-Struktur", Zeilen 805-828, unter
-#   psk-constitution/; Vertrag 41.1, Zeilen 829-831).
+#   psk-constitution/; CPSK Vertrag 41.1, Zeilen 829-831).
 # - Rang/Funktion je Artefakt: Zeilen 88-98, Tabelle "Artefakt Rang Funktion"
 #   im Abschnitt "Dokumenten- und Artefaktstatus".
 #
@@ -20,7 +20,7 @@
 # constitution.yaml; "Typen, Schemata, Automaten"; "Invarianten und Gates";
 # "Proof Obligations und Tests"; "Verifier und Golden Run"), steht
 # zuordnung: explizit. Wo ein Eintrag keiner Zeile woertlich entspricht, aber
-# laut Definition 40.2 (Kapitel 40) zur Menge der "normativen Dateien" gehoert,
+# laut CPSK Definition 40.2 (Kapitel 40) zur Menge der "normativen Dateien" gehoert,
 # aus denen die Konstitutions-ID gebildet wird - bestaetigt durch das bereits
 # vorliegende constitution/constitution.lock.json (Feld normative_files) und
 # constitution/constitution.yaml (Feld normative_precedence) -, steht
@@ -50,7 +50,7 @@ rang_definitionen:
   - rang: normative Projektion
     funktion: "Menschlich lesbare Verfassung und Container des Bundles."
     beleg: "Zeile 97"
-    hinweis: "Betrifft das PDF. Laut Vertrag 41.1 traegt das PDF das Bundle als
+    hinweis: "Betrifft das PDF. Laut CPSK Vertrag 41.1 traegt das PDF das Bundle als
       eingebettete Anlage, ist selbst aber kein Eintrag von Listing 41.1 - daher
       kein files-Eintrag mit diesem Rang in dieser Datei."
   - rang: Referenzwerkzeug
@@ -124,7 +124,7 @@ files:
     zuordnung: abgeleitet
     beleg: "Kein woertliches Match in Zeile 88-98 (Operatoren werden dort nicht
       als eigene Kategorie genannt); generische normativ-Zuordnung ueber
-      Definition 40.2 (Konstitutions-ID): Menge normativer Dateien; in constitution.lock.json
+      CPSK Definition 40.2 (Konstitutions-ID): Menge normativer Dateien; in constitution.lock.json
       (normative_files) und constitution.yaml (normative_precedence) gefuehrt."
     present_in_repo: true
 
@@ -160,7 +160,7 @@ files:
     rang: normativ
     zuordnung: abgeleitet
     beleg: "Kein woertliches Match in Zeile 88-98; generische normativ-Zuordnung
-      ueber Definition 40.2; in constitution.lock.json (normative_files) und
+      ueber CPSK Definition 40.2; in constitution.lock.json (normative_files) und
       constitution.yaml (normative_precedence) gefuehrt."
     present_in_repo: true
 
@@ -170,7 +170,7 @@ files:
     zuordnung: abgeleitet
     beleg: "Kein woertliches Match in Zeile 88-98 (Kapitel 35 'Trust Boundaries
       und Capabilities' ist nicht Teil dieser Tabelle); generische
-      normativ-Zuordnung ueber Definition 40.2; in constitution.lock.json
+      normativ-Zuordnung ueber CPSK Definition 40.2; in constitution.lock.json
       (normative_files) und constitution.yaml (normative_precedence) gefuehrt."
     present_in_repo: true
 
@@ -179,7 +179,7 @@ files:
     rang: normativ
     zuordnung: abgeleitet
     beleg: "Kein woertliches Match in Zeile 88-98; generische normativ-Zuordnung
-      ueber Definition 40.2; in constitution.lock.json (normative_files) und
+      ueber CPSK Definition 40.2; in constitution.lock.json (normative_files) und
       constitution.yaml (normative_precedence) gefuehrt."
     present_in_repo: true
 
@@ -188,8 +188,8 @@ files:
     rang: normativ
     zuordnung: abgeleitet
     beleg: "Kein woertliches Match in Zeile 88-98 (thematisch naeher an Kapitel
-      43 'Register und Referenzen', Definition 43.1 Requirement Coverage, nicht
-      Teil dieser Tabelle); generische normativ-Zuordnung ueber Definition 40.2;
+      43 'Register und Referenzen', CPSK Definition 43.1 Requirement Coverage, nicht
+      Teil dieser Tabelle); generische normativ-Zuordnung ueber CPSK Definition 40.2;
       in constitution.lock.json (normative_files) und constitution.yaml
       (normative_precedence) gefuehrt."
     present_in_repo: true
@@ -208,7 +208,7 @@ files:
     rang: normativ
     zuordnung: abgeleitet
     beleg: "Kein woertliches Match in Zeile 88-98; generische normativ-Zuordnung
-      ueber Definition 40.2; in constitution.lock.json (normative_files) und
+      ueber CPSK Definition 40.2; in constitution.lock.json (normative_files) und
       constitution.yaml (normative_precedence) gefuehrt."
     present_in_repo: true
 

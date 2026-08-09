@@ -16,7 +16,7 @@ schema: psk.capability-matrix/1.0
 # Zeile 739-741, nicht neu hinzugefuegte Regeln.
 
 least_privilege_axiom:
-  ref: "Axiom 35.1"
+  ref: "CPSK Axiom 35.1"
   name: "Least Privilege"
   # Zeilen 739-741, woertlich:
   text: >-
@@ -29,10 +29,10 @@ count: 3
 explicit_denials:
   - role: Feldidentität
     forbidden_action: Fakten aktualisieren
-    reason: "Axiom 35.1 (Least Privilege): Eine Rolle erhält nur die minimal erforderlichen Fähigkeiten."
+    reason: "CPSK Axiom 35.1 (Least Privilege): Eine Rolle erhält nur die minimal erforderlichen Fähigkeiten."
   - role: Effektgrenze
     forbidden_action: ein eigenes Token ausstellen
-    reason: "Axiom 35.1 (Least Privilege): Eine Rolle erhält nur die minimal erforderlichen Fähigkeiten."
+    reason: "CPSK Axiom 35.1 (Least Privilege): Eine Rolle erhält nur die minimal erforderlichen Fähigkeiten."
   - role: Reconciliation Engine
     forbidden_action: einen Außenrecord umschreiben
-    reason: "Axiom 35.1 (Least Privilege): Eine Rolle erhält nur die minimal erforderlichen Fähigkeiten."
+    reason: "CPSK Axiom 35.1 (Least Privilege): Eine Rolle erhält nur die minimal erforderlichen Fähigkeiten."

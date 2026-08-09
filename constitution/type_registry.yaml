@@ -12,7 +12,7 @@ count: 8
 
 types:
 
-  # Definition 5.1 (Maschinenkonstitution), Kapitel 5, Zeile 313-316:
+  # CPSK Definition 5.1 (Maschinenkonstitution), Kapitel 5, Zeile 313-316:
   # "Die ausfuehrbare Konstitution ist das Tupel CPSK = (I, T, S, O, G, V, P, E, B, R, L, A),
   #  mit Identitaet I, Typregister T, Schemas S, Operatorregister O, Gates G,
   #  Invarianten V, Proof Obligations P, Fehlerordnung E, Capability- und
@@ -20,7 +20,7 @@ types:
   - id: TY-CPSK
     name: CPSK
     tuple: "CPSK = (I, T, S, O, G, V, P, E, B, R, L, A)"
-    source: "Definition 5.1 (Maschinenkonstitution), Kapitel 5"
+    source: "CPSK Definition 5.1 (Maschinenkonstitution), Kapitel 5"
     fields:
       - {symbol: I, meaning: Identitaet, unexplained: false}
       - {symbol: T, meaning: Typregister, unexplained: false}
@@ -35,7 +35,7 @@ types:
       - {symbol: L, meaning: "Lock/Manifest", unexplained: false}
       - {symbol: A, meaning: Artefaktregister, unexplained: false}
 
-  # Definition 5.2 (Maschinenzustand), Kapitel 5, Zeile 317-319:
+  # CPSK Definition 5.2 (Maschinenzustand), Kapitel 5, Zeile 317-319:
   # "Ein Laufzustand ist Sigma_t = (C, I, At, Tt, Ft, Ht, Wt, Qt, Et, Lt, Rt),
   #  wobei I die Implementierungsbindung, At den Anker, Tt Gedankenkoerper,
   #  Ft Feldregister, Ht Realitaetshorizont, Wt Witnesses, Qt Gates und Tokens,
@@ -45,7 +45,7 @@ types:
   - id: TY-SIGT
     name: Sigma_t
     tuple: "Sigma_t = (C, I, At, Tt, Ft, Ht, Wt, Qt, Et, Lt, Rt)"
-    source: "Definition 5.2 (Maschinenzustand), Kapitel 5"
+    source: "CPSK Definition 5.2 (Maschinenzustand), Kapitel 5"
     fields:
       - {symbol: C, meaning: C, unexplained: true}
       - {symbol: I, meaning: Implementierungsbindung, unexplained: false}
@@ -59,18 +59,18 @@ types:
       - {symbol: Lt, meaning: "Trace/Replay", unexplained: false}
       - {symbol: Rt, meaning: Residuen, unexplained: false}
 
-  # Definition 6.2 (Maschinenzertifikat), Kapitel 6, Zeile 329-332:
+  # CPSK Definition 6.2 (Maschinenzertifikat), Kapitel 6, Zeile 329-332:
   # "Certt = (IC, IM, It, Ct, Gt, Lt, Rt, sigma_t), mit Konformitaetsklasse Ct,
   #  Gatebericht Gt, Trace- und Replaybindung Lt, Residuenbericht Rt und Signatur sigma_t."
-  # IC, IM, It sind nicht in Definition 6.2 selbst erklaert, sondern zuvor in
+  # IC, IM, It sind nicht in CPSK Definition 6.2 selbst erklaert, sondern zuvor in
   # Abschnitt 6.1 (Zeile 326) formal gebunden: "IC = H(Can(C)), IM = H(Code,
-  # Schemas, Compiler, Profil), It = H(Can(Sigma_t))" und in Invariante 6.1
+  # Schemas, Compiler, Profil), It = H(Can(Sigma_t))" und in CPSK Invariante 6.1
   # (Zeile 327-328) als "Konstitutions-ID, Implementierungs-ID, ... und
   # Zustands-ID" benannt.
   - id: TY-CERT
     name: Certt
     tuple: "Certt = (IC, IM, It, Ct, Gt, Lt, Rt, sigma_t)"
-    source: "Definition 6.2 (Maschinenzertifikat), Kapitel 6; IC/IM/It aus Abschnitt 6.1 und Invariante 6.1"
+    source: "CPSK Definition 6.2 (Maschinenzertifikat), Kapitel 6; IC/IM/It aus Abschnitt 6.1 und CPSK Invariante 6.1"
     fields:
       - {symbol: IC, meaning: "Konstitutions-ID (IC = H(Can(C)))", unexplained: false}
       - {symbol: IM, meaning: "Implementierungs-ID (IM = H(Code, Schemas, Compiler, Profil))", unexplained: false}
@@ -81,7 +81,7 @@ types:
       - {symbol: Rt, meaning: Residuenbericht, unexplained: false}
       - {symbol: sigma_t, meaning: Signatur, unexplained: false}
 
-  # Definition 7.1 (AnchorSnapshot), Kapitel 7, Zeile 338-341:
+  # CPSK Definition 7.1 (AnchorSnapshot), Kapitel 7, Zeile 338-341:
   # "Ein Anker ist ein endlicher, bezeugter Kontaktkoerper
   #  At = (Yt, Provt, Sigma_t, Ct, tau_i, tau_e, d_t, dt), der Beobachtungen,
   #  Provenienz, Unsicherheit, Kontext, intrinsische und extrinsische Zeit,
@@ -89,7 +89,7 @@ types:
   - id: TY-ANC
     name: AnchorSnapshot
     tuple: "At = (Yt, Provt, Sigma_t, Ct, tau_i, tau_e, d_t, dt)"
-    source: "Definition 7.1 (AnchorSnapshot), Kapitel 7"
+    source: "CPSK Definition 7.1 (AnchorSnapshot), Kapitel 7"
     fields:
       - {symbol: Yt, meaning: Beobachtungen, unexplained: false}
       - {symbol: Provt, meaning: Provenienz, unexplained: false}
@@ -100,7 +100,7 @@ types:
       - {symbol: d_t, meaning: Boundary, unexplained: false}
       - {symbol: dt, meaning: Digest, unexplained: false}
 
-  # Definition 9.1 (ThoughtBody), Kapitel 9, Zeile 367-370:
+  # CPSK Definition 9.1 (ThoughtBody), Kapitel 9, Zeile 367-370:
   # "Ein Gedankenkoerper ist T = (id, A, chi, M, Gamma, rho, phi, W, U, L, V, G, Tr),
   #  mit Anker A, Claim chi, Modellfamilie M, Trajektorien Gamma, Realitaetsstatus
   #  rho, Faktizitaet phi, Witnesses W, Unsicherheit U, Folgen L, Validierungsplan V,
@@ -110,7 +110,7 @@ types:
   - id: TY-TB
     name: ThoughtBody
     tuple: "T = (id, A, chi, M, Gamma, rho, phi, W, U, L, V, G, Tr)"
-    source: "Definition 9.1 (ThoughtBody), Kapitel 9"
+    source: "CPSK Definition 9.1 (ThoughtBody), Kapitel 9"
     fields:
       - {symbol: id, meaning: id, unexplained: true}
       - {symbol: A, meaning: Anker, unexplained: false}
@@ -126,20 +126,20 @@ types:
       - {symbol: G, meaning: Gate, unexplained: false}
       - {symbol: Tr, meaning: Trace, unexplained: false}
 
-  # Definition 10.1 (FieldIdentity), Kapitel 10, Zeile 381-384:
+  # CPSK Definition 10.1 (FieldIdentity), Kapitel 10, Zeile 381-384:
   # "Eine operative Feldidentitaet ist Fλ = (Dλ, Πλ, Oλ, Qλ, Wλ, Bλ, Gλ, Θλ, Linλ, Sλ).
   #  Sie bestimmt Domaene, Projektion, Operatoren, Fragen, Witnessregeln, Grenzen,
   #  Gates, Zeitfenster, Lineage und Lebenszyklus."
-  # Πλ zusaetzlich in Definition 10.3 (Spektrallinse), Zeile 388-390: "Eine
+  # Πλ zusaetzlich in CPSK Definition 10.3 (Spektrallinse), Zeile 388-390: "Eine
   # Spektrallinse Πλ ist ein typisierter Projektor auf einen Ausschnitt des
   # ankerrelativen Welt- oder Moeglichkeitskoerpers."
   - id: TY-FLD
     name: FieldIdentity
     tuple: "F_lambda = (D_lambda, Pi_lambda, O_lambda, Q_lambda, W_lambda, B_lambda, G_lambda, Theta_lambda, Lin_lambda, S_lambda)"
-    source: "Definition 10.1 (FieldIdentity), Kapitel 10; Pi_lambda zusaetzlich Definition 10.3 (Spektrallinse)"
+    source: "CPSK Definition 10.1 (FieldIdentity), Kapitel 10; Pi_lambda zusaetzlich CPSK Definition 10.3 (Spektrallinse)"
     fields:
       - {symbol: D_lambda, meaning: Domaene, unexplained: false}
-      - {symbol: Pi_lambda, meaning: "Projektion (Spektrallinse: typisierter Projektor auf einen Ausschnitt des ankerrelativen Welt- oder Moeglichkeitskoerpers, Definition 10.3)", unexplained: false}
+      - {symbol: Pi_lambda, meaning: "Projektion (Spektrallinse: typisierter Projektor auf einen Ausschnitt des ankerrelativen Welt- oder Moeglichkeitskoerpers, CPSK Definition 10.3)", unexplained: false}
       - {symbol: O_lambda, meaning: Operatoren, unexplained: false}
       - {symbol: Q_lambda, meaning: Fragen, unexplained: false}
       - {symbol: W_lambda, meaning: Witnessregeln, unexplained: false}
@@ -149,7 +149,7 @@ types:
       - {symbol: Lin_lambda, meaning: Lineage, unexplained: false}
       - {symbol: S_lambda, meaning: Lebenszyklus, unexplained: false}
 
-  # Definition 12.1 (Evidence Object), Kapitel 12, Zeile 408-410:
+  # CPSK Definition 12.1 (Evidence Object), Kapitel 12, Zeile 408-410:
   # "Ein Evidence Object ist E = (type, scope, input, output, method, trace,
   #  hash, signature, status). Evidence ist eine pruefbare Grundlage, nicht
   #  automatisch Wahrheit."
@@ -158,7 +158,7 @@ types:
   - id: TY-EVO
     name: EvidenceObject
     tuple: "E = (type, scope, input, output, method, trace, hash, signature, status)"
-    source: "Definition 12.1 (Evidence Object), Kapitel 12"
+    source: "CPSK Definition 12.1 (Evidence Object), Kapitel 12"
     fields:
       - {symbol: type, meaning: type, unexplained: true}
       - {symbol: scope, meaning: scope, unexplained: true}
@@ -170,7 +170,7 @@ types:
       - {symbol: signature, meaning: signature, unexplained: true}
       - {symbol: status, meaning: status, unexplained: true}
 
-  # Definition 30.2 (Nachrichtenhuelle), Kapitel 30, Zeile 685-687:
+  # CPSK Definition 30.2 (Nachrichtenhuelle), Kapitel 30, Zeile 685-687:
   # "Msg = (msg_id, type, schema_id, producer, consumer, run_id, input_digests,
   #  created_at, trace_parent, payload_digest, signature)."
   # Kein "mit/wobei"-Satz folgt der Definition; die vorangehende Zeile 682
@@ -181,7 +181,7 @@ types:
   - id: TY-MSG
     name: Msg
     tuple: "Msg = (msg_id, type, schema_id, producer, consumer, run_id, input_digests, created_at, trace_parent, payload_digest, signature)"
-    source: "Definition 30.2 (Nachrichtenhuelle), Kapitel 30"
+    source: "CPSK Definition 30.2 (Nachrichtenhuelle), Kapitel 30"
     fields:
       - {symbol: msg_id, meaning: msg_id, unexplained: true}
       - {symbol: type, meaning: type, unexplained: true}

@@ -1,11 +1,11 @@
 {
-  "architecture_id": "fd879bc0f8904391d4843fdfdf134a141abf87a433920688f3e92c82b18b4a68",
+  "architecture_id": "9ff3b6b0d79fa0ecc6b5147a266186e56e27e55d7f95a3210294aacd605876cb",
   "computed_by": {
     "architecture_id": "I_A = H(Can(RA-Register)) — Regel 6.7, Definition 1.6. Siehe architecture/architecture.lock.json.",
     "constitution_id": "I_C = H(Can(C)) — Regel 6.7. Quelle constitution.lock.json liegt ausserhalb von PSK-RA v1.0 (Elternnorm 2, CPSK) und wurde dieser Implementierung nicht vorgelegt.",
     "implementation_id": "I_M = H(Code || Schemas || Compiler || Profil) — Regel 6.7. Erst sinnvoll nach einem realen Build (fruehestens I1)."
   },
-  "constitution_id": "8976314586b9b5ec6386858dfe0a0c6339848d4d0d0b419f14746ca9368432a1",
+  "constitution_id": "676e8cb42fe633f5795df66989ee1803375165cc88304b60b013838af70325d9",
   "implementation_id": null,
   "note": "Struktur 26.1 fordert PSK.lock als Repository-Artefakt ab I0. Die drei Identitaeten sind normativ vier getrennte Groessen (Invariante 1.7) und werden erst gefuellt, wenn ihre jeweilige Berechnungsgrundlage existiert.",
   "pending_since_phase": "I0",

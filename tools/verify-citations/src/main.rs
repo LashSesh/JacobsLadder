@@ -13,15 +13,30 @@
 //! Struktur fuer ein Feld). Diese Stufe haette den Fehler bei der ersten
 //! betroffenen Edition gefunden.
 //!
-//! ## Zwei Normdokumente
+//! ## Mehrere Normdokumente, benannte Raeume
 //!
-//! Indiziert werden BEIDE normativen Quellen: die aktuelle
-//! PSK-RA-Fassung (PDF, hoechste Versionsnummer im Repowurzelverzeichnis,
-//! Politik "nur die aktuelle Fassung") und der konstitutionelle
-//! Maschinenvertrag (Markdown). Eine Zitierung loest auf, wenn MINDESTENS
-//! EINE Quelle den Block (Art + Nummer) fuehrt - Code zitiert beide Werke,
-//! und der naechste Gegenstand bringt ein weiteres Dokument mit eigenen
-//! Blocknummern mit.
+//! Indiziert werden alle normativen Quellen, jede in ihrem eigenen
+//! NAMENSRAUM: die aktuelle PSK-RA-Fassung (PDF, hoechste Versionsnummer
+//! im Wurzelverzeichnis), der konstitutionelle Maschinenvertrag
+//! (Markdown) und - sobald vorhanden - die QPM/NRAII-Zweitschicht.
+//!
+//! Die Nummernraeume UEBERSCHNEIDEN sich: `Definition 15.1` ist in PSK-RA
+//! die Instruktionsmenge und in QPM/NRAII das Lokale Vierfachprimitiv;
+//! zwischen diesen beiden allein gibt es 18 solche Kollisionen. Eine
+//! Aufloesung gegen "irgendeine Quelle" wuerde eine QPM-Nummer gegen
+//! einen gleichnummerierten PSK-RA-Block durchwinken - der Titelvergleich
+//! faengt das nur bei den Zitaten MIT Titel, die uebrigen liefen blind
+//! durch. Deshalb benennt das Zitat seinen Raum:
+//!
+//!   `Struktur 7.38`            -> PSK-RA (implizit, ohne Praefix)
+//!   `QPM Struktur 1.2`         -> QPM/NRAII-RA
+//!   `CPSK Definition 7.1`      -> Maschinenvertrag
+//!
+//! Ohne Praefix gilt PSK-RA. Das haelt die bestehenden Zitate gueltig,
+//! ohne Migration, und macht das Praefix fuer alles andere zur Pflicht.
+//! Ein UNBEKANNTES Praefix ist ein Fehler, kein stiller Standardfall:
+//! sonst waere ein Tippfehler im Raumnamen von "meint PSK-RA" nicht zu
+//! unterscheiden.
 //!
 //! ## Was geprueft wird
 //!
@@ -37,6 +52,10 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+
+/// Die deklarierten Namensraeume. Ein Praefix, das hier nicht steht, ist
+/// ein Fehler - siehe Modulkopf.
+const NAMESPACES: [&str; 2] = ["QPM", "CPSK"];
 
 const KINDS: [&str; 8] = [
     "Struktur",
@@ -151,6 +170,11 @@ fn current_edition_pdf(root: &Path) -> Option<PathBuf> {
 struct Citation {
     file: String,
     line: usize,
+    /// Der benannte Raum: `None` heisst PSK-RA (Standardfall ohne
+    /// Praefix), `Some("QPM")` bzw. `Some("CPSK")` heisst genau dieses
+    /// Werk. `Some(unbekannt)` kommt bis zur Pruefung mit und wird dort
+    /// zum Fehler.
+    namespace: Option<String>,
     kind: String,
     number: String,
     /// Titel auf derselben Zeile, falls vorhanden.
@@ -197,8 +221,40 @@ fn scan_citations(roots: &[&Path]) -> Vec<Citation> {
                     while let Some(pos) = line[from..].find(kind) {
                         let start = from + pos;
                         from = start + kind.len();
-                        if start > 0
-                            && line[..start]
+                        // Was unmittelbar VOR der Art steht, entscheidet
+                        // ueber Wortgrenze und Namensraum in einem Zug.
+                        let before = &line[..start];
+                        let trimmed_before = before.trim_end();
+                        let namespace = NAMESPACES
+                            .iter()
+                            .find(|ns| trimmed_before.ends_with(*ns))
+                            .map(|ns| ns.to_string())
+                            .or_else(|| {
+                                // Ein grossgeschriebenes Wort direkt vor der
+                                // Art, das KEIN bekannter Raum ist: als
+                                // Praefixversuch mitnehmen, damit die
+                                // Pruefung ihn melden kann. Nur wenn es
+                                // wirklich wie ein Raumname aussieht
+                                // (Grossbuchstaben/Ziffern, 2..=8 Zeichen)
+                                // - sonst ist es normaler Fliesstext.
+                                let word =
+                                    trimmed_before.rsplit(|c: char| c.is_whitespace()).next()?;
+                                let looks_like_ns = word.len() >= 2
+                                    && word.len() <= 8
+                                    && word.chars().all(|c| {
+                                        c.is_ascii_uppercase() || c.is_ascii_digit() || c == '-'
+                                    });
+                                if looks_like_ns && trimmed_before.len() < before.len() {
+                                    Some(word.to_string())
+                                } else {
+                                    None
+                                }
+                            });
+                        // Wortgrenze: unmittelbar anschliessende
+                        // Buchstaben/Ziffern ohne Leerraum sind kein Zitat
+                        // ("Unterstruktur"), ein Praefix mit Leerraum schon.
+                        if namespace.is_none()
+                            && before
                                 .chars()
                                 .next_back()
                                 .map(|c| c.is_alphanumeric())
@@ -255,6 +311,7 @@ fn scan_citations(roots: &[&Path]) -> Vec<Citation> {
                         out.push(Citation {
                             file: p.display().to_string(),
                             line: i + 1,
+                            namespace,
                             kind: kind.to_string(),
                             number,
                             inline_title,
@@ -318,6 +375,23 @@ fn main() -> ExitCode {
             .unwrap_or_default();
     let cpsk_index = index_source(&cpsk_text);
 
+    // Die Zweitschicht, sobald sie im Repo liegt. Fehlt sie, ist das kein
+    // Fehler - erst ein QPM-PRAEFIX ohne Dokument ist einer.
+    let qpm_index = std::fs::read_dir(&root)
+        .ok()
+        .and_then(|entries| {
+            entries.flatten().map(|e| e.path()).find(|p| {
+                p.file_name()
+                    .map(|n| {
+                        n.to_string_lossy()
+                            .starts_with("PSK_QPM_NRAII_Referenzarchitektur")
+                    })
+                    .unwrap_or(false)
+            })
+        })
+        .and_then(|p| pdf_extract::extract_text(&p).ok())
+        .map(|t| index_source(&t));
+
     // Nullwache auf der Indexseite: ein Werk mit leerem Blockindex heisst,
     // die Extraktion oder das Muster ist kaputt - nicht, dass das Werk
     // keine Bloecke hat.
@@ -362,44 +436,62 @@ fn main() -> ExitCode {
             }
         };
         let key = (c.kind.clone(), block_number);
-        let in_ra = ra_index.get(&key);
-        let in_cpsk = cpsk_index.get(&key);
-        if in_ra.is_none() && in_cpsk.is_none() {
+
+        // Der benannte Raum entscheidet, WO aufgeloest wird. Ohne Praefix:
+        // PSK-RA. Unbekanntes Praefix: Fehler, nicht Standardfall.
+        let (space_name, index) = match c.namespace.as_deref() {
+            None => ("PSK-RA", Some(&ra_index)),
+            Some("CPSK") => ("CPSK", Some(&cpsk_index)),
+            Some("QPM") => ("QPM/NRAII-RA", qpm_index.as_ref()),
+            Some(other) => {
+                problems.push(format!(
+                    "{}:{}: unbekannter Namensraum \"{other}\" vor {} {} - \
+                     deklariert sind {NAMESPACES:?}, ohne Praefix gilt PSK-RA",
+                    c.file, c.line, c.kind, c.number
+                ));
+                continue;
+            }
+        };
+        let Some(index) = index else {
             problems.push(format!(
-                "{}:{}: {} {} loest in keiner Quelle auf (weder aktuelle RA-Fassung noch CPSK)",
+                "{}:{}: {} {} zitiert {space_name}, dessen Dokument nicht im \
+                 Wurzelverzeichnis liegt - Zitat nicht pruefbar",
                 c.file, c.line, c.kind, c.number
             ));
             continue;
-        }
+        };
+        let Some(source_title) = index.get(&key) else {
+            problems.push(format!(
+                "{}:{}: {} {} loest in {space_name} nicht auf",
+                c.file, c.line, c.kind, c.number
+            ));
+            continue;
+        };
         if let Some(cited) = &c.inline_title {
             titled += 1;
             let cited_n = normalize(cited);
-            let matches_any = [in_ra, in_cpsk].iter().any(|src| {
-                src.map(|t| {
-                    t.starts_with(&cited_n) || cited_n.starts_with(t.as_str()) || t == &cited_n
-                })
-                .unwrap_or(false)
-            });
-            if !matches_any {
+            let ok = source_title.starts_with(&cited_n)
+                || cited_n.starts_with(source_title.as_str())
+                || source_title == &cited_n;
+            if !ok {
                 problems.push(format!(
-                    "{}:{}: {} {} traegt Titel \"{}\", die Quelle fuehrt \"{}\"",
-                    c.file,
-                    c.line,
-                    c.kind,
-                    c.number,
-                    cited,
-                    in_ra.or(in_cpsk).map(String::as_str).unwrap_or("?")
+                    "{}:{}: {} {} traegt Titel \"{}\", {space_name} fuehrt \"{}\"",
+                    c.file, c.line, c.kind, c.number, cited, source_title
                 ));
             }
         }
     }
 
     eprintln!(
-        "    {} Zitierungen geprueft ({} mit Titel), RA-Index {} Bloecke, CPSK-Index {} Bloecke",
+        "    {} Zitierungen geprueft ({} mit Titel) | PSK-RA {} Bloecke, CPSK {}, QPM {}",
         citations.len(),
         titled,
         ra_index.len(),
-        cpsk_index.len()
+        cpsk_index.len(),
+        qpm_index
+            .as_ref()
+            .map(|i| i.len().to_string())
+            .unwrap_or_else(|| "- (Dokument nicht im Repo)".to_string())
     );
     if problems.is_empty() {
         eprintln!("verify-citations: PASS — jede Zitierung loest gegen die aktuelle Fassung auf.");
@@ -442,6 +534,32 @@ mod tests {
     /// Der Fall, den die Stufe verhindert: eine Nummer, die es (nicht
     /// mehr) gibt. Positivkontrolle daneben, sonst bestuende der Test
     /// auch mit einem Index, der nie etwas findet.
+    /// Die Namensraumregel, mechanisch: dasselbe (Art, Nummer) meint in
+    /// zwei Werken zwei verschiedene Bloecke. Ohne Praefix gilt PSK-RA;
+    /// ein Praefix waehlt den Raum; ein UNBEKANNTES Praefix ist ein
+    /// Fehler und kein stiller Standardfall - sonst waere ein Tippfehler
+    /// im Raumnamen von "meint PSK-RA" nicht zu unterscheiden.
+    #[test]
+    fn the_declared_namespaces_are_exactly_two_and_unknown_is_not_a_default() {
+        assert_eq!(NAMESPACES, ["QPM", "CPSK"]);
+        assert!(
+            !NAMESPACES.contains(&"PSK-RA"),
+            "PSK-RA ist der praefixlose Standardfall"
+        );
+    }
+
+    /// Die Kollision, die den Bau ausgeloest hat: Definition 15.1 ist in
+    /// PSK-RA die Instruktionsmenge, in QPM/NRAII das Lokale
+    /// Vierfachprimitiv. Zwei Indizes, dieselbe Nummer, zwei Titel.
+    #[test]
+    fn the_same_number_carries_different_titles_in_different_spaces() {
+        let ra = index_source("Definition 15.1 (Instruktionsmenge). Text.");
+        let qpm = index_source("Definition 15.1 (Lokales Vierfachprimitiv). Text.");
+        let key = ("Definition".to_string(), "15.1".to_string());
+        assert_ne!(ra.get(&key), qpm.get(&key));
+        assert!(ra.contains_key(&key) && qpm.contains_key(&key));
+    }
+
     #[test]
     fn a_stale_number_does_not_resolve_and_a_current_one_does() {
         let idx = index_source(CORPUS);
