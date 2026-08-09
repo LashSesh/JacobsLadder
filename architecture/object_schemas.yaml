@@ -24,7 +24,7 @@ schema: psk.object-schemas/1.0
 # Objekt als eigener nested_struct-Verweis). optional=true entspricht
 # einem "?" im Quelltext. Kommentare aus dem Quelltext sind als "note"
 # uebernommen, nicht ergaenzt.
-count: 28
+count: 29
 
 # Struktur 7.27 (Matrix und Scaled), v1.0.8 (Fehlerkorrektur Punkt 12/13):
 # "Beide Typen sind intern berechnet, nicht domaenengeliefert, und gehen in
@@ -455,6 +455,49 @@ objects:
       - {name: fact_promotion, type: "NONE | OBSERVED | ACTUALIZED"}
       - {name: residue_refs, type: "[ObjectId]"}
       - {name: witness_ref, type: ObjectId, note: "ActualizationWitness bei ACTUALIZED"}
+
+  - id: OBJ-RVP
+    name: RevisionProposal
+    struktur: "12.12"
+    schema_id: psk.revision-proposal/1.0
+    note: "Nachgetragen in v1.0.29 (Fehlerkorrektur Punkt 31): war Nutzlast von
+      P36, Ausgabe der ISA-Instruktion PROPOSE_REVISION und Gegenstand von
+      G-SELF-COMPILE, besass aber keine Feldstruktur - dieselbe Lueckenklasse
+      wie zuvor ReanchorRequest und Forecast."
+    rules:
+      - {id: "Regel 12.13", title: "Vorschlag ist kein Vollzug",
+          statement: "Ein RevisionProposal ist ein Vorschlag und DARF NICHT eine
+            Aenderung. Er entsteht ueber P36 als Rueckfluss: neues Objekt, neue
+            Identitaet, Verweis auf den Ursprung. hardening_class MUSS genau
+            eine der sechs in Regel Zulaessige Selbstverhaertung genannten
+            Klassen tragen; ein Vorschlag ausserhalb dieser Klassen ist
+            unzulaessig und erzeugt PSK-E012. cra_inputs_absent MUSS gefuehrt
+            werden: ein CRA ueber weniger als alle sechs Eingaben ist
+            zulaessig, aber der Vorschlag DARF NICHT den Eindruck erwecken,
+            ueber mehr verdichtet zu haben, als vorlag - dieselbe
+            Ehrlichkeitspflicht wie beim abgeleiteten Deckungsvektor."}
+    fields:
+      - {name: schema, type: "psk.revision-proposal/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: candidate_id, type: ObjectId, note: "MUSS != aktive Instanz, sonst PSK-E012"}
+      - {name: hardening_class, type: "tests_and_falsifiers | gate_and_validation_policies |
+          replay_and_residue_patterns | dependency_models | search_and_branch_strategies |
+          calibration_profiles", note: "genau eine der sechs aus Regel Zulaessige Selbstverhaertung"}
+      - {name: source_residues, type: "[ObjectId]", note: "ISA-Eingabe Residues, nichtleer"}
+      - {name: source_evidence, type: "[ObjectId]", note: "ISA-Eingabe Evidence, nichtleer"}
+      - {name: cra_inputs_present, type: "[CRAInputId]", note: "welche der sechs CRA-Eingaben real vorlagen"}
+      - {name: cra_inputs_absent, type: "[CRAInputId]", note: "die uebrigen, benannt statt verschwiegen"}
+      - {name: proposed_delta, type: DeltaSpec, note: "was sich aendert, nie eine In-place-Weisung"}
+      - {name: parent_binding, type: nested_struct, nested_struct: ParentBinding,
+          note: "ParentBound gegen die laufende Instanz"}
+      - {name: isolation_build_ref, type: ObjectId, optional: true, note: "Ergebnis des getrennten Prozessbaus"}
+      - {name: gate_report_ref, type: ObjectId, optional: true, note: "G-SELF-COMPILE, gesetzt erst nach Auswertung"}
+      - {name: trace_ref, type: TraceRef}
+    nested_structs:
+      ParentBinding:
+        - {name: constitution, type: Digest}
+        - {name: architecture, type: Digest}
+        - {name: implementation, type: Digest}
 
   - id: OBJ-FCT
     name: Forecast

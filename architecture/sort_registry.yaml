@@ -133,6 +133,18 @@ closed_vocabularies:
       NICHT dazu: 'produced_by' und 'silently_closes' sind dort gerade als
       unzulaessig gefuehrt."
     values_from: {register: sort_registry, path: "port_matrix[].2"}
+  - id: CRAInputId
+    source: "Definition CRA (Kapitel 12): 'CRA(LR, MR, FE, WS, PG, rho, Can) verdichtet
+      Residuenledger LR, Replaymanifest MR, Fork-Evidenz FE, Shadow-Witnesses WS,
+      Gatepolitik PG und Kanonisierung zu genau einem RevisionProposal.'"
+    note: "Struktur 12.12 fuehrt cra_inputs_present/-absent als [CRAInputId] und
+      spricht von 'den sechs CRA-Eingaben'; die Werte stehen nur in der
+      CRA-Definition selbst, nicht als formale Mengenklammer - dieselbe Lage
+      wie seinerzeit ArchetypeId. Ohne diesen Eintrag wuerde CRAInputId als
+      freie Zeichenkette generiert, fuer eine Menge, die das Werk als
+      abgeschlossen behandelt."
+    values: [residue_ledger, replay_manifest, fork_evidence, shadow_witnesses,
+      gate_policy, canonicalization]
   - id: ProfileId
     source: "Definition 28.1 (Vier Betriebsprofile), Regel 28.2 (Profiluebergang):
       'readonly -> shadow -> sandbox -> reference'"

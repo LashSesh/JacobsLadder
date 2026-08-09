@@ -90,7 +90,7 @@ pub struct FeatureEvidence {
     pub reconciliation_reports: usize,
 
     // ---- FC7: Kontrollierte Selbstkompilation und unabhaengige Aktivierung.
-    /// G-SELF-COMPILE bestanden (Invariante 12.12). `None`: nie ausgewertet.
+    /// G-SELF-COMPILE bestanden (Invariante 12.14). `None`: nie ausgewertet.
     pub self_compile_gate_passed: Option<bool>,
 
     // ---- FC8: Validierte Referenzdomaene mit Baselinevergleich.

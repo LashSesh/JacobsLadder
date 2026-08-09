@@ -9,7 +9,7 @@
 //! liegt bei M12 (`psk_witness::typed_absence`, Invariante 11.12);
 //! ResidueFlow und Recanon setzen den Residuenspeicher M19 voraus (WP04,
 //! Phase I5); Harden laeuft ueber P36 und das Gate G-SELF-COMPILE
-//! (Invariante 12.12) und damit ueber M21 (WP15). Die vier bleiben
+//! (Invariante 12.14) und damit ueber M21 (WP15). Die vier bleiben
 //! unimplementiert statt vorgetaeuscht - die Neunerliste ist damit nicht
 //! erweitert, nur teilweise realisiert.
 
@@ -55,7 +55,7 @@ fn seal(draft: CandidateCapsule) -> Result<CandidateCapsule, PskError> {
 }
 
 /// Operator 1, `capsulate(class: [FieldProjection]) -> CandidateCapsule`
-/// (Schnittstelle 12.15).
+/// (Schnittstelle 12.17).
 ///
 /// Die Eingabe ist EINE Quotientenklasse aus dem DependencyProfile
 /// (Algorithmus 11.19: `capsules = C7_adversarial_canonicalize(
@@ -245,12 +245,12 @@ pub fn check_support(
     })
 }
 
-/// Invariante 12.14 (Nichttrivialitaet des Ueberlebens): "Ein Kandidat, der
+/// Invariante 12.16 (Nichttrivialitaet des Ueberlebens): "Ein Kandidat, der
 /// nur unter Ausblendung eines Gegenmodells schliesst, ist nicht
 /// adversarial geschlossen. Seine scheinbare Closure ist eine Projektion
 /// mit verdeckter Obstruktion und erzeugt PSK-E003."
 ///
-/// Definition 12.13: `A(M) = Close(M ∪ Countermodels(M) ∪ Stress(M))`. Die
+/// Definition 12.15: `A(M) = Close(M ∪ Countermodels(M) ∪ Stress(M))`. Die
 /// Gegenmodelle sind Teil der Menge, ueber der geschlossen wird - nicht
 /// etwas, das danach geprueft wird.
 pub fn check_adversarial_closure(
@@ -330,7 +330,7 @@ impl HardeningClass {
     ];
 }
 
-/// Invariante 12.12 (Keine Selbstautorisierung): "Self-Hardening DARF NICHT
+/// Invariante 12.14 (Keine Selbstautorisierung): "Self-Hardening DARF NICHT
 /// konstitutionelle Autoritaet, externe Faehigkeit oder Faktizitaet durch
 /// Selbstdeklaration erzeugen. Jede Aenderung durchlaeuft P36 und das Gate
 /// G-SELF-COMPILE."
@@ -614,7 +614,7 @@ mod tests {
 
     #[test]
     fn closing_only_by_hiding_a_countermodel_is_not_adversarial_closure() {
-        // Invariante 12.14, PSK-E003.
+        // Invariante 12.16, PSK-E003.
         assert_eq!(
             check_adversarial_closure(true, false),
             Err(PskError::SurfaceInvariantCollapse)
@@ -682,7 +682,7 @@ mod tests {
 
     #[test]
     fn hardening_outside_the_six_classes_is_rejected() {
-        // Regel 12.11 / Invariante 12.12.
+        // Regel 12.11 / Invariante 12.14.
         assert_eq!(HardeningClass::ALL.len(), 6);
         assert_eq!(
             check_hardening_permitted(None, true),
