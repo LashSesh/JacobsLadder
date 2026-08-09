@@ -57,9 +57,13 @@
 //!
 //! Er setzt `emission_class` nicht auf EXECUTABLE. `executable_requires`
 //! (architecture/pass_registry.yaml) verlangt unter anderem
-//! `all_18_cells_closed` und `close720`; `psk_topology::close_all_18` ist
-//! ein dokumentierter Stub. Der Kandidat traegt HOLD - Definition 11.17:
-//! "HOLD bezeichnet unvollstaendige, aber nicht verworfene Kandidaten."
+//! `all_18_cells_closed` und `close720` - beides Ergebnisse von Pass C9,
+//! der NACH dem Zusammenbau laeuft (seit v1.0.34 rechnet
+//! `psk_topology::close_all_18` real; der Golden Run misst die sieben
+//! Bedingungen einzeln in `ExecutableCheck`). Zum Zeitpunkt des
+//! Zusammenbaus sind sie unausgewertet, nicht erfuellt - der Kandidat
+//! traegt HOLD, Definition 11.17: "HOLD bezeichnet unvollstaendige, aber
+//! nicht verworfene Kandidaten."
 
 use std::collections::BTreeMap;
 
@@ -169,7 +173,7 @@ pub enum EdgeOmission {
         target: SortId,
     },
     /// Ein Endpunkt wurde nicht als Knoten gebaut (z.B. weil seine Sorte
-    /// zellgebunden ist und keine Traegerzelle feststeht, Regel 9.10
+    /// zellgebunden ist und keine Traegerzelle feststeht, Regel 9.13
     /// Punkt 4).
     EndpointMissing {
         relation: RelationSortId,

@@ -62,12 +62,16 @@ fn the_golden_run_produces_an_ir_bundle_that_round_trips() {
         }
     }
 
-    // Der Kandidat DARF nicht EXECUTABLE sein: executable_requires
-    // verlangt all_18_cells_closed, und close_all_18 ist ein Stub.
+    // Der Kandidat DARF nicht EXECUTABLE sein: der Zusammenbau liegt vor
+    // Pass C9, seine executable_requires sind dort unausgewertet. Seit
+    // v1.0.34 rechnet close_all_18 real - die Messung der sieben
+    // Bedingungen steht in `report.executable` (und faellt am
+    // blockierenden Residuum, nicht an der Topologie; siehe
+    // cells_close_in_the_real_run.rs).
     assert_eq!(
         bundle.emission_class,
         psk_types::objects::IRBundleEmissionClassKind::Hold,
-        "ein EXECUTABLE vor geschlossenen Zellen waere ein Konformitaetsdefekt"
+        "ein EXECUTABLE vor ausgewertetem C9 waere ein Konformitaetsdefekt"
     );
 
     // Nicht leer: sonst wuerde der Test einen kaputten Zusammenbau als

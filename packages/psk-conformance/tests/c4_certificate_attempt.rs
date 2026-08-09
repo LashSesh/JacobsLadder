@@ -334,6 +334,35 @@ fn attempt_to_issue_a_c4_certificate_and_report_the_full_contents() {
         "jede der neun Stufen MUSS begruendet sein, gedeckt oder nicht"
     );
 
+    // Die EXECUTABLE-Frage, hier erst vollstaendig beantwortbar: der
+    // Zweitlauf fuellt den Replayschenkel von Close720 (Definition 22.1).
+    // Antwort des Referenzlaufs: NEIN - und zwar nicht mehr an der
+    // Topologie (alle 18 Zellen schliessen seit v1.0.34 real), sondern
+    // am blockierenden Residuum des offenen Korpuswiderspruchs.
+    let x = &certification.first.executable;
+    assert_eq!(
+        x.close720_replay_canon_eq,
+        Some(true),
+        "R2-Replay traegt den dritten Close720-Schenkel"
+    );
+    assert_eq!(
+        x.close720(),
+        Some(true),
+        "Close720 haelt (trivial + Replay)"
+    );
+    assert_eq!(
+        x.executable_reachable(),
+        Some(false),
+        "EXECUTABLE bleibt unerreichbar - am Residuum, nicht an der Topologie"
+    );
+    assert!(!x.no_blocking_residue);
+    assert!(x.all_18_cells_closed);
+    println!(
+        "EXECUTABLE: {:?}, Blocker: {:?}",
+        x.executable_reachable(),
+        x.blockers
+    );
+
     println!("\n(Versuch abgeschlossen - Ausgang oben.)");
 }
 

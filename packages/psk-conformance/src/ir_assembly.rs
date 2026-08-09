@@ -18,7 +18,7 @@
 //!
 //! ## Welche Knoten entstehen - und welche nicht
 //!
-//! Regel 9.10 Punkt 4: Knoten der Sorten S-WIT, S-GAT, S-TRC, S-RES sind
+//! Regel 9.13 Punkt 4: Knoten der Sorten S-WIT, S-GAT, S-TRC, S-RES sind
 //! ZELLGEBUNDEN - ihre Zelle ist "diejenige, die den geprueften Knoten
 //! traegt", und die kennt nur der Gesamtgraph. `psk_topology::place`
 //! verlangt sie folgerichtig als `EdgeContext.bound_cell` und schlaegt
@@ -32,12 +32,12 @@
 //! (S-GAT -> S-CAP) ist damit deklariert, aber ohne Quellknoten; sie
 //! erscheint als `EdgeOmission::EndpointMissing` und nicht als Kante.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use psk_ir::{EdgeCandidate, EdgeConditionDeclarations, EdgeConditions};
 use psk_types::objects::{IRNode, M13Address, PredicateExpr, RelationSortId, SortId};
-use psk_types::{ObjectId, PskError, TraceRef};
+use psk_types::{ModuleId, ObjectId, PskError, TraceRef};
 
 /// Liest die Portmatrix aus dem versiegelten Register.
 pub fn load_port_matrix(
@@ -67,6 +67,104 @@ pub fn load_port_matrix(
         ));
     }
     Ok(out)
+}
+
+/// Die Normdaten, die Regel 9.8 (Richtungskonsistenz einer Zelle) zum
+/// Pruefen braucht: Sorteneigner, Modulschichten, gemeinsame
+/// Passtraegerschaften. Alle drei aus den versiegelten Registern gelesen,
+/// nicht als Rust-Tabelle dupliziert - dieselbe Begruendung wie bei
+/// `load_port_matrix` im Modulkopf.
+pub struct ClosureNorms {
+    pub sort_owner: BTreeMap<SortId, ModuleId>,
+    pub module_layer: BTreeMap<ModuleId, u8>,
+    pub shared_pass_carriers: BTreeSet<(ModuleId, ModuleId)>,
+}
+
+/// Liest Sorteneigner (sort_registry.yaml), Modulschichten
+/// (module_map.yaml) und Passtraegerpaare (pass_registry.yaml).
+pub fn load_closure_norms(workspace_root: &Path) -> Result<ClosureNorms, PskError> {
+    // Modul -> Schicht. module_map.yaml: {id: M12, ..., layer: L5, ...}.
+    let text = std::fs::read_to_string(workspace_root.join("architecture/module_map.yaml"))
+        .map_err(|_| PskError::UntypedInput)?;
+    let doc: serde_yaml::Value = serde_yaml::from_str(&text).map_err(|_| PskError::UntypedInput)?;
+    let mut module_layer = BTreeMap::new();
+    for row in doc
+        .get("modules")
+        .and_then(|v| v.as_sequence())
+        .ok_or(PskError::UntypedInput)?
+    {
+        let module = row
+            .get("id")
+            .and_then(|v| v.as_str())
+            .and_then(ModuleId::from_id)
+            .ok_or(PskError::UntypedInput)?;
+        let layer = row
+            .get("layer")
+            .and_then(|v| v.as_str())
+            .and_then(|l| l.strip_prefix('L'))
+            .and_then(|n| n.parse::<u8>().ok())
+            .ok_or(PskError::UntypedInput)?;
+        module_layer.insert(module, layer);
+    }
+    if module_layer.len() != 28 {
+        // Definition 3.1: |M| = 28, abgeschlossen.
+        return Err(PskError::UntypedInput);
+    }
+
+    // Sorte -> Eigner. sort_registry.yaml: {id: S-WIT, ..., owner: M12, ...}.
+    let text = std::fs::read_to_string(workspace_root.join("architecture/sort_registry.yaml"))
+        .map_err(|_| PskError::UntypedInput)?;
+    let doc: serde_yaml::Value = serde_yaml::from_str(&text).map_err(|_| PskError::UntypedInput)?;
+    let mut sort_owner = BTreeMap::new();
+    for row in doc
+        .get("sorts")
+        .and_then(|v| v.as_sequence())
+        .ok_or(PskError::UntypedInput)?
+    {
+        let sort = row
+            .get("id")
+            .and_then(|v| v.as_str())
+            .and_then(SortId::from_id)
+            .ok_or(PskError::UntypedInput)?;
+        let owner = row
+            .get("owner")
+            .and_then(|v| v.as_str())
+            .and_then(ModuleId::from_id)
+            .ok_or(PskError::UntypedInput)?;
+        sort_owner.insert(sort, owner);
+    }
+
+    // Passtraegerpaare. pass_registry.yaml: {id: C9, modules: [M11, M22], ...}.
+    let text = std::fs::read_to_string(workspace_root.join("architecture/pass_registry.yaml"))
+        .map_err(|_| PskError::UntypedInput)?;
+    let doc: serde_yaml::Value = serde_yaml::from_str(&text).map_err(|_| PskError::UntypedInput)?;
+    let mut shared_pass_carriers = BTreeSet::new();
+    for row in doc
+        .get("passes")
+        .and_then(|v| v.as_sequence())
+        .ok_or(PskError::UntypedInput)?
+    {
+        let carriers: Vec<ModuleId> = row
+            .get("modules")
+            .and_then(|v| v.as_sequence())
+            .ok_or(PskError::UntypedInput)?
+            .iter()
+            .filter_map(|m| m.as_str().and_then(ModuleId::from_id))
+            .collect();
+        for a in &carriers {
+            for b in &carriers {
+                if a != b {
+                    shared_pass_carriers.insert((*a, *b));
+                }
+            }
+        }
+    }
+
+    Ok(ClosureNorms {
+        sort_owner,
+        module_layer,
+        shared_pass_carriers,
+    })
 }
 
 /// Laedt das Domaenenprofil der Referenzdomaene (Regel 10.9).
@@ -150,6 +248,7 @@ pub fn build_node<T: serde::Serialize>(
     id: ObjectId,
     sort: SortId,
     env: &NodeEnvelope,
+    probes: &mut Vec<(ObjectId, Vec<u8>)>,
 ) -> Result<IRNode, PskError> {
     let bytes = serde_json::to_vec(object).map_err(|_| PskError::CanonicalizationFailed)?;
     let payload_digest = psk_canon::identity_projection(&bytes, psk_canon::Media::Json)?.digest();
@@ -171,7 +270,7 @@ pub fn build_node<T: serde::Serialize>(
         m13_address: M13Address(String::new()),
     };
 
-    // Regel 9.10: reine Funktion des kanonisierten Knotens. `occupied`
+    // Regel 9.13: reine Funktion des kanonisierten Knotens. `occupied`
     // bleibt leer - M13 hat 18 Zellen und traegt beliebig viele Knoten,
     // eine Zelle ist also nicht exklusiv. Aufsteigende Sondierung greift
     // nur, wo ein Aufrufer Exklusivitaet verlangt; dieser tut es nicht,
@@ -179,6 +278,11 @@ pub fn build_node<T: serde::Serialize>(
     // Abhaengigkeitsprofil nicht platzierbar (sieben Bruecken-Knoten,
     // sechs Brueckenzellen - nachgemessen).
     let placement = psk_topology::place(&draft, &psk_topology::EdgeContext::default())?;
+    // Struktur 9.10: die Sondierungsfolge "wird hier vermerkt, nicht
+    // verworfen" - bis v1.0.34 verwarf genau diese Stelle sie
+    // (Fehlerkorrektur Punkt 39 auf der Registerseite, dieser Ledger auf
+    // der Laufseite). close_cell filtert spaeter auf echte Konflikte.
+    probes.push((id, placement.probed_k.clone()));
     Ok(IRNode {
         m13_address: placement.address,
         ..draft

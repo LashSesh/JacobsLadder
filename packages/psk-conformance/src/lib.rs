@@ -25,7 +25,8 @@ pub use feature_evidence::collect_feature_evidence;
 
 mod ir_assembly;
 pub use ir_assembly::{
-    build_node, edge, edge_census, load_port_matrix, load_reference_domain_profile, NodeEnvelope,
+    build_node, edge, edge_census, load_closure_norms, load_port_matrix,
+    load_reference_domain_profile, ClosureNorms, NodeEnvelope,
 };
 
 mod reports;

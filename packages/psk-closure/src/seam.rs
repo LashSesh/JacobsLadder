@@ -362,7 +362,7 @@ mod tests {
 
     fn cell(s: &str) -> M13Address {
         // Ueber den echten Parser, damit die Testadressen der Grammatik aus
-        // Definition 9.8 genuegen und nicht nur Zeichenketten sind.
+        // Definition 9.11 genuegen und nicht nur Zeichenketten sind.
         let parsed = parse_m13_address(s).expect("Testadresse muss wohlgeformt sein");
         M13Address(format_m13_address(&parsed))
     }

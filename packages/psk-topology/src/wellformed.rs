@@ -1,6 +1,6 @@
-//! Regel 9.9 (Wohlgeformtheit einer M13Address), neu in PSK-RA v1.0.4.
+//! Regel 9.12 (Wohlgeformtheit einer M13Address), neu in PSK-RA v1.0.4.
 //!
-//! Die Grammatik aus Definition 9.8 allein traegt diese drei Bedingungen
+//! Die Grammatik aus Definition 9.11 allein traegt diese drei Bedingungen
 //! nicht; sie werden hier zusaetzlich geprueft:
 //!
 //! 1. `level` ist gleich der Anzahl der Abstiegspaare
@@ -22,7 +22,7 @@
 //!
 //! ## Dokumentbefund zu Punkt 3: gemeldet, inzwischen an der Quelle geschlossen
 //!
-//! Regel 9.9 Punkt 3 und Invariante 9.18 verlangen beide `max_depth` bzw.
+//! Regel 9.9 Punkt 3 und Invariante 9.23 verlangen beide `max_depth` bzw.
 //! `N` "des RuntimeManifest". Struktur 7.1 (RuntimeManifest), OBJ-RTM
 //! fuehrte jedoch zehn Felder, von denen keines `max_depth` hiess - eine
 //! haengende Referenz, hier gemeldet statt durch ein erfundenes Feld
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn definition_9_8_examples_are_wellformed() {
-        // Alle drei Beispiele aus Definition 9.8 (v1.0.4). Beispiel 3 ist
+        // Alle drei Beispiele aus Definition 9.11 (v1.0.4). Beispiel 3 ist
         // die in v1.0.4 korrigierte Fassung; sie ist genau deshalb
         // wohlgeformt, weil i2 in c2 und o5 in b5 liegt.
         for (addr, max_depth) in [
@@ -317,7 +317,7 @@ mod tests {
 
     #[test]
     fn placement_output_is_always_wellformed() {
-        // Regel 9.10 erzeugt Adressen auf Skala 0 ohne Ahnenkette und ohne
+        // Regel 9.13 erzeugt Adressen auf Skala 0 ohne Ahnenkette und ohne
         // node_id; sie muessen Regel 9.9 immer erfuellen, sonst koennte der
         // Compiler eine Adresse erzeugen, die nicht in ihre Zelle darf.
         use crate::{place, EdgeContext};

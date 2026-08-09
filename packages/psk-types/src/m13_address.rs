@@ -1,4 +1,4 @@
-//! M13Address (Definition 9.8, Kapitel 9.2): Grammatik-Parser/-Formatter auf
+//! M13Address (Definition 9.11, Kapitel 9.2): Grammatik-Parser/-Formatter auf
 //! der generierten Drahtform `objects::M13Address(String)`.
 //!
 //! ```text
@@ -51,7 +51,7 @@ impl CellKind {
     }
 }
 
-/// cell_id: ("c"|"b"|"o") k, k in 0..5 (Definition 9.8).
+/// cell_id: ("c"|"b"|"o") k, k in 0..5 (Definition 9.11).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CellId {
     pub kind: CellKind,
@@ -67,7 +67,7 @@ impl CellId {
     }
 }
 
-/// node_id: "c" | "i" k | "o" k (Definition 9.8).
+/// node_id: "c" | "i" k | "o" k (Definition 9.11).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum M13NodeId {
     Center,
@@ -208,7 +208,7 @@ fn format_node_id(n: &M13NodeId) -> String {
     }
 }
 
-/// Formatiert nach Definition 9.8 (Umkehrung von `parse`).
+/// Formatiert nach Definition 9.11 (Umkehrung von `parse`).
 pub fn format(p: &ParsedM13Address) -> String {
     let mut s = format!("m13:{}", p.level);
     for a in &p.ancestors {

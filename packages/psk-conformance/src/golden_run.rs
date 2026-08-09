@@ -183,6 +183,77 @@ pub struct GoldenRunReport {
     /// `residue_report_digest`, das Struktur 7.49 als einen der vier
     /// Berichtsdigests verlangt. Ein Bericht ueber eine Zahl waere keiner.
     pub residues: Vec<psk_types::objects::ResidueRecord>,
+    /// Vertrag 9.7 ueber dem finalen Graphen: alle 18 Zellberichte
+    /// (Regel 9.9 verlangt, die Vakuumschliessungen AUSZUWEISEN - die
+    /// Zahl steht in den occupancy-Feldern, `vacuum_closed_count`
+    /// leitet sie ab).
+    pub cell_reports: Vec<psk_topology::CellReport>,
+    /// Die sieben Bedingungen aus pass_registry.executable_requires,
+    /// einzeln abgeleitet. `close720_replay_canon_eq` bleibt im
+    /// Einzellauf None - Definition 22.1 macht die Replayklasse zur
+    /// Eigenschaft eines VERGLEICHS zweier Laeufe; erst die
+    /// Zertifizierung fuellt sie.
+    pub executable: ExecutableCheck,
+}
+
+/// pass_registry.yaml, `executable_requires`: [fully_typed,
+/// anchor_bound_or_declared_unanchored, all_18_cells_closed, close720,
+/// unique_global_section, all_blocking_gates_pass, no_blocking_residue].
+/// Jedes Feld ist abgeleitet, keines behauptet; die Herkunft steht am
+/// Feld. Regel 9.19: die beiden trivial wahren Close720-Schenkel sind
+/// als trivial AUSGEWIESEN und gelten nicht als Beleg fuer
+/// Transportkorrektheit.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExecutableCheck {
+    /// Jeder Knoten traegt genau eine Primaersorte (typkonstruktiv).
+    pub fully_typed: bool,
+    /// Jeder Knoten traegt anchor_refs oder waere als unanchored
+    /// deklariert (der Referenzlauf deklariert keines).
+    pub anchor_bound_or_declared_unanchored: bool,
+    /// psk_topology::all_18_closed ueber den 18 Zellberichten.
+    pub all_18_cells_closed: bool,
+    /// Regel 9.9: wie viele der geschlossenen Zellen vakuum schlossen.
+    pub cells_vacuum_closed: usize,
+    /// Close720-Schenkel 1: Phi^2(x) ==can x. Bei max_depth = 0 gilt
+    /// Phi = I aus T_ii = I (Regel 9.19) - TRIVIAL, ausgewiesen.
+    pub close720_phi_squared_trivially: bool,
+    /// Close720-Schenkel 2: Hol(Phi^2) = I - ebenso trivial (Regel 9.19).
+    pub close720_holonomy_trivially: bool,
+    /// Close720-Schenkel 3: Replay(Phi^2) ==can x. Braucht den
+    /// Zweitlauf (Definition 22.1); None heisst "in diesem Artefakt
+    /// nicht bestimmbar", nicht "bestanden".
+    pub close720_replay_canon_eq: Option<bool>,
+    /// GlueOutcome.section ist eindeutig vorhanden.
+    pub unique_global_section: bool,
+    /// Beide Gates des Laufs (G-BOOT, G-EFFECT) auf PASS.
+    pub all_blocking_gates_pass: bool,
+    /// Kein Residuum des Laufs traegt severity Blocking.
+    pub no_blocking_residue: bool,
+    /// Die Namen der verletzten Bedingungen - leer heisst: EXECUTABLE
+    /// haengt nur noch am Replay-Schenkel.
+    pub blockers: Vec<String>,
+}
+
+impl ExecutableCheck {
+    /// Close720 gesamt: die zwei trivialen Schenkel und der Replayschenkel.
+    pub fn close720(&self) -> Option<bool> {
+        self.close720_replay_canon_eq.map(|replay| {
+            self.close720_phi_squared_trivially && self.close720_holonomy_trivially && replay
+        })
+    }
+
+    /// EXECUTABLE erreichbar? None, solange der Replayschenkel offen ist.
+    pub fn executable_reachable(&self) -> Option<bool> {
+        self.close720().map(|c720| {
+            self.fully_typed
+                && self.anchor_bound_or_declared_unanchored
+                && self.all_18_cells_closed
+                && c720
+                && self.unique_global_section
+                && self.all_blocking_gates_pass
+                && self.no_blocking_residue
+        })
+    }
 }
 
 /// Ergebnis von Schritt 13 plus der beiden Laeufe, aus deren Vergleich die
@@ -476,7 +547,7 @@ fn project_field(
 /// Objekten dieses Laufs bauen.
 ///
 /// Knoten entstehen nur fuer Sorten, die `psk_topology::place` ohne eine
-/// Traegerzelle platzieren kann (Regel 9.10 Punkte 1-3). Die
+/// Traegerzelle platzieren kann (Regel 9.13 Punkte 1-3). Die
 /// zellgebundenen Sorten S-GAT/S-TRC/S-WIT/S-RES (Punkt 4) bleiben aussen
 /// vor - siehe den Kopfkommentar von `ir_assembly`.
 ///
@@ -485,6 +556,22 @@ fn project_field(
 /// ExternalReceipt traegt per Struktur 7.35 keine Referenz auf den
 /// Versuch - der Beobachter ist unabhaengig und sieht ihn nie. Eine Kante
 /// dort waere eine Verknuepfung, die kein Objekt bezeugt.
+/// Zusammenbau plus die Sondierungsvermerke des Laufs, der platziert hat
+/// (Struktur 9.10: "wird hier vermerkt, nicht verworfen").
+type AssembledGraph = (psk_ir::AssemblyOutcome, Vec<(ObjectId, Vec<u8>)>);
+
+/// Die Objekte, die erst NACH dem Effekt existieren (Schritte 9-12).
+/// Pass C9 laeuft vor C10 - der Compile-Graph, den die Zellclosure vor
+/// dem Patch-Gate prueft, kann sie noch nicht enthalten; der finale
+/// Graph des Berichts traegt sie. Zwei Aufrufe derselben Funktion, ein
+/// Unterschied: dieses Buendel.
+struct LateObjects<'a> {
+    token_obj: &'a EffectToken,
+    attempt: &'a EffectAttempt,
+    receipt: &'a ExternalReceipt,
+    reconciliation: &'a ReconciliationReport,
+}
+
 #[allow(clippy::too_many_arguments)]
 fn assemble_run_ir_bundle(
     workspace_root: &std::path::Path,
@@ -494,13 +581,10 @@ fn assemble_run_ir_bundle(
     field_identities: &[FieldIdentity],
     field_projections: &[FieldProjection],
     dependency_profile: &DependencyProfile,
-    token_obj: &EffectToken,
-    attempt: &EffectAttempt,
-    receipt: &ExternalReceipt,
-    reconciliation: &ReconciliationReport,
+    late: Option<&LateObjects<'_>>,
     boot_report: &psk_contract::BootReport,
     trace_head: Digest,
-) -> Result<psk_ir::AssemblyOutcome, PskError> {
+) -> Result<AssembledGraph, PskError> {
     use crate::ir_assembly::{build_node, edge, NodeEnvelope};
     use psk_types::objects::{RelationSortId, SortId};
 
@@ -518,36 +602,78 @@ fn assemble_run_ir_bundle(
         trace_ref,
     };
 
+    let mut probes: Vec<(ObjectId, Vec<u8>)> = Vec::new();
     let mut nodes = Vec::new();
-    nodes.push(build_node(anchor, anchor.id, SortId::Anchor, &env)?);
-    nodes.push(build_node(thought, thought.id, SortId::Context, &env)?);
-    nodes.push(build_node(reality, reality.id, SortId::Horizon, &env)?);
+    nodes.push(build_node(
+        anchor,
+        anchor.id,
+        SortId::Anchor,
+        &env,
+        &mut probes,
+    )?);
+    nodes.push(build_node(
+        thought,
+        thought.id,
+        SortId::Context,
+        &env,
+        &mut probes,
+    )?);
+    nodes.push(build_node(
+        reality,
+        reality.id,
+        SortId::Horizon,
+        &env,
+        &mut probes,
+    )?);
     for f in field_identities {
-        nodes.push(build_node(f, f.id, SortId::FieldIdentity, &env)?);
+        nodes.push(build_node(
+            f,
+            f.id,
+            SortId::FieldIdentity,
+            &env,
+            &mut probes,
+        )?);
     }
     for p in field_projections {
-        nodes.push(build_node(p, p.id, SortId::Projection, &env)?);
+        nodes.push(build_node(p, p.id, SortId::Projection, &env, &mut probes)?);
     }
     nodes.push(build_node(
         dependency_profile,
         dependency_profile.id,
         SortId::Dependency,
         &env,
+        &mut probes,
     )?);
-    nodes.push(build_node(
-        token_obj,
-        token_obj.id,
-        SortId::Capability,
-        &env,
-    )?);
-    nodes.push(build_node(attempt, attempt.id, SortId::Effect, &env)?);
-    nodes.push(build_node(receipt, receipt.id, SortId::Receipt, &env)?);
-    nodes.push(build_node(
-        reconciliation,
-        reconciliation.id,
-        SortId::Reconciliation,
-        &env,
-    )?);
+    if let Some(l) = late {
+        nodes.push(build_node(
+            l.token_obj,
+            l.token_obj.id,
+            SortId::Capability,
+            &env,
+            &mut probes,
+        )?);
+        nodes.push(build_node(
+            l.attempt,
+            l.attempt.id,
+            SortId::Effect,
+            &env,
+            &mut probes,
+        )?);
+        nodes.push(build_node(
+            l.receipt,
+            l.receipt.id,
+            SortId::Receipt,
+            &env,
+            &mut probes,
+        )?);
+        nodes.push(build_node(
+            l.reconciliation,
+            l.reconciliation.id,
+            SortId::Reconciliation,
+            &env,
+            &mut probes,
+        )?);
+    }
 
     let mut candidates = Vec::new();
     // grounds: ThoughtBody.anchor_refs enthaelt anchor.id.
@@ -598,40 +724,42 @@ fn assemble_run_ir_bundle(
             ));
         }
     }
-    // authorizes: EffectToken.gate_report_ref. Deklariert und belegt -
-    // aber der GateReport traegt keinen Knoten (zellgebunden), also
-    // entsteht keine Kante, sondern EndpointMissing. Der Kandidat wird
-    // trotzdem vorgelegt, damit die Luecke im Bericht erscheint statt
-    // stillschweigend zu fehlen.
-    candidates.push(edge(
-        token_obj.gate_report_ref,
-        token_obj.id,
-        RelationSortId::Authorizes,
-        "EffectToken.gate_report_ref",
-        trace_ref,
-    ));
-    // permits: EffectAttempt.token_ref == token.id.
-    if attempt.token_ref == token_obj.id {
+    if let Some(l) = late {
+        // authorizes: EffectToken.gate_report_ref. Deklariert und belegt -
+        // aber der GateReport traegt keinen Knoten (zellgebunden), also
+        // entsteht keine Kante, sondern EndpointMissing. Der Kandidat wird
+        // trotzdem vorgelegt, damit die Luecke im Bericht erscheint statt
+        // stillschweigend zu fehlen.
         candidates.push(edge(
-            token_obj.id,
-            attempt.id,
-            RelationSortId::Permits,
-            "EffectAttempt.token_ref",
+            l.token_obj.gate_report_ref,
+            l.token_obj.id,
+            RelationSortId::Authorizes,
+            "EffectToken.gate_report_ref",
             trace_ref,
         ));
-    }
-    // feeds: ReconciliationReport.receipt_refs enthaelt receipt.id.
-    if reconciliation.receipt_refs.contains(&receipt.id) {
-        candidates.push(edge(
-            receipt.id,
-            reconciliation.id,
-            RelationSortId::Feeds,
-            "ReconciliationReport.receipt_refs",
-            trace_ref,
-        ));
+        // permits: EffectAttempt.token_ref == token.id.
+        if l.attempt.token_ref == l.token_obj.id {
+            candidates.push(edge(
+                l.token_obj.id,
+                l.attempt.id,
+                RelationSortId::Permits,
+                "EffectAttempt.token_ref",
+                trace_ref,
+            ));
+        }
+        // feeds: ReconciliationReport.receipt_refs enthaelt receipt.id.
+        if l.reconciliation.receipt_refs.contains(&l.receipt.id) {
+            candidates.push(edge(
+                l.receipt.id,
+                l.reconciliation.id,
+                RelationSortId::Feeds,
+                "ReconciliationReport.receipt_refs",
+                trace_ref,
+            ));
+        }
     }
 
-    psk_ir::assemble_ir_bundle(psk_ir::AssemblyInputs {
+    let outcome = psk_ir::assemble_ir_bundle(psk_ir::AssemblyInputs {
         version: psk_types::objects::SemVer("1.0.0".into()),
         constitution_id: boot_report.identity.I_C,
         nodes,
@@ -648,7 +776,119 @@ fn assemble_run_ir_bundle(
         trace_ref,
         opened_at: run_time(),
         scope: ScopeExpr("jacobs-ladder-reference".into()),
-    })
+    })?;
+    Ok((outcome, probes))
+}
+
+/// Die sieben Bedingungen aus `executable_requires`, einzeln abgeleitet.
+/// Jede Zeile nennt ihre Quelle; nichts hier ist gesetzt, damit ein
+/// bestimmter Ausgang eintritt.
+fn derive_executable_check(
+    bundle: &psk_types::objects::IRBundle,
+    cell_reports: &[psk_topology::CellReport],
+    glue_outcome: &GlueOutcome,
+    gates: &[&psk_types::objects::GateReport],
+    residues: &ResidueLedger,
+) -> ExecutableCheck {
+    use psk_types::objects::GateReportDecisionKind;
+
+    // fully_typed: SortId ist ein geschlossenes Enum - jeder Knoten
+    // TRAEGT genau eine Primaersorte, sonst waere er nicht vom Typ
+    // IRNode. Ein leerer Graph traegt nichts und belegt nichts.
+    let fully_typed = !bundle.graph.nodes.is_empty();
+    // Vertrag 11.6 (C3): Ankerreferenz oder ausdrueckliches
+    // unanchored=true. Der Lauf deklariert kein unanchored - also MUSS
+    // jeder Knoten anchor_refs tragen.
+    let anchor_bound = bundle.graph.nodes.iter().all(|n| !n.anchor_refs.is_empty());
+    let all_18 = psk_topology::all_18_closed(cell_reports);
+    let vacuum = psk_topology::vacuum_closed_count(cell_reports);
+    // Regel 9.19: bei max_depth = 0 folgt Phi = I aus T_ii = I - beide
+    // Schenkel gelten TRIVIAL und sind hier als solche ausgewiesen
+    // (die Felder heissen so). Der ClosureMode der Zellberichte traegt
+    // dieselbe Auskunft je Zelle.
+    let trivially = cell_reports
+        .iter()
+        .all(|r| r.closure_mode == psk_topology::ClosureMode::TrivialSingleChart);
+    let unique_section = glue_outcome.section.is_some();
+    let gates_pass = gates
+        .iter()
+        .all(|g| g.decision == GateReportDecisionKind::Pass);
+    let no_blocking = residues
+        .all()
+        .iter()
+        .all(|r| r.severity != psk_types::objects::ResidueRecordSeverityKind::Blocking);
+
+    let mut blockers = Vec::new();
+    if !fully_typed {
+        blockers.push("fully_typed".to_string());
+    }
+    if !anchor_bound {
+        blockers.push("anchor_bound_or_declared_unanchored".to_string());
+    }
+    if !all_18 {
+        for r in cell_reports.iter().filter(|r| !r.closed()) {
+            blockers.push(format!(
+                "all_18_cells_closed: Zelle {:?}{} offen",
+                r.cell.kind, r.cell.k
+            ));
+        }
+    }
+    if !unique_section {
+        blockers.push(format!(
+            "unique_global_section: {}",
+            glue_outcome.hold_reason.unwrap_or("keine Sektion")
+        ));
+    }
+    if !gates_pass {
+        blockers.push("all_blocking_gates_pass".to_string());
+    }
+    if !no_blocking {
+        for r in residues
+            .all()
+            .iter()
+            .filter(|r| r.severity == psk_types::objects::ResidueRecordSeverityKind::Blocking)
+        {
+            blockers.push(format!("no_blocking_residue: {} ({})", r.id, r.scope.0));
+        }
+    }
+
+    ExecutableCheck {
+        fully_typed,
+        anchor_bound_or_declared_unanchored: anchor_bound,
+        all_18_cells_closed: all_18,
+        cells_vacuum_closed: vacuum,
+        close720_phi_squared_trivially: trivially,
+        close720_holonomy_trivially: trivially,
+        close720_replay_canon_eq: None,
+        unique_global_section: unique_section,
+        all_blocking_gates_pass: gates_pass,
+        no_blocking_residue: no_blocking,
+        blockers,
+    }
+}
+
+/// Vertrag 9.7 ueber dem konkreten Graphen: Kontext aus Buendel (W, R, T)
+/// und versiegelten Registern bauen, alle 18 Zellen schliessen.
+fn stage_closure(
+    workspace_root: &std::path::Path,
+    bundle: &psk_types::objects::IRBundle,
+    probes: &[(ObjectId, Vec<u8>)],
+    max_depth: u32,
+) -> Result<Vec<psk_topology::CellReport>, PskError> {
+    let port_matrix = crate::ir_assembly::load_port_matrix(workspace_root)?;
+    let norms = crate::ir_assembly::load_closure_norms(workspace_root)?;
+    let ctx = psk_topology::ClosureContext {
+        witnesses: &bundle.witnesses,
+        residues: &bundle.residues,
+        bundle_trace: &bundle.trace_ref,
+        port_matrix: &port_matrix,
+        sort_owner: &norms.sort_owner,
+        module_layer: &norms.module_layer,
+        shared_pass_carriers: &norms.shared_pass_carriers,
+        probes,
+        max_depth,
+    };
+    psk_topology::close_all_18(&bundle.graph, &ctx)
 }
 
 /// Schritt 6: Abhaengigkeiten quotieren und die sechs Projektionen
@@ -656,15 +896,23 @@ fn assemble_run_ir_bundle(
 /// denselben Digest - der Golden Run demonstriert einen widerspruchsfreien
 /// Lauf, keine Seam-Konfliktaufloesung (die ist WP-eigenstaendig getestet,
 /// siehe psk-closure::seam Testsuite).
-fn quotient_and_glue(
-    projections: &[FieldProjection],
-) -> Result<(DependencyProfile, GlueOutcome), PskError> {
-    let profile = dependency_quotient(QuotientInputs {
+fn quotient_projections(projections: &[FieldProjection]) -> Result<DependencyProfile, PskError> {
+    dependency_quotient(QuotientInputs {
         projections,
         method: RankMethod::QuotientClassCount,
         consensus_scope: DependencyProfileConsensusScopeKind::Local,
-    })?;
+    })
+}
 
+/// `cells_closed` kommt vom Aufrufer aus dem realen `close_all_18` ueber
+/// dem Compile-Graphen. Bis v1.0.34 stand hier ein hartkodiertes `true` -
+/// eine Behauptung an genau der Stelle, an der seam.rs ausdruecklich "das
+/// Ergebnis von M22.close_all_18(graph)" verlangt, waehrend close_all_18
+/// ein Stub war. Dasselbe Muster wie das Phantom-Plugin; jetzt abgeleitet.
+fn glue_projections(
+    projections: &[FieldProjection],
+    cells_closed: bool,
+) -> Result<GlueOutcome, PskError> {
     let shared_cell = M13Address("center".into());
     let shared_digest = Digest::sha256(b"golden-run-shared-restriction");
     let restrictions: Vec<CapsuleRestriction> = projections
@@ -675,8 +923,7 @@ fn quotient_and_glue(
             restriction_digests: vec![shared_digest],
         })
         .collect();
-    let outcome = glue(&restrictions, true)?;
-    Ok((profile, outcome))
+    glue(&restrictions, cells_closed)
 }
 
 /// Schritt 8 (Patchplan/Gate): G-EFFECT ist order 2 (gate_registry.yaml) -
@@ -1476,7 +1723,34 @@ pub fn run_golden_run(
     )?;
     let _ = after_fields;
 
-    let (dependency_profile, glue_outcome) = quotient_and_glue(&field_projections)?;
+    // Schritt 6 in Passordnung C4->C9: erst der Abhaengigkeitsquotient
+    // (er speist Knoten und shares_source-Kanten des Graphen), dann der
+    // COMPILE-Graph (ohne die Effektobjekte der Schritte 9-12, die es
+    // noch nicht gibt), dann Vertrag 9.7 ueber alle 18 Zellen, und erst
+    // daraus das Verkleben - cells_closed ist ab hier ein Messwert.
+    let dependency_profile = quotient_projections(&field_projections)?;
+    let (compile_ir, compile_probes) = assemble_run_ir_bundle(
+        workspace_root,
+        &anchor,
+        &thought,
+        &reality,
+        &field_identities,
+        &field_projections,
+        &dependency_profile,
+        None,
+        &boot_report,
+        trace.head(),
+    )?;
+    let compile_cells = stage_closure(
+        workspace_root,
+        &compile_ir.bundle,
+        &compile_probes,
+        boot_report.runtime_manifest.max_depth,
+    )?;
+    let glue_outcome = glue_projections(
+        &field_projections,
+        psk_topology::all_18_closed(&compile_cells),
+    )?;
     let after_glue = record(
         &mut trace,
         "dependency.quotiented",
@@ -1611,7 +1885,7 @@ pub fn run_golden_run(
     // Abhaengigkeitsquotienten, weil die Endpunkte von `permits` und
     // `feeds` erst jetzt existieren - ein frueherer Zusammenbau haette
     // dieselben Kanten nur weglassen muessen.
-    let ir = assemble_run_ir_bundle(
+    let (ir, ir_probes) = assemble_run_ir_bundle(
         workspace_root,
         &anchor,
         &thought,
@@ -1619,13 +1893,30 @@ pub fn run_golden_run(
         &field_identities,
         &field_projections,
         &dependency_profile,
-        &effect_token,
-        &attempt,
-        &receipt,
-        &reconciliation,
+        Some(&LateObjects {
+            token_obj: &effect_token,
+            attempt: &attempt,
+            receipt: &receipt,
+            reconciliation: &reconciliation,
+        }),
         &boot_report,
         trace.head(),
     )?;
+    // Vertrag 9.7 ueber dem FINALEN Graphen - er traegt auch die
+    // Effektobjekte und entscheidet die EXECUTABLE-Frage.
+    let cell_reports = stage_closure(
+        workspace_root,
+        &ir.bundle,
+        &ir_probes,
+        boot_report.runtime_manifest.max_depth,
+    )?;
+    let executable = derive_executable_check(
+        &ir.bundle,
+        &cell_reports,
+        &glue_outcome,
+        &[&boot_gate, &patch_gate],
+        &residues,
+    );
 
     Ok(GoldenRunReport {
         boot_gate,
@@ -1655,6 +1946,8 @@ pub fn run_golden_run(
         ir_bundle: ir.bundle,
         ir_scope_residues: ir.residues,
         ir_omissions: ir.omissions,
+        cell_reports,
+        executable,
     })
 }
 
@@ -1696,6 +1989,14 @@ pub fn run_golden_run_with_certificate(
             && first.patch_gate.id == second.patch_gate.id,
         byte_identical_artifacts: first_artifact == second_artifact,
     };
+    // Close720-Schenkel 3 (Replay(Phi^2) ==can x): mit Phi = I (Regel
+    // 9.19) ist das die kanonische Replaygleichheit des Laufs selbst -
+    // genau das, was dieser Zweitlauf misst (Definition 22.1, R2:
+    // kanonischer Digest und Gatefolge). Erst hier wird der Schenkel
+    // bestimmbar; der Einzellaufbericht traegt None.
+    let mut first = first;
+    first.executable.close720_replay_canon_eq =
+        Some(check.canonical_digest_match && check.gate_sequence_match);
 
     let run_descriptor = psk_trace::open_run(psk_trace::RunInputs {
         run_id: RunId("golden-run".into()),
