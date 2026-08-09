@@ -100,7 +100,7 @@ pub struct ClosureReport {
 /// Verify-Abschlussbedingung (Definition 14.2): "ClosureReport UND alle
 /// GateReports vorhanden." `evaluate` unten liefert den ersten Teil allein
 /// aus Close360Evidence/Close720Evidence - `ClosureReport` selbst kennt
-/// gar kein GateReport-Feld (Struktur 12.9), und `psk_gate::GateReport`
+/// gar kein GateReport-Feld (Struktur 7.22), und `psk_gate::GateReport`
 /// entsteht unabhaengig davon in M14. Keine Funktion in psk-closure oder
 /// psk-gate prueft, dass "alle" (im Sinne von: die fuer diesen Takt
 /// erwarteten) GateReports tatsaechlich vorliegen, bevor ein ClosureReport

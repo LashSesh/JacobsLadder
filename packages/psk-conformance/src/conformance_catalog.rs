@@ -245,7 +245,7 @@
 //!   Wache (`check_promotion`, M07), die ausschliesslich `FactStatus`-Paare
 //!   gegen Invariante 5.9 pruefte, und eine ZWEITE, unabhaengige Ableitung
 //!   in M18 (`reconcile`s `fact_promotion`), die `reality_status` gar nicht
-//!   sah. Vertrag 7.11s "Promotionssperre" war damit beschreibend, nicht
+//!   sah. Vertrag 7.13s "Promotionssperre" war damit beschreibend, nicht
 //!   wirksam.
 //!   Umsetzung: EINE Wache, ZWEI Aufrufer. `check_promotion` nimmt jetzt
 //!   auch `reality_status` und ist die einzige Stelle, die ueber Promotion
@@ -699,7 +699,7 @@ mod tests {
         assert_eq!(
             reg["unmapped_is_blocking"].as_bool(),
             Some(true),
-            "eine unabgebildete konkrete Transition MUSS blockieren (Vertrag 23.4) - diese Policy \
+            "eine unabgebildete konkrete Transition MUSS blockieren (Vertrag 23.5) - diese Policy \
              darf nicht versehentlich auf 'nicht blockierend' stehen"
         );
         // Aktueller, tatsaechlicher Stand: vollstaendig (kein Mangel im Bundle

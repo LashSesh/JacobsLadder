@@ -161,7 +161,7 @@ pub enum ChainViolation {
     RecordDigestMismatch { at: u64 },
 }
 
-/// Algorithmus 22.3: `require verify_chain(M19.trace(run_id)) else
+/// Algorithmus 22.5: `require verify_chain(M19.trace(run_id)) else
 /// FAIL(PSK-E014)`.
 ///
 /// Regel 7.41 (v1.0.20): "verify_chain MUSS beides pruefen: die
@@ -200,7 +200,7 @@ pub fn verify_chain_detailed(segments: &[TraceSegment]) -> Result<(), ChainViola
 }
 
 /// Dieselbe Pruefung mit dem Fehlercode des geschlossenen Vokabulars -
-/// die Form, die Algorithmus 22.3 woertlich nennt. Wer wissen muss,
+/// die Form, die Algorithmus 22.5 woertlich nennt. Wer wissen muss,
 /// WELCHE der beiden Pruefungen brach, ruft `verify_chain_detailed`.
 pub fn verify_chain(segments: &[TraceSegment]) -> Result<(), PskError> {
     verify_chain_detailed(segments).map_err(|_| PskError::TraceOrResidueViolation)

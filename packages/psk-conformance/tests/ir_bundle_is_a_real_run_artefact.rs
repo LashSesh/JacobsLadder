@@ -45,7 +45,7 @@ fn the_golden_run_produces_an_ir_bundle_that_round_trips() {
         "der Round-Trip MUSS verlustfrei sein (Algorithmus 10.3)"
     );
 
-    // Regel 10.7: keine Kante ohne Bedingungen - und Regel 10.9: keine
+    // Invariante 10.7: keine Kante ohne Bedingungen - und Regel 10.9: keine
     // davon stets wahr. Das ist der Punkt der ganzen Uebung.
     for e in &bundle.graph.edges {
         assert!(

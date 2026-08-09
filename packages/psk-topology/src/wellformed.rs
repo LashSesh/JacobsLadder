@@ -23,7 +23,7 @@
 //! ## Dokumentbefund zu Punkt 3 (gemeldet, nicht selbst aufgeloest)
 //!
 //! Regel 9.9 Punkt 3 und Invariante 9.18 verlangen beide `max_depth` bzw.
-//! `N` "des RuntimeManifest". Struktur 7.1 (OBJ-RTM) fuehrt jedoch genau
+//! `N` "des RuntimeManifest". Struktur 7.1 (RuntimeManifest), OBJ-RTM fuehrt jedoch genau
 //! zehn Felder - schema, constitution_id, architecture_id,
 //! implementation_id, profile, capability_matrix, build_digest,
 //! operator_versions, adapter_versions, determinism_class - und keines

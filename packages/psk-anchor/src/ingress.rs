@@ -4,7 +4,7 @@
 //!
 //! "Unvermischt": diese Funktion aendert `record` nicht und mischt ihn mit
 //! keinem anderen Record - sie fuegt ausschliesslich die Herkunftsangaben
-//! hinzu, die Struktur 7.4 (Provenance) verlangt.
+//! hinzu, die Struktur 7.4 (AnchorSnapshot), ProvenanceBlock, verlangt.
 
 use psk_types::objects::{AdapterId, Provenance};
 use psk_types::{Digest, PskError};

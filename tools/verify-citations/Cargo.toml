@@ -1,0 +1,10 @@
+[package]
+name = "verify-citations"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+# PDF-Textextraktion in Rust, damit die Gatestufe ohne externe Werkzeuge
+# laeuft. Nur dieses Werkzeug traegt die Abhaengigkeit; kein psk-*-Paket.
+pdf-extract = "0.7"

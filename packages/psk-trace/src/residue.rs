@@ -125,7 +125,7 @@ fn compute_identity(draft: &ResidueInputs) -> Result<ObjectId, PskError> {
 /// H(Can(Sigma_t))` ein - siehe `psk_scheduler::sigma_digest`. Die
 /// Gegenrichtung fehlt bewusst: ein Residuum entsteht ueber `open` und
 /// wandert ueber `transition`, nie durch Deserialisierung - sonst liesse
-/// sich Axiom 7.44 (kein stilles Verwerfen) durch das Einspielen eines
+/// sich Axiom 7.44 (No Silent Loss) durch das Einspielen eines
 /// gekuerzten Ledgers umgehen.
 #[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct ResidueLedger {

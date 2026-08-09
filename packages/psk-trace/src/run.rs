@@ -1,5 +1,5 @@
 //! M19 TraceReplayResidueStore, Laufteil: RunDescriptor (Struktur 7.45,
-//! OBJ-RUN) und ReplayManifest (Struktur 22.5, OBJ-RPM).
+//! OBJ-RUN) und ReplayManifest (Struktur 22.7, OBJ-RPM).
 
 use psk_canon::{can, Media};
 use psk_types::objects::{
@@ -72,7 +72,7 @@ pub use psk_types::objects::{
 };
 
 /// Definition 22.1 (Replayklassen), die Bedingungen fuer R1-R3 aus
-/// Algorithmus 22.3s `ReplayResult` gelesen: `canonical_digest_match` und
+/// Algorithmus 22.5s `ReplayResult` gelesen: `canonical_digest_match` und
 /// `gate_sequence_match` sind seine beiden Felder; "byteidentische
 /// Artefakte" (R3) ist danach ein WEITERER, in `ReplayResult` nicht
 /// enthaltener Vergleich (Rohartefakte statt kanonischer Zustand) und
@@ -105,7 +105,7 @@ pub fn determine_replay_class(check: &ReplayCheck) -> ReplayClass {
     }
 }
 
-/// Vertrag 22.2: "Ein Referenzrelease MUSS mindestens R2 erreichen."
+/// Vertrag 22.4: "Ein Referenzrelease MUSS mindestens R2 erreichen."
 pub fn check_reference_release_class(achieved: ReplayClass) -> Result<(), PskError> {
     if matches!(achieved, ReplayClass::R2 | ReplayClass::R3) {
         Ok(())
@@ -114,7 +114,7 @@ pub fn check_reference_release_class(achieved: ReplayClass) -> Result<(), PskErr
     }
 }
 
-/// Baut das ReplayManifest (Struktur 22.5). Traegt - anders als
+/// Baut das ReplayManifest (Struktur 22.7). Traegt - anders als
 /// RunDescriptor - kein eigenes `digest`-Feld: sein Digest wird von
 /// aussen ueber `record_digest`/Can() gebildet (siehe
 /// MachineCertificate.replay_manifest_digest) und hier nicht vorweggenommen.

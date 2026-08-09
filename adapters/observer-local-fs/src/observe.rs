@@ -1,5 +1,5 @@
 //! Liest den tatsaechlichen Dateisystemzustand einer lokalen Projektwurzel
-//! (Regel 32.4, Erste Domaene: "isolierter, versionierter lokaler
+//! (Regel 32.5, Erste Domaene: "isolierter, versionierter lokaler
 //! Projektordner. Der Kern arbeitet zunaechst read-only") und baut daraus
 //! einen ExternalRecord (Regel 32.7: "Der AnchorSnapshot bindet
 //! Dateihashes, Git-Commit, Zeitstempel, Rechte, Konfiguration und
@@ -69,7 +69,7 @@ impl std::fmt::Display for ObserveError {
 impl std::error::Error for ObserveError {}
 
 /// Regel 32.7: liest den tatsaechlichen Dateisystemzustand unter
-/// `config.root` read-only (Regel 32.4) und baut daraus einen
+/// `config.root` read-only (Regel 32.5) und baut daraus einen
 /// ExternalRecord. `observed_at` wird vom Aufrufer gestellt, nicht hier
 /// erzeugt - dieser Adapter macht die Wanduhr nicht selbst verbindlich
 /// (Invariante 6.14, Replayneutralitaet der Wanduhr).

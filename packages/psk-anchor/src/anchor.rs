@@ -127,7 +127,7 @@ pub fn request_reanchor(_stale_anchor: &AnchorSnapshot, _now_tau_i: u64) -> ! {
     )
 }
 
-/// Praeludiert `AnchorUncertainty` ohne deklarierte Parameter - Regel 32.4
+/// Praeludiert `AnchorUncertainty` ohne deklarierte Parameter - Vertrag 32.4 (Minimaler geschlossener Kreis)
 /// (Erste Domaene, read-only) braucht bis zur echten Modellwahl (OBL, siehe
 /// Kapitel 33) keine.
 pub fn no_declared_uncertainty(model: psk_types::objects::UncertaintyModelId) -> AnchorUncertainty {

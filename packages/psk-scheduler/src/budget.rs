@@ -44,7 +44,7 @@ pub struct RiskClass {
 /// `Serialize` (nicht `Deserialize`): das Ledger ist Teil von Sigma und
 /// geht damit in `I_t = H(Can(Sigma_t))` ein (siehe `sigma::sigma_digest`).
 /// Ein Budgetstand entsteht ueber `open`/`charge`, nie durch Einspielen -
-/// sonst waere Vertrag 14.11 (kein stilles Saettigen) umgehbar.
+/// sonst waere Vertrag 14.11 (Keine implizite Unendlichkeit) umgehbar.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct BudgetLedger {
     pub run_id: RunId,

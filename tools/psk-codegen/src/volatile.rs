@@ -88,8 +88,9 @@ fn emit_pattern_array(out: &mut String, const_name: &str, entries: &[PathEntry])
 pub fn generate_volatile_fields(doc: &VolatileFieldsDoc) -> String {
     let mut out = String::new();
     out.push_str("// GENERIERT von tools/psk-codegen aus architecture/volatile_fields.yaml.\n");
-    out.push_str("// Nicht von Hand bearbeiten. Quelle: Definition 6.5 (Volatile Felder und\n");
-    out.push_str("// Identitaetsprojektion), Anhang Listing B.4.\n\n");
+    out.push_str("// Nicht von Hand bearbeiten.\n");
+    out.push_str("// Quelle: Definition 6.5 (Volatile Felder und Identitaetsprojektion),\n");
+    out.push_str("// Anhang Listing B.4.\n\n");
 
     out.push_str("#[derive(Debug, Clone, Copy)]\n");
     out.push_str("pub struct VolatileFieldPattern {\n");

@@ -104,7 +104,7 @@ fn run_time() -> DualTime {
 
 /// Gesammeltes Ergebnis EINER Ausfuehrung der Schritte 1-12 (Regel 24.3).
 /// Schritt 13 (Zertifikat/Replaymanifest) ist bewusst NICHT Teil dieses
-/// Typs: `issue_certificate` verlangt Vertrag 22.2 (mindestens R2) als
+/// Typs: `issue_certificate` verlangt Vertrag 22.4 (Replayklasse des Referenzrelease), mindestens R2 als
 /// Vorbedingung, und eine Replayklasse ist per Definition 22.1 keine
 /// Eigenschaft EINES Laufs, sondern eines VERGLEICHS zweier Laeufe - siehe
 /// `run_golden_run_with_certificate`.
@@ -1660,7 +1660,7 @@ pub fn run_golden_run(
 /// exportieren" - beide sind genannt, keine Option). Definition 22.1
 /// definiert die Replayklasse als Eigenschaft eines VERGLEICHS zweier
 /// Laeufe, nicht eines einzelnen - deshalb laeuft `run_golden_run` hier
-/// zweimal, bevor `issue_certificate` (Vertrag 22.2: mindestens R2 als
+/// zweimal, bevor `issue_certificate` (Vertrag 22.4: mindestens R2 als
 /// Vorbedingung) ueberhaupt aufgerufen werden kann.
 pub fn run_golden_run_with_certificate(
     workspace_root: &Path,

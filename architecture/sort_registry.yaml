@@ -116,7 +116,7 @@ closed_vocabularies:
   # liegt die Menge bereits maschinenlesbar in einem anderen Register; sie
   # wird deshalb per values_from referenziert, nicht abgeschrieben.
   - id: OpId
-    source: "Definition 12.1 (Instruktionsmenge): '|O| = 23. Die Menge ist abgeschlossen.'"
+    source: "Definition 15.1 (Instruktionsmenge): '|O| = 23. Die Menge ist abgeschlossen.'"
     note: "Die 23 ISA-Instruktionen. Bis hierher generierte
       object_schemas.yaml OBJ-FLD.operators als [freie Zeichenkette] - ein
       Feld, das laut Struktur 7.14 ausdruecklich 'Teilmenge der ISA' ist."

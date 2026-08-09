@@ -108,7 +108,7 @@ pub fn load_reference_domain_profile(
         // sie stuende in keiner Zeile der Portmatrix und koennte nie eine
         // Kante tragen.
         let relation = RelationSortId::from_id(relation).ok_or(PskError::UntypedInput)?;
-        // `declare` erzwingt Invariante 10.7 (nichtleer) und Regel 10.9
+        // `declare` erzwingt Invariante 10.7 (Kantenvollstaendigkeit), nichtleer, und Regel 10.9
         // (kein stets wahres Praedikat) - hier wird nichts nachgeprueft,
         // was M23 schon prueft.
         declarations.declare(

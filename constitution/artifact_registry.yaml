@@ -124,7 +124,7 @@ files:
     zuordnung: abgeleitet
     beleg: "Kein woertliches Match in Zeile 88-98 (Operatoren werden dort nicht
       als eigene Kategorie genannt); generische normativ-Zuordnung ueber
-      Definition 40.2 (Menge normativer Dateien); in constitution.lock.json
+      Definition 40.2 (Konstitutions-ID): Menge normativer Dateien; in constitution.lock.json
       (normative_files) und constitution.yaml (normative_precedence) gefuehrt."
     present_in_repo: true
 

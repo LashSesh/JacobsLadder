@@ -119,7 +119,7 @@ pub fn compute_conformance_class(
     }
 }
 
-/// Vertrag 22.2: "Ein Referenzrelease MUSS mindestens R2 erreichen."
+/// Vertrag 22.4: "Ein Referenzrelease MUSS mindestens R2 erreichen."
 /// Diese Wache ist bewusst unabhaengig von `compute_conformance_class` -
 /// C2 ("Replay-valid") verlangt R2 bereits inhaltlich, aber der Vertrag
 /// gilt fuer JEDES Referenzrelease, nicht nur fuer im Zertifikat als C2+
@@ -235,7 +235,7 @@ pub struct CertificateInputs {
 /// M21: stellt ein MachineCertificate aus. Scheitert, wenn nicht einmal
 /// C0 erreicht ist (Regel 23.1 kennt keine Klasse darunter - ein
 /// "Zertifikat der Nichtkonformitaet" ist keine Struktur des Werkes),
-/// wenn Vertrag 22.2 (mindestens R2) verletzt ist, oder wenn Regel 7.50
+/// wenn Vertrag 22.4 (Replayklasse des Referenzrelease), mindestens R2 verletzt ist, oder wenn Regel 7.50
 /// (plattformgebundene Verpflichtungsaufloesung) nicht erfuellt ist.
 pub fn issue_certificate(inputs: CertificateInputs) -> Result<MachineCertificate, PskError> {
     check_minimum_replay_class(inputs.replay_class)?;
@@ -398,7 +398,7 @@ mod tests {
 
     #[test]
     fn r0_and_r1_fail_the_reference_release_minimum() {
-        // Vertrag 22.2.
+        // Vertrag 22.4.
         assert_eq!(
             check_minimum_replay_class(ReplayClass::R0),
             Err(PskError::UnboundNondeterminismOrDivergence)

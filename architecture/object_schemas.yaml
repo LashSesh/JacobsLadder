@@ -1,7 +1,7 @@
 schema: psk.object-schemas/1.0
 # Volle Feldstrukturen der kanonischen Objekte aus PSK-RA v1.0.8, Struktur
 # 7.1-7.47 (Kapitel 7) sowie Struktur 21.5 (ValidationPlan, Kapitel 21) und
-# Struktur 22.5 (ReplayManifest, Kapitel 22) - diese zwei liegen ausserhalb
+# Struktur 22.7 (ReplayManifest, Kapitel 22) - diese zwei liegen ausserhalb
 # Kapitel 7, definieren aber ebenfalls OBJ-VAL/OBJ-RPM aus object_registry.yaml.
 #
 # Von den 29 Eintraegen in object_registry.yaml haben 28 eine explizite
@@ -602,7 +602,7 @@ objects:
       - {name: environment, type: EnvironmentProfile, note: "deklarierte, replayrelevante Umgebung"}
       - {name: time_window, type: TimeWindow, note: "gebundene Zeitgrenzen fuer Entscheidungen"}
       - {name: nondeterminism_budget, type: NDBudget, note: "zulaessige, deklarierte Abweichungsquellen"}
-      - {name: ratchet_max_rounds, type: uint32, note: "Regel 12.7 (Ratchet-Terminierung), nachgetragen
+      - {name: ratchet_max_rounds, type: uint32, note: "Regel 12.7 (Selektionsdruck), Ratchet-Terminierung, nachgetragen
           in v1.0.26: die Regel verortete das Budget woertlich 'im RunDescriptor', das Feld fehlte -
           haengende Referenz derselben Klasse wie seinerzeit T-M13-001. Deklariert, nicht geraten;
           eine Ressourcenentscheidung ueber den Lauf, nicht ueber die Domaene."}

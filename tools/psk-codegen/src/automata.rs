@@ -1,5 +1,5 @@
 //! Codegen fuer constitution/state_machines.yaml (WP03, Teil "Automaten";
-//! Kapitel 13, Vertrag 23.4).
+//! Kapitel 13, Vertrag 23.5).
 //!
 //! Die sieben Automaten - runtime, object, thought, effect, field, capsule,
 //! token - werden als Zustandsenums plus Transitionstabellen erzeugt. Der
@@ -304,7 +304,7 @@ pub fn generate_automata(doc: &StateMachinesDoc) -> String {
     let mut out = String::new();
     out.push_str("// GENERIERT von tools/psk-codegen aus constitution/state_machines.yaml.\n");
     out.push_str("// Nicht von Hand bearbeiten. Quelle: Kapitel 13 (Automaten),\n");
-    out.push_str("// Vertrag 23.4 (Maschinencheckbare Verfeinerung).\n\n");
+    out.push_str("// Vertrag 23.5 (Maschinencheckbare Verfeinerung).\n\n");
 
     out.push_str(
         r#"/// Ergebnis eines Transitionsversuchs. Ein Gate wird hier NICHT
@@ -421,7 +421,7 @@ impl<S: std::fmt::Debug> std::error::Error for TransitionError<S> {}
 }
 
 /// Erzeugt architecture/refinement_map.yaml aus derselben Quelle wie die
-/// Automaten. Vertrag 23.4 verlangt eine explizite, maschinenlesbare
+/// Automaten. Vertrag 23.5 verlangt eine explizite, maschinenlesbare
 /// Abbildung jeder konkreten Transition in den abstrakten Automaten;
 /// da der konkrete Code aus genau diesem Register erzeugt wird, ist die
 /// Abbildung die Identitaet - und kann per Konstruktion nicht driften.
@@ -452,7 +452,7 @@ pub fn generate_refinement_map(doc: &StateMachinesDoc) -> String {
 # GENERIERT von tools/psk-codegen aus constitution/state_machines.yaml.
 # Nicht von Hand bearbeiten.
 #
-# Vertrag 23.4: Die Referenzimplementierung MUSS fuer jeden konkreten
+# Vertrag 23.5: Die Referenzimplementierung MUSS fuer jeden konkreten
 # Zustandsautomaten eine explizite, maschinenlesbare Abbildung in den
 # abstrakten Automaten aus Kapitel 13 dokumentieren. Unabgebildete
 # Transitionen sind blocking (I-ARCH-013, PO-REF-001, R-RA-010, T-REF-001).
@@ -472,13 +472,13 @@ pub fn generate_refinement_map(doc: &StateMachinesDoc) -> String {
 # (object, effect) laufen ausdruecklich ueber mehrere Module hinweg -
 # FSM-OBJECT ist der Hauptautomat der gesamten Passfolge, FSM-EFFECT reicht
 # von M15 ueber M16 bis M18. Ein einzelnes Owner-Modul waere dort erfunden.
-# Vertrag 23.4 verlangt die Abbildung der TRANSITIONEN, keine
+# Vertrag 23.5 verlangt die Abbildung der TRANSITIONEN, keine
 # Modulzuordnung; das Feld entfaellt daher, statt geraten zu werden.
 
 abstract_machines: [{machines}]
 abstract_source: constitution/state_machines.yaml
 
-simulation_direction: forward          # Definition 23.3, konservative Verfeinerung
+simulation_direction: forward          # Definition 23.4, konservative Verfeinerung
 preserved_by_abstraction_map: [gate, closure, trace, replay, identity, residue]
 
 mappings:

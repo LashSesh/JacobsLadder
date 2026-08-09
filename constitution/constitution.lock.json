@@ -1,6 +1,6 @@
 {
   "canonical_digests": {
-    "artifact_registry.yaml": "28ad2404e547676089afc6c406f88b384295f852f504550ab1322842c7fbfe46",
+    "artifact_registry.yaml": "24939205dde7d261c0fc53dbe7d988518c2bb6bce6c171bff6bce79969733b10",
     "capability_matrix.yaml": "979cfb7937695badd07ec0019a71b925fcbec40aa74c0a3229014bfe2e9813ae",
     "conformance_tests.yaml": "2bee48032f044dc271fb3efab548e39e3253be46a7b4b15e5b17863c08b4d0fa",
     "constitution.yaml": "8f91efb49bd31866d0070136d6bf327bd10a4b19677877f05e2296f4080111b8",
@@ -25,7 +25,7 @@
   },
   "canonicalization": "parse YAML/JSON; UTF-8; sorted object keys; compact JSON separators; preserve array order",
   "computed_by": "H(Can(constitution/*)) â€” Definition 40.2 (CPSK), Regel 6.7 (PSK-RA). Can() (Algorithmus 6.1) existiert erst ab WP01.",
-  "constitution_id": "797dc5388f881ecf76d2f404829b5965a1f4ea86ba407991fbc453c2f611f565",
+  "constitution_id": "8976314586b9b5ec6386858dfe0a0c6339848d4d0d0b419f14746ca9368432a1",
   "declared_ancestor_constitution_id": {
     "evidence": {
       "conflicting_files": 22,

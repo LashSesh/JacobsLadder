@@ -2,7 +2,7 @@
 //! pruefungen (Kapitel 27 CPSK / Kapitel 23.3 PSK-RA).
 //!
 //! (1) architecture/refinement_map.yaml: jede konkrete Transition MUSS auf
-//! eine abstrakte abgebildet sein (Vertrag 23.4, I-ARCH-013, T-REF-001).
+//! eine abstrakte abgebildet sein (Vertrag 23.5, I-ARCH-013, T-REF-001).
 //! Setzt Can() (WP01) fuer echte Werte voraus; bei 0 konkreten Transitionen
 //! (I0) ist die Pruefung vakuos aber ausfuehrbar.
 //!
@@ -209,7 +209,7 @@ pub fn check_core_fidelity(root: &Path) -> Result<(), String> {
 }
 
 /// Liest architecture/refinement_map.yaml und prueft die Kohaerenz seiner
-/// coverage-Felder (Vertrag 23.4, T-REF-001).
+/// coverage-Felder (Vertrag 23.5, T-REF-001).
 pub fn read_refinement_map(root: &Path) -> Result<RefinementMap, String> {
     let path = root.join("architecture/refinement_map.yaml");
     let text = fs::read_to_string(&path)
@@ -231,7 +231,7 @@ impl RefinementMap {
     }
 
     /// T-REF-001: eine unabgebildete konkrete Transition blockiert, wenn
-    /// `unmapped_is_blocking` gesetzt ist (Vertrag 23.4, I-ARCH-013).
+    /// `unmapped_is_blocking` gesetzt ist (Vertrag 23.5, I-ARCH-013).
     pub fn blocks_on_unmapped(&self) -> bool {
         self.unmapped_is_blocking && self.coverage.unmapped > 0
     }

@@ -75,7 +75,7 @@ pub struct BaselineMetrics {
     pub recovery_succeeded: bool,
 }
 
-/// Struktur 7.27 (Scaled), `architecture/object_schemas.yaml`s eigene
+/// Struktur 7.27 (Matrix und Scaled), `architecture/object_schemas.yaml`s eigene
 /// Feldnotiz zu `scale`, woertlich: "Wert = numerator / 10^scale, scale
 /// >= 0." `scale: 0` heisst deshalb "Wert ist der Zaehler direkt" (z.B.
 /// > `effective_rank`, das laut `psk_dependency::quotient` "immer scale:0"
