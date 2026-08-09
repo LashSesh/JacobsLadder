@@ -1,4 +1,4 @@
-//! Schnittstelle 9.24 (M22-Ports): `close_cell`, `close_all_18`, `descend`,
+//! Schnittstelle 9.26 (M22-Ports): `close_cell`, `close_all_18`, `descend`,
 //! `holonomy`.
 //!
 //! ## Die benannten Blocker sind gefallen - der Reihe nach
@@ -26,29 +26,30 @@
 //!   deren Berechnung". Das war eine echte Dokumentluecke (zehn
 //!   Verwendungen, keine Definition); v1.0.34 schliesst sie: Definition
 //!   9.17 (Chartwechsel) gibt T als reinen, umkehrbaren Rahmenwechsel mit
-//!   T_ii = I, Definition 9.18 gibt Phi als T_gamma der geschlossenen
-//!   Route, und Regel 9.19 leitet Phi = I bei max_depth = 0 daraus AB,
+//!   T_ii = I, Definition 9.19 gibt Phi als T_gamma der geschlossenen
+//!   Route, und Regel 9.21 leitet Phi = I bei max_depth = 0 daraus AB,
 //!   statt es anzunehmen - mit Ausweispflicht als trivial geschlossen.
 //!
-//! ## Was der CellReport traegt - und warum mehr als Struktur 9.10 nennt
+//! ## Was der CellReport traegt
 //!
-//! Struktur 9.10 fuehrt acht Felder; zwei Ausweispflichten haben dort
-//! keinen Traeger:
+//! Seit v1.0.35 traegt Struktur 9.10 alle Ausweispflichten selbst; die
+//! beiden Befunde der v1.0.34-Bauform sind an der Quelle geschlossen:
 //!
-//! - Regel 9.19: "Der CellReport MUSS diesen Fall als trivial geschlossen
-//!   ausweisen" - kein Feld der Struktur kann das tragen. Hier traegt es
-//!   `closure_mode`. DOKUMENTBEFUND (gemeldet, nicht hier aufgeloest):
-//!   die Feldliste von Struktur 9.10 kennt die von Regel 9.19 verlangte
-//!   Auskunft nicht.
+//! - Regel 9.21: "Der CellReport MUSS diesen Fall als trivial
+//!   geschlossen ausweisen" - der v1.0.34-Dokumentbefund (die Feldliste
+//!   konnte das nicht tragen) ist in v1.0.35 an der Quelle geschlossen:
+//!   `closure_mode` steht jetzt in der Struktur, und Regel 9.11 (Vakuum
+//!   ist kein Beleg) macht das Fuehren beider Ausweisfelder zur Pflicht.
 //! - Die Auflage aus der Abnahme des Blocker-Audits: "aufloesbar" ueber
 //!   leerer Witnessliste ist vakuum-wahr und MUSS als vakuum ausgewiesen
-//!   werden, nicht als geprueft. Struktur 9.10 gibt `refs_resolvable` als
-//!   bool; hier ist es `RefsResolution` mit ausgewiesenem Vakuumfall -
-//!   die bool-Sicht der Struktur liefert `holds()`.
+//!   werden, nicht als geprueft. Seit v1.0.35 traegt Struktur 9.10 das
+//!   selbst: `refs_resolution: checked | vacuous_empty` und
+//!   `closure_mode: substantive | trivial | vacuous` - die v1.0.34-
+//!   Bauform dieses Moduls, jetzt registerseitig.
 //!
-//! `ProbeNote` wird von Struktur 9.10 verwendet, aber nirgends definiert;
-//! die Definition hier ist die minimale, die Regel 9.13 Punkt 5 tragen
-//! kann (Knoten + Sondierungsfolge).
+//! `ProbeNote` ist seit v1.0.35 in Struktur 9.10 definiert (node,
+//! computed_k, reached_k, probe_steps) - die fruehere Minimaldefinition
+//! dieses Moduls ist durch die registerseitige ersetzt.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
@@ -58,7 +59,7 @@ use psk_types::{
     TraceRef,
 };
 
-/// IRGraph aus Schnittstelle 9.24 - der Graph-Teil eines IRBundle
+/// IRGraph aus Schnittstelle 9.26 - der Graph-Teil eines IRBundle
 /// (Struktur 7.21, OBJ-IRB).
 pub type IRGraph = Graph;
 
@@ -70,90 +71,96 @@ pub enum Occupancy {
     Empty,
 }
 
-/// Wie die Bedingung "Witness- und Traceverweise aufloesbar" (Vertrag
-/// 9.7) erfuellt wurde. Die Auflage dazu woertlich: "'aufloesbar' ueber
-/// leerer Liste ist vakuum-wahr, das ist ein anderes Praedikat als FC3s
-/// 'leeres evidence_refs IST fehlender Witness'" - deshalb wird der
-/// Vakuumfall ausgewiesen statt als geprueft ausgegeben.
+/// Struktur 9.10 (v1.0.35): `refs_resolution: checked | vacuous_empty` -
+/// "ueber leerer Verweisliste ist 'aufloesbar' vakuum wahr und KEIN
+/// Beleg" (Regel 9.11: Vakuum ist kein Beleg).
+///
+/// Die Struktur kennt keinen Fehlwert, und das ist konsequent: ein
+/// Verweis, der im eigenen Buendel nicht aufloest, ist kein
+/// berichtbarer Zellzustand, sondern ein defekter Graph - er haette den
+/// Zusammenbau nie verlassen duerfen. `close_cell` liefert dafuer
+/// PSK-E011, wie bei einer unparsebaren Adresse.
+///
+/// Massgeblich fuer checked/vacuous ist die WITNESSLISTE: der
+/// Traceverweis ist an jedem Knoten pflichtig und wird immer geprueft,
+/// aber seine Pruefung allein stuft nicht auf "checked" hoch - genau das
+/// waere die Mehrbehauptung, die Regel 9.11 verbietet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RefsResolution {
     /// Mindestens ein Witnessverweis vorhanden und real aufgeloest;
     /// Traceverweise ebenfalls geprueft.
     Checked,
-    /// Kein Knoten der Zelle traegt einen Witnessverweis; die
-    /// Traceverweise wurden geprueft. Die Witness-Haelfte ist VAKUUM
-    /// wahr, nicht geprueft.
-    VacuousWitnesses,
-    /// Leere Zelle: nichts zu pruefen (Regel 9.9).
-    Vacuous,
-    /// Mindestens ein Verweis loest nicht auf.
-    Failed,
+    /// Keine Witnessverweise vorhanden (leere Zelle oder Knoten ohne
+    /// Verweise): vakuum wahr, ausgewiesen, kein Beleg.
+    VacuousEmpty,
 }
 
-impl RefsResolution {
-    /// Die bool-Sicht der Struktur 9.10 (`refs_resolvable: bool`).
-    pub fn holds(&self) -> bool {
-        !matches!(self, RefsResolution::Failed)
-    }
-}
-
-/// Regel 9.19 (Triviale Route ist eine Route): bei `max_depth = 0` gilt
-/// Phi = I aus T_ii = I - hergeleitet, nicht angenommen. Der Fall MUSS
-/// als trivial ausgewiesen werden und "DARF NICHT als Beleg fuer
-/// Transportkorrektheit gelten".
+/// Struktur 9.10 (v1.0.35): `closure_mode: substantive | trivial |
+/// vacuous`. Regel 9.21 (Triviale Route ist eine Route): bei
+/// `max_depth = 0` gilt Phi = I aus T_ii = I - hergeleitet, nicht
+/// angenommen; der Fall MUSS als trivial ausgewiesen werden und "DARF
+/// NICHT als Beleg fuer Transportkorrektheit gelten". Regel 9.11 dehnt
+/// dieselbe Pflicht auf vacuous aus.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ClosureMode {
-    /// Genau ein Chart (max_depth = 0): jede geschlossene Route ist
-    /// trivial, die Holonomie ist Identitaet mangels Transport.
-    TrivialSingleChart,
     /// Reale Transportauswertung ueber mehrere Charts. Kein Referenzlauf
     /// erreicht diesen Fall bisher (max_depth = 0 ueberall).
-    Transported,
+    Substantive,
+    /// Route ohne Transport (Regel 9.21): belegte Zelle bei
+    /// max_depth = 0.
+    Trivial,
+    /// Zelle ohne Knoten (Regel 9.9).
+    Vacuous,
 }
 
-/// Regel 9.13 Punkt 5: "Konflikte werden durch aufsteigende Sondierung
-/// k, k+1, ... aufgeloest und im CellReport vermerkt." Struktur 9.10
-/// verwendet `ProbeNote`, definiert es aber nicht; dies ist die minimale
-/// tragfaehige Form.
+/// Struktur 9.10 (v1.0.35) definiert ProbeNote jetzt selbst: node,
+/// computed_k ("k = H(Can(node)) mod 6, vor Sondierung"), reached_k
+/// ("tatsaechlich belegte Zelle"), probe_steps ("0 heisst
+/// konfliktfrei"). Dass 0 eine BEDEUTUNG hat, heisst: vermerkt wird
+/// jede Platzierung, nicht nur der Konfliktfall - "Sondierung wird
+/// vermerkt, nicht verworfen".
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProbeNote {
     pub node: ObjectId,
-    /// Die Sondierungsfolge aus `PlacementOutcome::probed_k`. Ein Eintrag
-    /// heisst Direkttreffer; mehrere heissen Konflikt mit aufsteigender
-    /// Aufloesung. Vermerkt werden nur Konflikte.
-    pub probed_k: Vec<u8>,
+    /// k = H(Can(node)) mod 6, vor Sondierung.
+    pub computed_k: u32,
+    /// Tatsaechlich belegte Zelle.
+    pub reached_k: u32,
+    /// 0 heisst konfliktfrei.
+    pub probe_steps: u32,
 }
 
 /// Struktur 9.10 (CellReport), plus `closure_mode` fuer die
-/// Ausweispflicht aus Regel 9.19 - siehe Modulkopf zum Dokumentbefund.
+/// Ausweispflicht aus Regel 9.21 - siehe Modulkopf zum Dokumentbefund.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CellReport {
     pub cell: CellId,
     pub occupancy: Occupancy,
+    pub closure_mode: ClosureMode,
     pub nodes_typed: bool,
     pub edges_port_compatible: bool,
     pub direction_consistent: bool,
-    pub refs_resolvable: RefsResolution,
+    pub refs_resolution: RefsResolution,
     pub differences_residualized: bool,
     pub probe_notes: Vec<ProbeNote>,
-    pub closure_mode: ClosureMode,
 }
 
 impl CellReport {
-    /// Vertrag 9.7: geschlossen, wenn alle fuenf Bedingungen gelten.
-    /// Eine leere Zelle schliesst vakuum (Regel 9.9) - ihre Bedingungen
-    /// sind ueber der leeren Menge wahr und stehen so in den Feldern.
+    /// Vertrag 9.7: geschlossen, wenn alle Bedingungen gelten. Eine
+    /// leere Zelle schliesst vakuum (Regel 9.9) - ihre Bedingungen sind
+    /// ueber der leeren Menge wahr und stehen so in den Feldern; die
+    /// Verweisaufloesung kennt keinen Fehlwert (defekte Verweise sind
+    /// PSK-E011, nie ein Bericht).
     pub fn closed(&self) -> bool {
         self.nodes_typed
             && self.edges_port_compatible
             && self.direction_consistent
-            && self.refs_resolvable.holds()
             && self.differences_residualized
     }
 
-    /// Regel 9.9: vakuum geschlossen - zaehlt, wird aber ausgewiesen.
+    /// Regel 9.9/9.11: vakuum geschlossen - zaehlt, wird aber beziffert.
     pub fn vacuum_closed(&self) -> bool {
-        self.occupancy == Occupancy::Empty && self.closed()
+        self.closure_mode == ClosureMode::Vacuous && self.closed()
     }
 }
 
@@ -183,11 +190,11 @@ pub struct ClosureContext<'a> {
     pub shared_pass_carriers: &'a BTreeSet<(ModuleId, ModuleId)>,
     /// Sondierungsvermerke aus der realen Platzierung des Laufs
     /// (`PlacementOutcome::probed_k` je Knoten). Die Platzierung ist eine
-    /// reine Funktion (Regel 9.13), aber die Vermerke stammen aus dem
+    /// reine Funktion (Regel 9.14), aber die Vermerke stammen aus dem
     /// Lauf, der platziert hat - nicht aus einer Nachrechnung.
     pub probes: &'a [(ObjectId, Vec<u8>)],
     /// RuntimeManifest.max_depth - entscheidet den ClosureMode
-    /// (Regel 9.19).
+    /// (Regel 9.21).
     pub max_depth: u32,
 }
 
@@ -252,12 +259,6 @@ pub fn close_cell(
     graph: &IRGraph,
     ctx: &ClosureContext,
 ) -> Result<CellReport, PskError> {
-    let closure_mode = if ctx.max_depth == 0 {
-        ClosureMode::TrivialSingleChart
-    } else {
-        ClosureMode::Transported
-    };
-
     let mut members = Vec::new();
     for node in &graph.nodes {
         let parsed = parse_m13_address(&node.m13_address.0)
@@ -269,20 +270,29 @@ pub fn close_cell(
 
     if members.is_empty() {
         // Regel 9.9: vakuum - "ueber einer leeren Menge ist nichts
-        // unabgeschlossen". Die Felder tragen die Vakuumwahrheit, die
-        // occupancy weist sie aus.
+        // unabgeschlossen". Die Felder tragen die Vakuumwahrheit,
+        // occupancy und closure_mode weisen sie aus (Regel 9.11).
         return Ok(CellReport {
             cell,
             occupancy: Occupancy::Empty,
+            closure_mode: ClosureMode::Vacuous,
             nodes_typed: true,
             edges_port_compatible: true,
             direction_consistent: true,
-            refs_resolvable: RefsResolution::Vacuous,
+            refs_resolution: RefsResolution::VacuousEmpty,
             differences_residualized: true,
             probe_notes: Vec::new(),
-            closure_mode,
         });
     }
+
+    // Belegte Zelle: bei max_depth = 0 ist jede geschlossene Route
+    // trivial (Regel 9.21); eine substantielle Transportauswertung gibt
+    // es erst mit mehreren Charts.
+    let closure_mode = if ctx.max_depth == 0 {
+        ClosureMode::Trivial
+    } else {
+        ClosureMode::Substantive
+    };
 
     let member_ids: HashSet<ObjectId> = members.iter().map(|n| n.id).collect();
     let sort_of: HashMap<ObjectId, SortId> = members.iter().map(|n| (n.id, n.sort)).collect();
@@ -335,26 +345,26 @@ pub fn close_cell(
     });
 
     // "Witness- und Traceverweise aufloesbar": Witnessverweise gegen
-    // Buendel-W und Knotenmenge, Traceverweise gegen Buendel-T.
+    // Buendel-W und Knotenmenge, Traceverweise gegen Buendel-T. Ein
+    // Verweis, der nicht aufloest, ist KEIN Berichtszustand, sondern
+    // ein defekter Graph: PSK-E011 (die Struktur kennt keinen Fehlwert,
+    // siehe RefsResolution).
     let mut any_witness_ref = false;
-    let mut all_resolve = true;
     for node in &members {
         for w in &node.witness_refs {
             any_witness_ref = true;
             if !ctx.witnesses.contains(w) && !member_ids.contains(w) {
-                all_resolve = false;
+                return Err(PskError::NonclosingM13Seam);
             }
         }
         if node.trace_ref != *ctx.bundle_trace {
-            all_resolve = false;
+            return Err(PskError::NonclosingM13Seam);
         }
     }
-    let refs_resolvable = if !all_resolve {
-        RefsResolution::Failed
-    } else if any_witness_ref {
+    let refs_resolution = if any_witness_ref {
         RefsResolution::Checked
     } else {
-        RefsResolution::VacuousWitnesses
+        RefsResolution::VacuousEmpty
     };
 
     // "offene Differenzen explizit residualisiert": jeder Residuenverweis
@@ -363,28 +373,31 @@ pub fn close_cell(
         .iter()
         .all(|n| n.residue_refs.iter().all(|r| ctx.residues.contains(r)));
 
-    // Regel 9.13 Punkt 5: Konflikte (mehr als ein sondierter Index) aus
-    // der realen Platzierung des Laufs, hier vermerkt statt verworfen.
+    // Struktur 9.10: JEDE Platzierung wird vermerkt ("0 heisst
+    // konfliktfrei" gibt dem konfliktfreien Vermerk eine Bedeutung) -
+    // aus der realen Sondierungsspur des Laufs, nie nachgerechnet.
     let probe_notes = ctx
         .probes
         .iter()
-        .filter(|(id, trail)| member_ids.contains(id) && trail.len() > 1)
+        .filter(|(id, trail)| member_ids.contains(id) && !trail.is_empty())
         .map(|(id, trail)| ProbeNote {
             node: *id,
-            probed_k: trail.clone(),
+            computed_k: u32::from(trail[0]),
+            reached_k: u32::from(*trail.last().expect("nicht leer")),
+            probe_steps: (trail.len() - 1) as u32,
         })
         .collect();
 
     Ok(CellReport {
         cell,
         occupancy: Occupancy::Occupied,
+        closure_mode,
         nodes_typed,
         edges_port_compatible,
         direction_consistent,
-        refs_resolvable,
+        refs_resolution,
         differences_residualized,
         probe_notes,
-        closure_mode,
     })
 }
 
@@ -415,7 +428,7 @@ pub fn all_18_closed(reports: &[CellReport]) -> bool {
     reports.len() == 18 && reports.iter().all(|r| r.closed())
 }
 
-/// Skalenabstieg (Definition 9.22, Invariante 9.23).
+/// Skalenabstieg (Definition 9.24, Invariante 9.25).
 ///
 /// Der VERWEIGERUNGSPFAD ist vollstaendig: eine Adresse, deren Abstieg
 /// die deklarierte Tiefenschranke ueberschritte, erzeugt PSK-E011 und
@@ -423,7 +436,7 @@ pub fn all_18_closed(reports: &[CellReport]) -> bool {
 /// erreichbare Ausgang, und genau er ist der ehrlich erbringbare
 /// Nachweis.
 ///
-/// Der EINTRITTSPUNKT im Feinchart ist normativ offen: Definition 9.11
+/// Der EINTRITTSPUNKT im Feinchart ist normativ offen: Definition 9.12
 /// verlangt im Feinchart eine cell_id, aber kein Block bestimmt, in
 /// welcher Zelle ein Abstieg das Feinchart betritt. DOKUMENTBEFUND
 /// (gemeldet, nicht durch eine erfundene Eintrittsregel ueberspielt) -
@@ -435,14 +448,14 @@ pub fn descend(
     let parsed =
         parse_m13_address(&addr.0).map_err(|_: M13AddressError| PskError::NonclosingM13Seam)?;
     crate::wellformed::check_wellformed(&parsed, max_depth).map_err(|v| v.error_code())?;
-    // Abstieg geschieht an einem Knoten (Definition 9.22: "Jeder Knoten
+    // Abstieg geschieht an einem Knoten (Definition 9.24: "Jeder Knoten
     // DARF auf feinerer Skala selbst einen M13-Chart tragen") - eine
     // Adresse ohne node_id benennt keinen.
     if parsed.node.is_none() {
         return Err(PskError::NonclosingM13Seam);
     }
     if parsed.level + 1 > max_depth {
-        // Invariante 9.23 / Regel 9.12 Punkt 3: die Verweigerung.
+        // Invariante 9.25 / Regel 9.13 Punkt 3: die Verweigerung.
         return Err(PskError::NonclosingM13Seam);
     }
     unimplemented!(
@@ -450,23 +463,23 @@ pub fn descend(
     )
 }
 
-/// Definition 9.18: akkumulierte Rahmenaenderung entlang einer
+/// Definition 9.19: akkumulierte Rahmenaenderung entlang einer
 /// Chartroute. Identitaet = leerer Rest (keine haengenden
 /// Abstiegspaare).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Transport(pub Vec<u8>);
 
 impl Transport {
-    /// Hol = I - Definition 9.16 verlangt das fuer Close720.
+    /// Hol = I - Definition 9.17 verlangt das fuer Close720.
     pub fn is_identity(&self) -> bool {
         self.0.is_empty()
     }
 }
 
-/// Transport und Holonomie (Definition 9.17/9.18).
+/// Transport und Holonomie (Definition 9.18/9.19).
 ///
 /// T_{iota_a iota_b} ist reiner Rahmenwechsel: nur die M13Address wird
-/// umgeschrieben (Definition 9.17 Punkt 1), T_ii = I (Punkt 2), und jeder
+/// umgeschrieben (Definition 9.18 Punkt 1), T_ii = I (Punkt 2), und jeder
 /// Wechsel ist umkehrbar (Punkt 3). Entlang der Route komponiert sich das
 /// als Stapel von Abstiegspaaren: ein Abstieg schiebt sein Paar, der
 /// zugehoerige Aufstieg nimmt es - Punkt 3 verlangt, dass es DASSELBE
@@ -476,7 +489,7 @@ impl Transport {
 ///
 /// Bei geschlossener Route (gleiches Chart am Anfang und Ende) ist der
 /// Stapel leer und Hol_gamma = I - bei max_depth = 0 gilt das aus
-/// T_ii = I (Regel 9.19), der CellReport weist den Fall als trivial aus,
+/// T_ii = I (Regel 9.21), der CellReport weist den Fall als trivial aus,
 /// und als Beleg fuer Transportkorrektheit gilt er ausdruecklich nicht.
 pub fn holonomy(route: &[psk_types::objects::M13Address]) -> Result<Transport, PskError> {
     let parsed: Vec<_> = route
@@ -495,7 +508,7 @@ pub fn holonomy(route: &[psk_types::objects::M13Address]) -> Result<Transport, P
                 if a.ancestors != b.ancestors {
                     return Err(PskError::NonclosingM13Seam);
                 }
-                // T_ii = I: nichts zu wechseln (Definition 9.17 Punkt 2).
+                // T_ii = I: nichts zu wechseln (Definition 9.18 Punkt 2).
             }
             // Abstieg um genau eine Skala: das neue Paar MUSS die Position
             // benennen, an der der Abstieg stattfand.
@@ -686,8 +699,8 @@ mod tests {
         assert_eq!(vacuum_closed_count(&reports), 18);
         for r in &reports {
             assert_eq!(r.occupancy, Occupancy::Empty);
-            assert_eq!(r.refs_resolvable, RefsResolution::Vacuous);
-            assert_eq!(r.closure_mode, ClosureMode::TrivialSingleChart);
+            assert_eq!(r.refs_resolution, RefsResolution::VacuousEmpty);
+            assert_eq!(r.closure_mode, ClosureMode::Vacuous);
         }
         // Kanonische Ordnung c0..c5, b0..b5, o0..o5.
         assert_eq!(reports[0].cell, cell(CellKind::Center, 0));
@@ -741,7 +754,7 @@ mod tests {
     }
 
     #[test]
-    fn witness_refs_are_vacuous_when_absent_checked_when_present_failed_when_dangling() {
+    fn witness_refs_are_vacuous_when_absent_checked_when_present_defect_when_dangling() {
         let mut f = Fixture::new();
         let plain = node(SortId::Anchor, "plain", "m13:0/b0");
         let g = Graph {
@@ -749,8 +762,10 @@ mod tests {
             edges: vec![],
         };
         let r = close_cell(cell(CellKind::Bridge, 0), &g, &f.ctx()).unwrap();
-        // Die Auflage woertlich: als vakuum ausweisen, nicht als geprueft.
-        assert_eq!(r.refs_resolvable, RefsResolution::VacuousWitnesses);
+        // Regel 9.11: als vakuum ausweisen, nicht als geprueft - auch
+        // wenn die Traceverweise real geprueft wurden.
+        assert_eq!(r.refs_resolution, RefsResolution::VacuousEmpty);
+        assert_eq!(r.closure_mode, ClosureMode::Trivial);
 
         let witness_id = ObjectId::new(SortId::Witness, Digest::sha256(b"w"));
         let mut with_ref = node(SortId::Anchor, "with", "m13:0/b0");
@@ -759,10 +774,9 @@ mod tests {
             nodes: vec![with_ref.clone()],
             edges: vec![],
         };
-        // Nicht aufloesbar: der Verweis haengt.
-        let r = close_cell(cell(CellKind::Bridge, 0), &g, &f.ctx()).unwrap();
-        assert_eq!(r.refs_resolvable, RefsResolution::Failed);
-        assert!(!r.closed());
+        // Haengender Verweis: kein Berichtszustand, sondern ein defekter
+        // Graph - PSK-E011 (die Struktur kennt keinen Fehlwert).
+        assert!(close_cell(cell(CellKind::Bridge, 0), &g, &f.ctx()).is_err());
         // Aufloesbar, sobald das Buendel-W ihn traegt.
         f.witnesses = vec![witness_id];
         let g = Graph {
@@ -770,7 +784,7 @@ mod tests {
             edges: vec![],
         };
         let r = close_cell(cell(CellKind::Bridge, 0), &g, &f.ctx()).unwrap();
-        assert_eq!(r.refs_resolvable, RefsResolution::Checked);
+        assert_eq!(r.refs_resolution, RefsResolution::Checked);
     }
 
     #[test]
@@ -791,25 +805,31 @@ mod tests {
         let r = close_cell(cell(CellKind::Boundary, 3), &g, &f.ctx()).unwrap();
         assert_eq!(r.probe_notes.len(), 1);
         assert_eq!(r.probe_notes[0].node, n.id);
-        assert_eq!(r.probe_notes[0].probed_k, vec![2, 3, 4]);
+        assert_eq!(r.probe_notes[0].computed_k, 2);
+        assert_eq!(r.probe_notes[0].reached_k, 4);
+        assert_eq!(r.probe_notes[0].probe_steps, 2);
 
-        // Direkttreffer (ein Eintrag) wird nicht vermerkt.
+        // Auch der Direkttreffer wird vermerkt - "0 heisst konfliktfrei"
+        // gibt dem konfliktfreien Vermerk seine Bedeutung.
         f.probes = vec![(n.id, vec![3])];
         let g = Graph {
             nodes: vec![n],
             edges: vec![],
         };
         let r = close_cell(cell(CellKind::Boundary, 3), &g, &f.ctx()).unwrap();
-        assert!(r.probe_notes.is_empty());
+        assert_eq!(r.probe_notes.len(), 1);
+        assert_eq!(r.probe_notes[0].computed_k, 3);
+        assert_eq!(r.probe_notes[0].reached_k, 3);
+        assert_eq!(r.probe_notes[0].probe_steps, 0);
     }
 
     #[test]
     fn descend_refuses_beyond_the_declared_depth_and_without_a_node() {
         use psk_types::objects::M13Address;
-        // Invariante 9.23: max_depth = 0 -> jeder Abstieg verweigert.
+        // Invariante 9.25: max_depth = 0 -> jeder Abstieg verweigert.
         let addr = M13Address("m13:0/c2/i2".into());
         assert!(descend(&addr, 0).is_err());
-        // Definition 9.22: Abstieg geschieht an einem KNOTEN.
+        // Definition 9.24: Abstieg geschieht an einem KNOTEN.
         let cell_only = M13Address("m13:0/c2".into());
         assert!(descend(&cell_only, 5).is_err());
     }
@@ -822,14 +842,14 @@ mod tests {
             M13Address("m13:0/c1/i1".into()),
             M13Address("m13:0/c0/c".into()),
         ];
-        // Regel 9.19: aus T_ii = I, nicht angenommen.
+        // Regel 9.21: aus T_ii = I, nicht angenommen.
         assert!(holonomy(&route).unwrap().is_identity());
     }
 
     #[test]
     fn holonomy_cancels_a_descent_ascent_pair_and_keeps_an_open_descent() {
         use psk_types::objects::M13Address;
-        // Das Beispiel aus Definition 9.11: Abstieg bei c2/i2 in den
+        // Das Beispiel aus Definition 9.12: Abstieg bei c2/i2 in den
         // Feinchart, dort b5/o5, und zurueck an dieselbe Stelle.
         let closed = [
             M13Address("m13:0/c2/i2".into()),
@@ -864,7 +884,7 @@ mod tests {
         ];
         assert!(holonomy(&teleport).is_err());
         // Aufstieg an fremder Stelle: abgestiegen bei c2/i2, angekommen
-        // bei c3/i3 - Definition 9.17 Punkt 3 verlangt Umkehrbarkeit.
+        // bei c3/i3 - Definition 9.18 Punkt 3 verlangt Umkehrbarkeit.
         let wrong = [
             M13Address("m13:0/c2/i2".into()),
             M13Address("m13:1.c2.i2/b5/o5".into()),

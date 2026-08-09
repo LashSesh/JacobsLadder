@@ -293,7 +293,7 @@ pub fn generate_sort_id_enum(reg: &SortRegistry) -> String {
     out.push_str("        SortId::from_id(&s).ok_or_else(|| serde::de::Error::custom(format!(\"unbekannte SortId: {s}\")))\n");
     out.push_str("    }\n}\n\n");
 
-    out.push_str("/// Vier Gruppen aus Regel 9.13 (Platzierungsregel): drei feste Zellklassen\n");
+    out.push_str("/// Vier Gruppen aus Regel 9.14 (Platzierungsregel): drei feste Zellklassen\n");
     out.push_str(
         "/// plus \"zellgebunden\" (die Zelle des bereits geprueften Knotens, nicht frei\n",
     );

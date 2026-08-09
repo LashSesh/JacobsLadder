@@ -430,7 +430,7 @@ fn main() -> ExitCode {
     let mut problems: Vec<String> = Vec::new();
     let mut titled = 0usize;
     for c in &citations {
-        // "Regel 9.9.2" zitiert Punkt 2 der Regel 9.9 - der BLOCK ist
+        // "Regel 9.13.2" zitiert Punkt 2 der Regel 9.13 - der BLOCK ist
         // 9.9, und nur Bloecke tragen Nummern im Werk.
         let block_number = {
             let parts: Vec<&str> = c.number.split('.').collect();

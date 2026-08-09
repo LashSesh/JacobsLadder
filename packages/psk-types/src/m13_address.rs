@@ -1,4 +1,4 @@
-//! M13Address (Definition 9.11, Kapitel 9.2): Grammatik-Parser/-Formatter auf
+//! M13Address (Definition 9.12, Kapitel 9.2): Grammatik-Parser/-Formatter auf
 //! der generierten Drahtform `objects::M13Address(String)`.
 //!
 //! ```text
@@ -8,7 +8,7 @@
 //! node_id: "c" | "i" k | "o" k
 //! ```
 //!
-//! Dieses Modul deckt ausschliesslich die GRAMMATIK ab. Regel 9.9
+//! Dieses Modul deckt ausschliesslich die GRAMMATIK ab. Regel 9.13
 //! (Wohlgeformtheit einer M13Address) stellt drei zusaetzliche Bedingungen,
 //! die die Grammatik allein nicht traegt; zwei davon setzen das Zellregister
 //! voraus ("geprueft gegen m13_topology.yaml, nicht gegen die
@@ -51,7 +51,7 @@ impl CellKind {
     }
 }
 
-/// cell_id: ("c"|"b"|"o") k, k in 0..5 (Definition 9.11).
+/// cell_id: ("c"|"b"|"o") k, k in 0..5 (Definition 9.12).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CellId {
     pub kind: CellKind,
@@ -67,7 +67,7 @@ impl CellId {
     }
 }
 
-/// node_id: "c" | "i" k | "o" k (Definition 9.11).
+/// node_id: "c" | "i" k | "o" k (Definition 9.12).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum M13NodeId {
     Center,
@@ -208,7 +208,7 @@ fn format_node_id(n: &M13NodeId) -> String {
     }
 }
 
-/// Formatiert nach Definition 9.11 (Umkehrung von `parse`).
+/// Formatiert nach Definition 9.12 (Umkehrung von `parse`).
 pub fn format(p: &ParsedM13Address) -> String {
     let mut s = format!("m13:{}", p.level);
     for a in &p.ancestors {
@@ -267,7 +267,7 @@ mod tests {
         // Zentrumzelle 2 und Innenknoten i2; darin Brueckenzelle 5,
         // Aussenknoten o5". Die Zellzugehoerigkeit (i2 in c2, o5 in b5)
         // pruefen nicht wir, sondern psk_topology::check_wellformed gegen
-        // das Zellregister (Regel 9.9 Punkt 2).
+        // das Zellregister (Regel 9.13 Punkt 2).
         let p = parse("m13:1.c2.i2/b5/o5").unwrap();
         assert_eq!(p.level, 1);
         assert_eq!(

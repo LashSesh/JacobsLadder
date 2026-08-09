@@ -1,4 +1,4 @@
-//! Regel 9.13 (Platzierungsregel): M22 platziert jeden IR-Knoten
+//! Regel 9.14 (Platzierungsregel): M22 platziert jeden IR-Knoten
 //! deterministisch. Implementiert die Punkte 1-5 woertlich; Punkt 4
 //! (zellgebundene Sorten) verlangt die bereits bekannte Traegerzelle vom
 //! Aufrufer (`EdgeContext.bound_cell`), da "die Zelle, die den geprueften
@@ -16,9 +16,9 @@ use psk_types::{CellId, CellKind, ParsedM13Address, PskError};
 /// festlegt.
 #[derive(Debug, Clone, Default)]
 pub struct EdgeContext {
-    /// Regel 9.13 Punkt 5: "sofern nicht durch eine Kante bereits erzwungen".
+    /// Regel 9.14 Punkt 5: "sofern nicht durch eine Kante bereits erzwungen".
     pub forced_k: Option<u8>,
-    /// Regel 9.13 Punkt 4: fuer S-WIT/S-GAT/S-TRC/S-RES diejenige Zelle
+    /// Regel 9.14 Punkt 4: fuer S-WIT/S-GAT/S-TRC/S-RES diejenige Zelle
     /// (z.B. "c3"), die den bereits geprueften Knoten traegt.
     pub bound_cell: Option<&'static str>,
     /// Bereits belegte Zellen derselben Klasse in diesem Platzierungslauf -

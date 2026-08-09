@@ -200,7 +200,7 @@ pub struct GoldenRunReport {
 /// anchor_bound_or_declared_unanchored, all_18_cells_closed, close720,
 /// unique_global_section, all_blocking_gates_pass, no_blocking_residue].
 /// Jedes Feld ist abgeleitet, keines behauptet; die Herkunft steht am
-/// Feld. Regel 9.19: die beiden trivial wahren Close720-Schenkel sind
+/// Feld. Regel 9.21: die beiden trivial wahren Close720-Schenkel sind
 /// als trivial AUSGEWIESEN und gelten nicht als Beleg fuer
 /// Transportkorrektheit.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -215,9 +215,9 @@ pub struct ExecutableCheck {
     /// Regel 9.9: wie viele der geschlossenen Zellen vakuum schlossen.
     pub cells_vacuum_closed: usize,
     /// Close720-Schenkel 1: Phi^2(x) ==can x. Bei max_depth = 0 gilt
-    /// Phi = I aus T_ii = I (Regel 9.19) - TRIVIAL, ausgewiesen.
+    /// Phi = I aus T_ii = I (Regel 9.21) - TRIVIAL, ausgewiesen.
     pub close720_phi_squared_trivially: bool,
-    /// Close720-Schenkel 2: Hol(Phi^2) = I - ebenso trivial (Regel 9.19).
+    /// Close720-Schenkel 2: Hol(Phi^2) = I - ebenso trivial (Regel 9.21).
     pub close720_holonomy_trivially: bool,
     /// Close720-Schenkel 3: Replay(Phi^2) ==can x. Braucht den
     /// Zweitlauf (Definition 22.1); None heisst "in diesem Artefakt
@@ -547,7 +547,7 @@ fn project_field(
 /// Objekten dieses Laufs bauen.
 ///
 /// Knoten entstehen nur fuer Sorten, die `psk_topology::place` ohne eine
-/// Traegerzelle platzieren kann (Regel 9.13 Punkte 1-3). Die
+/// Traegerzelle platzieren kann (Regel 9.14 Punkte 1-3). Die
 /// zellgebundenen Sorten S-GAT/S-TRC/S-WIT/S-RES (Punkt 4) bleiben aussen
 /// vor - siehe den Kopfkommentar von `ir_assembly`.
 ///
@@ -802,13 +802,16 @@ fn derive_executable_check(
     let anchor_bound = bundle.graph.nodes.iter().all(|n| !n.anchor_refs.is_empty());
     let all_18 = psk_topology::all_18_closed(cell_reports);
     let vacuum = psk_topology::vacuum_closed_count(cell_reports);
-    // Regel 9.19: bei max_depth = 0 folgt Phi = I aus T_ii = I - beide
+    // Regel 9.21: bei max_depth = 0 folgt Phi = I aus T_ii = I - beide
     // Schenkel gelten TRIVIAL und sind hier als solche ausgewiesen
     // (die Felder heissen so). Der ClosureMode der Zellberichte traegt
     // dieselbe Auskunft je Zelle.
+    // Kein Zellbericht traegt Substantive: alle Schliessungen sind
+    // trivial oder vakuum (Regel 9.21/9.9) - und werden genau so
+    // ausgewiesen, nicht als gepruefte Struktur (Regel 9.11).
     let trivially = cell_reports
         .iter()
-        .all(|r| r.closure_mode == psk_topology::ClosureMode::TrivialSingleChart);
+        .all(|r| r.closure_mode != psk_topology::ClosureMode::Substantive);
     let unique_section = glue_outcome.section.is_some();
     let gates_pass = gates
         .iter()
@@ -1990,7 +1993,7 @@ pub fn run_golden_run_with_certificate(
         byte_identical_artifacts: first_artifact == second_artifact,
     };
     // Close720-Schenkel 3 (Replay(Phi^2) ==can x): mit Phi = I (Regel
-    // 9.19) ist das die kanonische Replaygleichheit des Laufs selbst -
+    // 9.21) ist das die kanonische Replaygleichheit des Laufs selbst -
     // genau das, was dieser Zweitlauf misst (Definition 22.1, R2:
     // kanonischer Digest und Gatefolge). Erst hier wird der Schenkel
     // bestimmbar; der Einzellaufbericht traegt None.

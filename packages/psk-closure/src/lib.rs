@@ -4,7 +4,7 @@
 //! Modul realisiert (Regel 32.2).
 //!
 //! Kapitel 9.3 (Closure erster und zweiter Ordnung): Close360/Close720
-//! (Definition 9.15/9.13) sind in `closure360` als reine
+//! (Definition 9.16/9.17) sind in `closure360` als reine
 //! Praedikat-Kombinatoren ueber vorgegebene Evidenz implementiert - Phi
 //! (M09), Seam (M10) und Replay (M19) selbst zu berechnen bleibt
 //! ausserhalb dieses Moduls (siehe dortiger Modulkopf).

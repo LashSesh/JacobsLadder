@@ -173,7 +173,7 @@ pub enum EdgeOmission {
         target: SortId,
     },
     /// Ein Endpunkt wurde nicht als Knoten gebaut (z.B. weil seine Sorte
-    /// zellgebunden ist und keine Traegerzelle feststeht, Regel 9.13
+    /// zellgebunden ist und keine Traegerzelle feststeht, Regel 9.14
     /// Punkt 4).
     EndpointMissing {
         relation: RelationSortId,

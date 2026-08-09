@@ -18,7 +18,7 @@
 //!
 //! ## Welche Knoten entstehen - und welche nicht
 //!
-//! Regel 9.13 Punkt 4: Knoten der Sorten S-WIT, S-GAT, S-TRC, S-RES sind
+//! Regel 9.14 Punkt 4: Knoten der Sorten S-WIT, S-GAT, S-TRC, S-RES sind
 //! ZELLGEBUNDEN - ihre Zelle ist "diejenige, die den geprueften Knoten
 //! traegt", und die kennt nur der Gesamtgraph. `psk_topology::place`
 //! verlangt sie folgerichtig als `EdgeContext.bound_cell` und schlaegt
@@ -270,7 +270,7 @@ pub fn build_node<T: serde::Serialize>(
         m13_address: M13Address(String::new()),
     };
 
-    // Regel 9.13: reine Funktion des kanonisierten Knotens. `occupied`
+    // Regel 9.14: reine Funktion des kanonisierten Knotens. `occupied`
     // bleibt leer - M13 hat 18 Zellen und traegt beliebig viele Knoten,
     // eine Zelle ist also nicht exklusiv. Aufsteigende Sondierung greift
     // nur, wo ein Aufrufer Exklusivitaet verlangt; dieser tut es nicht,

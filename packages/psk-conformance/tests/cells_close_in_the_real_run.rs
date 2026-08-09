@@ -44,25 +44,28 @@ fn all_18_cells_close_and_the_vacuum_ones_are_disclosed() {
     println!("18 geschlossen, davon {vacuum} vakuum");
 
     for r in reports {
-        // Regel 9.19: max_depth = 0 -> als trivial ausgewiesen.
+        // Kein Knoten des Referenzlaufs traegt Witnessverweise - die
+        // Aufloesung ist VAKUUM wahr und steht auch so da (Regel 9.11).
         assert_eq!(
-            r.closure_mode,
-            psk_topology::ClosureMode::TrivialSingleChart
+            r.refs_resolution,
+            psk_topology::RefsResolution::VacuousEmpty
         );
         match r.occupancy {
-            // Kein Knoten des Referenzlaufs traegt Witnessverweise -
-            // die Aufloesung ist VAKUUM wahr und steht auch so da.
-            psk_topology::Occupancy::Occupied => assert_eq!(
-                r.refs_resolvable,
-                psk_topology::RefsResolution::VacuousWitnesses
-            ),
+            // Regel 9.21: max_depth = 0 -> belegte Zellen trivial.
+            psk_topology::Occupancy::Occupied => {
+                assert_eq!(r.closure_mode, psk_topology::ClosureMode::Trivial);
+                // Struktur 9.10: JEDE Platzierung vermerkt, alle
+                // konfliktfrei (EdgeContext::default() sondiert nicht).
+                assert!(!r.probe_notes.is_empty());
+                assert!(r.probe_notes.iter().all(|n| n.probe_steps == 0));
+                assert!(r.probe_notes.iter().all(|n| n.computed_k == n.reached_k));
+            }
+            // Leere vakuum - beides ausgewiesen, nicht behauptet.
             psk_topology::Occupancy::Empty => {
-                assert_eq!(r.refs_resolvable, psk_topology::RefsResolution::Vacuous)
+                assert_eq!(r.closure_mode, psk_topology::ClosureMode::Vacuous);
+                assert!(r.probe_notes.is_empty());
             }
         }
-        // EdgeContext::default() sondiert nicht (Zellen sind nicht
-        // exklusiv) - Konfliktvermerke waeren hier ein Fehler.
-        assert!(r.probe_notes.is_empty());
     }
 }
 
