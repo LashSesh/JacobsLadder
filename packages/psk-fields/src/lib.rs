@@ -25,6 +25,12 @@ pub use registry::{
 mod lens_router;
 pub use lens_router::{route_lens, LensOutcome, ProjectionInputs};
 
+mod aperture;
+pub use aperture::{
+    account_apertures, account_from_pairs, as_psk_error, incoming_mass, visible_bodies,
+    AccountingFailure, ApertureAccount, MassClass,
+};
+
 mod morphogenesis;
 pub use morphogenesis::{
     decide_excision, decide_transition, ExcisionInputs, MorphInputs, MorphogenesisOutcome,

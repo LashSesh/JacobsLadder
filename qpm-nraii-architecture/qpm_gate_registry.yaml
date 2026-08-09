@@ -1,4 +1,4 @@
-# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.1.pdf, Listing B.1
+# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.2.pdf, Listing B.1
 # (Kapitel B "QPM-Gate- und Passregister"). Woertlich uebernommen.
 #
 # pass_binding belegt PSK-RA-Paesse, ohne neue einzufuehren (Struktur 1.6:

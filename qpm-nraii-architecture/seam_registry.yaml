@@ -1,4 +1,4 @@
-# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.1.pdf, Listing D.1
+# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.2.pdf, Listing D.1
 # (Kapitel D "Nahtregister"). Woertlich uebernommen.
 #
 # Die beiden Nahtports stehen NICHT in architecture/port_registry.yaml:
