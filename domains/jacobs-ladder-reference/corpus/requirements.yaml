@@ -1,0 +1,70 @@
+# Anforderungskorpus der Referenzdomaene (Regel Referenzauftrag, Schritt 1:
+# "eine versiegelte Menge von Spezifikations- und Quelltextdateien").
+#
+# Form uebernommen von constitution/requirement_matrix.yaml (id, severity,
+# artifact, statement) - das vorhandene, maschinenlesbare Anforderungs-
+# register des Kerns. Ergaenzt um `precedence`, weil die Geltungsbestimmung
+# eine Eigenschaft der ANFORDERUNGEN ist, nicht der Relationssorten: zwei
+# Anforderungen ueber dasselbe Artefakt koennen einander widersprechen, und
+# nur eine erklaerte Rangfolge entscheidet das ohne Aussenrecord.
+#
+# Das Korpus ist NICHT auf FC5 hin entworfen. Es enthaelt beide
+# Widerspruchsarten, weil ein realistisches Anforderungskorpus beide
+# enthaelt: solche, die eine deklarierte Praezedenz aufloest, und solche,
+# die ohne Aussenrecord offen bleiben. Was der Lauf daraus macht, wird
+# gemessen.
+schema: psk.domain-requirements/1.0
+domain: jacobs-ladder-reference
+
+# Hoehere Zahl schlaegt niedrigere. Gleiche Zahl heisst: die Rangfolge
+# entscheidet NICHT - dann ist der Widerspruch ohne Aussenrecord offen.
+precedence_rule: "hoehere precedence schlaegt niedrigere; bei Gleichstand entscheidet die Rangfolge nicht"
+
+requirements:
+  # --- Widerspruchspaar A: ueber die Praezedenz aufloesbar. ---
+  # Zwei Fassungen derselben Anforderung an dieselbe Datei. Die spaetere
+  # Fassung traegt den hoeheren Rang; das ist der Normalfall einer
+  # fortgeschriebenen Spezifikation.
+  - id: R-PATCH-001
+    severity: MUST
+    artifact: golden-run-patch.txt
+    precedence: 1
+    statement: "Die Sandboxdatei golden-run-patch.txt enthaelt genau 'hello golden run'."
+
+  - id: R-PATCH-002
+    severity: MUST
+    artifact: golden-run-patch.txt
+    precedence: 2
+    statement: "Die Sandboxdatei golden-run-patch.txt enthaelt genau 'hello golden run v2'."
+
+  # --- Widerspruchspaar B: ohne Aussenrecord nicht aufloesbar. ---
+  # Gleicher Rang, gegenlaeufige Forderungen ueber dasselbe Artefakt. Die
+  # Rangfolge entscheidet hier nichts, und die Frage, WAS der Freigabestand
+  # ausserhalb der Sandbox ist, kann der Lauf aus sich heraus nicht
+  # beantworten - dafuer braucht es eine Beobachtung von aussen.
+  - id: R-SCOPE-001
+    severity: MUST
+    artifact: golden-run-patch.txt
+    precedence: 1
+    statement: "Der Patch DARF ausschliesslich innerhalb der Sandbox schreiben."
+
+  - id: R-SCOPE-002
+    severity: MUST
+    artifact: golden-run-patch.txt
+    precedence: 1
+    statement: "Der Patch MUSS den ausserhalb der Sandbox gefuehrten Freigabestand spiegeln."
+
+  # --- Widerspruchsfrei, als Kontrollmenge. ---
+  # Ohne sie wuerde eine Widerspruchssuche, die ALLES als widerspruechlich
+  # meldet, unbemerkt bestehen.
+  - id: R-TRACE-001
+    severity: MUST
+    artifact: trace.jsonl
+    precedence: 1
+    statement: "Jeder Schritt des Laufs erzeugt ein TraceSegment."
+
+  - id: R-SEAL-001
+    severity: MUST
+    artifact: anchor.json
+    precedence: 1
+    statement: "Der Anker versiegelt den beobachteten Verzeichnisstand vor der ersten Aenderung."

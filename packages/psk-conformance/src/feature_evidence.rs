@@ -144,6 +144,15 @@ fn measure_run(run: &GoldenRunReport, evidence: &mut FeatureEvidence) {
         evidence.support_decisions += 1;
     }
 
+    // Vierter Nachweis - Residuenfluss. `residue_flow_next` gibt die
+    // zulaessige Folgephase; sie existiert nur ab RESIDUAL. Gezaehlt wird
+    // ein Uebergang nur, wenn die Kapsel tatsaechlich dort steht UND das
+    // Werk von dort aus einen Weg fuehrt. Ist die Kapsel SUPPORTED,
+    // fliesst nichts - das ist dann der Messwert, kein Mangel der Messung.
+    if psk_adversarial::residue_flow_next(run.capsule.phase).is_some() {
+        evidence.residue_flow_transitions += 1;
+    }
+
     // ---- FC6.
     evidence.gate_reports += 2; // boot_gate und patch_gate
     evidence.effect_tokens += 1; // token_authorization -> EffectToken

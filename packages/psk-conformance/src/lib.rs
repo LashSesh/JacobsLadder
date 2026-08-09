@@ -13,6 +13,13 @@ mod conformance_catalog;
 pub mod baselines;
 pub use baselines::{run_baseline_comparison, BaselineComparison, BaselineMetrics};
 
+mod corpus;
+pub use corpus::{
+    directory_freshness_predicate, falsifier_countermodels, freshness_predicate_holds,
+    identify_contradictions, integrator_obstruction, load_requirements, open_obligation_for,
+    Contradiction, Geltung, Requirement,
+};
+
 mod feature_evidence;
 pub use feature_evidence::collect_feature_evidence;
 

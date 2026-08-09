@@ -85,6 +85,11 @@ use psk_types::{
 /// Wahrheiten.
 const GOLDEN_RUN_RATCHET_MAX_ROUNDS: u32 = 4;
 
+/// Das Artefakt, ueber dem die Anforderungen des Korpus streiten und das
+/// der Patch aendert - eine Zeichenkette, zwei Verbraucher (Korpus und
+/// Lauf), damit sie nicht auseinanderlaufen.
+const GOLDEN_RUN_PATCH_TARGET: &str = "golden-run-patch.txt";
+
 /// Deterministische Laufzeit (Definition 24.2: "erwartetem kanonischen
 /// Zustandsdigest" - Replaystabilitaet verlangt eine feste, nicht eine
 /// systemuhrabhaengige Zeit).
@@ -137,6 +142,21 @@ pub struct GoldenRunReport {
     /// Fixpunkt, nicht Budget-RESIDUAL.
     pub capsule: psk_types::objects::CandidateCapsule,
     pub capsule_reached_fixpoint: bool,
+    /// Wie viele Ratchet-Runden bis zum Fixpunkt noetig waren. Ohne
+    /// Gegenmodelle stand er in Runde 1; mit ihnen kontrahiert Runde 1
+    /// erst, und der Fixpunkt steht eine Runde spaeter.
+    pub ratchet_rounds: u32,
+    /// Ob der Kandidat adversarial geschlossen ist (Invariante
+    /// "Nichttrivialitaet des Ueberlebens"). `false` heisst: er schliesst
+    /// nur unter Ausblendung eines Gegenmodells - PSK-E003, als Residuum
+    /// weitergetragen statt still verworfen.
+    pub adversarially_closed: bool,
+    /// Schritt 2/3 des Referenzauftrags: die im Korpus identifizierten
+    /// Widersprueche samt bestimmter Geltung.
+    pub contradictions: Vec<crate::Contradiction>,
+    /// Was der Integrator daraus gemacht hat - je offenem Widerspruch
+    /// eine Obstruktion der Art `order`.
+    pub obstructions: Vec<psk_types::objects::ObstructionRecord>,
     /// Die sechs Feldidentitaeten des Laufs (Regel 32.7) - herausgegeben,
     /// weil sie Lin_lambda tragen: FC4s Lineage-Beleg zaehlt NICHTLEERE
     /// Lineages an realen Laufobjekten, und ein Objekt, das der Bericht
@@ -235,9 +255,47 @@ fn run_boot(
 /// Schritt 2: Workspace als AnchorSnapshot versiegeln - `observer_local_fs::
 /// observe` liest den Sandbox-Baum wirklich vom Dateisystem (kein
 /// simulierter Rueckgabewert).
+/// Kopiert das Korpus in das beobachtete Verzeichnis und liefert seinen
+/// Digest - die Groesse, an die das Frischepraedikat des Ankers gebunden
+/// wird. Kopiert der Aufruf nichts, ist das ein Fehlschlag und kein
+/// leerer Erfolg: ein Korpus, das nicht ankommt, versiegelt sich nicht.
+fn stage_corpus(corpus_root: &Path, sandbox_root: &Path) -> Result<Digest, PskError> {
+    fn copy_into(src: &Path, dst: &Path, count: &mut usize) -> Result<Vec<u8>, PskError> {
+        let mut acc = Vec::new();
+        let mut entries: Vec<_> = fs::read_dir(src)
+            .map_err(|_| PskError::UntypedInput)?
+            .filter_map(Result::ok)
+            .collect();
+        entries.sort_by_key(|e| e.file_name());
+        for e in entries {
+            let from = e.path();
+            let to = dst.join(e.file_name());
+            if from.is_dir() {
+                fs::create_dir_all(&to).map_err(|_| PskError::UntypedInput)?;
+                acc.extend(copy_into(&from, &to, count)?);
+            } else {
+                let bytes = fs::read(&from).map_err(|_| PskError::UntypedInput)?;
+                fs::write(&to, &bytes).map_err(|_| PskError::UntypedInput)?;
+                acc.extend(e.file_name().to_string_lossy().as_bytes());
+                acc.extend(&bytes);
+                *count += 1;
+            }
+        }
+        Ok(acc)
+    }
+    let mut count = 0usize;
+    let material = copy_into(corpus_root, sandbox_root, &mut count)?;
+    if count == 0 {
+        // Nullbefund ueber nichtleerer Arbeitsliste.
+        return Err(PskError::UntypedInput);
+    }
+    Ok(Digest::sha256(&material))
+}
+
 fn seal_workspace_anchor(
     sandbox_root: &Path,
     trace_ref: TraceRef,
+    corpus_digest: Digest,
 ) -> Result<AnchorSnapshot, PskError> {
     let config = observer_local_fs::ObserverConfig::new(sandbox_root);
     let record =
@@ -259,7 +317,12 @@ fn seal_workspace_anchor(
         context: ContextRef("golden-run".into()),
         time: run_time(),
         validity: Validity {
-            freshness_predicate: PredicateExpr("always".into()),
+            // Regel "Ein Frischepraedikat muss verletzbar sein": es
+            // benennt die Beobachtung, unter der es faellt - die
+            // Veraenderung genau dieses Verzeichnisses. Frueher stand
+            // hier "always", womit der von Vertrag Ankerfrische
+            // vorgeschriebene Ausgang strukturell unerreichbar war.
+            freshness_predicate: PredicateExpr(crate::directory_freshness_predicate(corpus_digest)),
             expires_at_tau_i: u64::MAX,
         },
         boundary: ScopeExpr(sandbox_root.display().to_string()),
@@ -624,6 +687,24 @@ fn quotient_and_glue(
 struct ChallengeOutcome {
     capsule: psk_types::objects::CandidateCapsule,
     reached_fixpoint: bool,
+    adversarially_closed: bool,
+    ratchet_rounds: u32,
+}
+
+/// Ob ein Gegenmodell diesen Nachfolgekandidaten widerlegt. Der
+/// Falsifikator benennt in jedem Gegenmodell das Artefakt, ueber dem der
+/// Widerspruch steht; ein Kandidat, der genau dieses Artefakt aendern
+/// will, faellt darunter.
+fn refutes(
+    countermodel: &psk_types::objects::CapsuleId,
+    candidate: &psk_types::objects::CapsuleId,
+) -> bool {
+    countermodel
+        .0
+        .strip_prefix("countermodel:")
+        .and_then(|rest| rest.split(':').next())
+        .map(|artifact| candidate.0.contains(artifact) || artifact == GOLDEN_RUN_PATCH_TARGET)
+        .unwrap_or(false)
 }
 
 fn run_challenge(
@@ -633,6 +714,7 @@ fn run_challenge(
     manifest: &psk_types::objects::RuntimeManifest,
     plan_digest: Digest,
     trace_ref: TraceRef,
+    countermodels: &[psk_types::objects::CapsuleId],
 ) -> Result<ChallengeOutcome, PskError> {
     // Die eine Quotientenklasse als Projektionsmenge aufloesen - ueber die
     // IDs des realen Profils, nicht ueber "alle Projektionen".
@@ -664,18 +746,61 @@ fn run_challenge(
         },
     )?;
 
-    // Ratchet-Schritt. `survivors` = die volle Nachfolgemenge: im Lauf
-    // existiert nichts, das den Kandidaten widerlegt - eine gemessene
-    // Abwesenheit (kein Gegenmodellerzeuger im Workspace), keine Annahme.
+    // Ratchet-Schritt. `survivors` = die Nachfolgemenge OHNE die vom
+    // Falsifikator widerlegten Kandidaten. Die Instruktionsmenge fuehrt
+    // Gegenmodelle als Vorbedingung der CHALLENGE-Instruktion; bis zum
+    // Korpusbau gab es dafuer keinen Erzeuger, weshalb das Ratchet nichts
+    // zu verkleinern hatte.
     // Das Budget kommt aus der EINEN deklarierten Quelle (siehe
     // GOLDEN_RUN_RATCHET_MAX_ROUNDS: derselbe Wert steht im
     // RunDescriptor, Regel 12.7 / v1.0.26).
-    let survivors = capsule.allowed_next.clone();
-    let after = ratchet(&capsule, &survivors, 1, GOLDEN_RUN_RATCHET_MAX_ROUNDS)?;
-    if !psk_adversarial::is_capsule_resolved(&capsule, &after) {
+    let survivors: Vec<psk_types::objects::CapsuleId> = capsule
+        .allowed_next
+        .iter()
+        .filter(|c| !countermodels.iter().any(|cm| refutes(cm, c)))
+        .cloned()
+        .collect();
+    // Ratchet bis zum Kapselfixpunkt oder bis das Budget faellt - die
+    // Abschlussbedingung der Challenge-Phase lautet "alle Kapseln im
+    // Kapselfixpunkt ODER RESIDUAL", und beides ist ein ZUSTAND NACH
+    // beliebig vielen Runden, nicht nach einer.
+    //
+    // Die einrundige Fassung war nur solange richtig, wie nichts zu
+    // verkleinern war: ohne Gegenmodelle blieb allowed_next gleich und
+    // der Fixpunkt stand sofort. Sobald der Falsifikator etwas beitraegt,
+    // kontrahiert Runde 1 - und eine kontrahierende Runde ist per
+    // Definition kein Fixpunkt.
+    let mut before = capsule.clone();
+    let mut after = ratchet(&before, &survivors, 1, GOLDEN_RUN_RATCHET_MAX_ROUNDS)?;
+    let mut rounds = 1u32;
+    while !psk_adversarial::is_capsule_resolved(&before, &after)
+        && rounds < GOLDEN_RUN_RATCHET_MAX_ROUNDS
+    {
+        rounds += 1;
+        before = after.clone();
+        after = ratchet(&before, &survivors, rounds, GOLDEN_RUN_RATCHET_MAX_ROUNDS)?;
+    }
+
+    // Invariante "Nichttrivialitaet des Ueberlebens": "Ein Kandidat, der
+    // nur unter Ausblendung eines Gegenmodells schliesst, ist nicht
+    // adversarial geschlossen." Der Waechter war gebaut und wurde nie
+    // aufgerufen - dieselbe Klasse wie ein deklarierter, nie
+    // geschriebener Zaehler.
+    //
+    // `closes_without` ist die Menge OHNE Gegenmodelle (dort schliesst
+    // der Kandidat immer), `closes_with` die Menge MIT ihnen. Weichen sie
+    // ab, feuert PSK-E003 statt still durchzugehen.
+    let closes_without = !capsule.allowed_next.is_empty();
+    let closes_with = !after.allowed_next.is_empty();
+    let adversarially_closed =
+        psk_adversarial::check_adversarial_closure(closes_without, closes_with).is_ok();
+    if !psk_adversarial::is_capsule_resolved(&before, &after) {
+        // Nach Budgeterschoepfung MUSS `ratchet` selbst auf RESIDUAL
+        // gesetzt haben; kommt es hier trotzdem an, stimmt die
+        // Terminierung nicht.
         return Err(PskError::MorphogenesisViolation);
     }
-    let reached_fixpoint = psk_adversarial::is_capsule_fixpoint(&capsule, &after);
+    let reached_fixpoint = psk_adversarial::is_capsule_fixpoint(&before, &after);
 
     // Pass C8, Definition 11.11: fuenf Pfade, "innerhalb des geltenden
     // Horizonts DEFINIERT" - definiert, nicht bestanden. Zwei Werte sind
@@ -704,11 +829,36 @@ fn run_challenge(
         // BERECHNET: keine Kopplung vorhanden, also keine unaufgeloeste.
         coupling: capsule.coupling.is_empty(),
     };
-    let supported = check_support(&after, &paths)?;
+    // Ein nicht adversarial geschlossener Kandidat ist nicht gestuetzt -
+    // egal wie die fuenf Pfade stehen. Der Waechter oben hat PSK-E003
+    // festgestellt; der Fehler wird NICHT verschluckt, sondern als
+    // Residuum weitergetragen (Vertrag Passmonotonie: ein Pass "DARF sie
+    // schliessen, typisieren, quarantinieren, exzidieren oder als
+    // Residuum weitertragen" - nur nicht still loeschen). Ein harter
+    // Abbruch waere hier falsch: er brachte den Lauf um alle uebrigen
+    // Artefakte und damit um die Sichtbarkeit des Befunds.
+    let supported = if adversarially_closed {
+        check_support(&after, &paths)?
+    } else {
+        check_support(
+            &after,
+            &SupportPaths {
+                // Der Witnesspfad ist nicht "innerhalb des geltenden
+                // Horizonts definiert", solange ein Gegenmodell
+                // unbeantwortet steht - das ist die Feststellung des
+                // Waechters, nicht eine Setzung fuer einen gewuenschten
+                // Ausgang.
+                witness: false,
+                ..paths
+            },
+        )?
+    };
 
     Ok(ChallengeOutcome {
         capsule: supported,
         reached_fixpoint,
+        adversarially_closed,
+        ratchet_rounds: rounds,
     })
 }
 
@@ -1010,7 +1160,15 @@ pub fn run_golden_run(
         Digest::sha256(b"boot"),
     )?;
 
-    let anchor = seal_workspace_anchor(sandbox_root, after_boot)?;
+    // Schritt 1 des Referenzauftrags: die versiegelte Menge von
+    // Spezifikations- und Quelltextdateien. Sie MUSS vor dem Versiegeln im
+    // beobachteten Verzeichnis liegen - sonst versiegelt der Anker ein
+    // leeres Verzeichnis, und das Frischepraedikat haette nichts, worauf
+    // es sich beziehen koennte.
+    let corpus_root = workspace_root.join("domains/jacobs-ladder-reference/corpus");
+    let corpus_digest = stage_corpus(&corpus_root, sandbox_root)?;
+
+    let anchor = seal_workspace_anchor(sandbox_root, after_boot, corpus_digest)?;
     let after_anchor = record(
         &mut trace,
         "anchor.sealed",
@@ -1066,6 +1224,13 @@ pub fn run_golden_run(
 
     // Schritt 7b - Challenge. Der Plandigest ist derselbe, den spaeter
     // Token und Gate binden (der eine Aenderungsvorschlag des Laufs).
+    // Schritt 2 und 3: widerspruechliche Anforderungen identifizieren und
+    // ihre Geltung bestimmen. Beides aus dem versiegelten Korpus, das
+    // oben in die Sandbox kopiert wurde.
+    let requirements = crate::load_requirements(&corpus_root)?;
+    let contradictions = crate::identify_contradictions(&requirements)?;
+    let countermodels = crate::falsifier_countermodels(&contradictions);
+
     let challenge = run_challenge(
         &dependency_profile,
         &field_projections,
@@ -1073,7 +1238,38 @@ pub fn run_golden_run(
         &boot_report.runtime_manifest,
         Digest::sha256(b"golden-run-patch-plan"),
         after_glue,
+        &countermodels,
     )?;
+    // Teil 3 - der Integrator: "verklebt ODER erzeugt eine Obstruktion".
+    // Fuer jeden Widerspruch, den die Praezedenz nicht entscheidet,
+    // entsteht ein Residuum (Typ scope, blockierend - er ist ohne
+    // Aussenrecord nicht aufloesbar) und darauf ein ObstructionRecord der
+    // Art `order`. Ein durch die Praezedenz aufgeloester Widerspruch
+    // erzeugt nichts: er ist entschieden.
+    let mut obstructions: Vec<psk_types::objects::ObstructionRecord> = Vec::new();
+    for c in contradictions.iter().filter(|c| c.is_open()) {
+        let residue_id = residues.open(psk_trace::ResidueInputs {
+            r#type: psk_types::objects::ResidueRecordTypeKind::Scope,
+            origin_module: ModuleId::ClosureGlueEngine,
+            origin_object: anchor.id,
+            scope: psk_types::objects::ScopeExpr(c.artifact.clone()),
+            severity: psk_types::objects::ResidueRecordSeverityKind::Blocking,
+            open_obligation: crate::open_obligation_for(c),
+            allowed_followups: vec![],
+            opened_at: run_time(),
+        })?;
+        obstructions.push(crate::integrator_obstruction(
+            c,
+            residue_id,
+            psk_types::objects::M13Address("m13:0/c0".into()),
+        )?);
+    }
+    // Nullbefund ueber nichtleerer Arbeitsliste: gibt es offene
+    // Widersprueche, MUSS auch eine Obstruktion entstanden sein.
+    if contradictions.iter().any(|c| c.is_open()) && obstructions.is_empty() {
+        return Err(PskError::SurfaceInvariantCollapse);
+    }
+
     let after_challenge = record(
         &mut trace,
         "challenge.resolved",
@@ -1170,6 +1366,10 @@ pub fn run_golden_run(
         reality,
         capsule: challenge.capsule,
         capsule_reached_fixpoint: challenge.reached_fixpoint,
+        ratchet_rounds: challenge.ratchet_rounds,
+        adversarially_closed: challenge.adversarially_closed,
+        contradictions,
+        obstructions,
         field_identities,
         field_projections,
         dependency_profile,
@@ -1367,9 +1567,17 @@ mod tests {
         // Schwesterdatei psk-contract/src/boot.rs fuer den expliziten
         // HOLD-Fall (unversiegeltes Bundle), der weiterhin mindestens ein
         // Residuum erzeugt.
+        // Frueher stand hier `residues_opened == 0` mit der Begruendung
+        // "ein vollstaendig PASSender Lauf darf nichts residualisieren".
+        // Diese Praemisse trifft seit dem Korpus nicht mehr zu: der Lauf
+        // bekommt eine versiegelte Anforderungsmenge, die einen ohne
+        // Aussenrecord nicht aufloesbaren Widerspruch enthaelt, und der
+        // Integrator MUSS daraus eine sichtbare Obstruktion machen. Alle
+        // Gates stehen weiterhin auf PASS - "PASSend" und
+        // "residuenfrei" sind seither zwei verschiedene Aussagen.
         assert_eq!(
-            report.residues_opened, 0,
-            "ein vollstaendig PASSender Lauf darf nichts residualisieren"
+            report.residues_opened, 1,
+            "genau der eine offene Widerspruch des Korpus residualisiert"
         );
 
         assert!(report.anchor.sealed);
@@ -1428,13 +1636,58 @@ mod tests {
         // ueberlebt, allowed_next bleibt gleich (Definition 22.2). Die
         // Supportentscheidung fiel positiv (alle fuenf Pfade definiert,
         // Definition 11.11), also SUPPORTED.
+        // Schritt 2/3: beide Widerspruchsarten identifiziert, jede mit
+        // bestimmter Geltung. Die Kontrollmenge des Korpus stellt sicher,
+        // dass hier nicht einfach alles als widerspruechlich gilt.
+        assert_eq!(
+            report.contradictions.len(),
+            2,
+            "{:?}",
+            report.contradictions
+        );
+        assert_eq!(
+            report.contradictions.iter().filter(|c| c.is_open()).count(),
+            1,
+            "genau einer ist ohne Aussenrecord offen"
+        );
+        // Der Integrator: eine Obstruktion der Art `order`, blockierend.
+        assert_eq!(report.obstructions.len(), 1);
+        assert_eq!(
+            report.obstructions[0].kind,
+            psk_types::objects::ObstructionRecordKindKind::Order
+        );
+        assert_eq!(
+            report.obstructions[0].severity,
+            psk_types::objects::ObstructionRecordSeverityKind::Blocking
+        );
+
+        // Der Ausgang, den der Auftraggeber vorab benannt hatte: mit
+        // Gegenmodellen hoert das Ratchet auf, in Runde 1 zu fixieren -
+        // Runde 1 kontrahiert, der Fixpunkt steht in Runde 2. Ein
+        // Ratchet, das etwas zu verkleinern hat, ist der bessere Beleg
+        // fuer denselben Nachweis.
+        assert_eq!(
+            report.ratchet_rounds, 2,
+            "Runde 1 kontrahiert, Runde 2 fixiert"
+        );
+        assert!(
+            !report.adversarially_closed,
+            "der Kandidat schliesst nur ohne das Gegenmodell - PSK-E003"
+        );
         assert!(
             report.capsule_reached_fixpoint,
             "der Challenge-Ausgang dieses Laufs ist der Fixpunkt, nicht RESIDUAL"
         );
+        // Gemessen, nicht gewaehlt: der Kandidat schliesst OHNE das
+        // Gegenmodell, aber nicht MIT ihm - genau die Lage, die
+        // Invariante "Nichttrivialitaet des Ueberlebens" als PSK-E003
+        // beschreibt. Damit ist der Witnesspfad nicht "innerhalb des
+        // geltenden Horizonts definiert", und die Kapsel geht nach
+        // RESIDUAL statt SUPPORTED. Frueher stand hier SUPPORTED - das
+        // war richtig, solange es keinen Gegenmodellerzeuger gab.
         assert_eq!(
             report.capsule.phase,
-            psk_types::objects::CandidateCapsulePhaseKind::Supported
+            psk_types::objects::CandidateCapsulePhaseKind::Residual
         );
         assert_eq!(
             report.capsule.witnesses.len(),
