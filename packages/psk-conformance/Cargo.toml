@@ -19,6 +19,7 @@ psk-witness = { path = "../psk-witness" }
 psk-gate = { path = "../psk-gate" }
 psk-effect = { path = "../psk-effect" }
 psk-reconciliation = { path = "../psk-reconciliation" }
+psk-adversarial = { path = "../psk-adversarial" }
 psk-trace = { path = "../psk-trace" }
 psk-certify = { path = "../psk-certify" }
 psk-contract = { path = "../psk-contract" }

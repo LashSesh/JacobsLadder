@@ -47,6 +47,7 @@
 use std::fs;
 use std::path::Path;
 
+use psk_adversarial::{capsulate, check_support, ratchet, CapsuleInputs, SupportPaths};
 use psk_anchor::{bind_provenance, no_declared_uncertainty, seal_anchor, AnchorInputs};
 use psk_certify::{
     check_minimum_replay_class, compute_conformance_class, issue_certificate, AdditionalAcceptance,
@@ -128,6 +129,14 @@ pub struct GoldenRunReport {
     /// residualisiert werden). Bei einem PASS-Bootgate kann das durchaus 0
     /// sein - siehe die beiden golden_run-Tests (PASS- und HOLD-Fall).
     pub residues_opened: usize,
+    /// Die Kapsel des Laufs nach Challenge (eine je Quotientenklasse;
+    /// dieser Lauf hat genau eine Klasse). Herausgegeben als FC5-Artefakt:
+    /// Kandidatenkapsel, Ratchet und Supportentscheidung sind an ihr
+    /// ablesbar. `capsule_reached_fixpoint` haelt fest, WELCHER der beiden
+    /// zulaessigen Challenge-Ausgaenge eintrat (Definition 14.2) -
+    /// Fixpunkt, nicht Budget-RESIDUAL.
+    pub capsule: psk_types::objects::CandidateCapsule,
+    pub capsule_reached_fixpoint: bool,
     /// Die sechs Feldidentitaeten des Laufs (Regel 32.7) - herausgegeben,
     /// weil sie Lin_lambda tragen: FC4s Lineage-Beleg zaehlt NICHTLEERE
     /// Lineages an realen Laufobjekten, und ein Objekt, das der Bericht
@@ -598,6 +607,111 @@ fn quotient_and_glue(
 
 /// Schritt 8 (Patchplan/Gate): G-EFFECT ist order 2 (gate_registry.yaml) -
 /// dasselbe Muster wie G-BOOT/G-RELEASE (siehe Modulkopf).
+/// Schritt 7b - Challenge (Definition 14.2: "Alle Kapseln im
+/// Kapselfixpunkt oder RESIDUAL"; Algorithmus 11.19: `capsules =
+/// C7_adversarial_canonicalize(profile.quotient_classes)`).
+///
+/// JE Quotientenklasse eine Kapsel - der Lauf hat genau eine Klasse
+/// (alle sechs Projektionen teilen die eine Ankerquelle), also eine
+/// Kapsel. Jede Eingabe unten traegt ihre Herkunft als Kommentar; nichts
+/// hier ist gewaehlt, damit ein bestimmter Ausgang eintritt.
+///
+/// Gemessener Ausgang (Vorab-Sonde, im Test unten festgehalten):
+/// KAPSELFIXPUNKT in Runde 1, nicht Budget-RESIDUAL - im Lauf existiert
+/// kein Widerlegungserzeuger (der Falsifikator ist ein Label ohne
+/// Verhalten), also ueberlebt der eine Kandidat und
+/// `allowed_next(ratchet(c)) == allowed_next(c)` (Definition 22.2).
+struct ChallengeOutcome {
+    capsule: psk_types::objects::CandidateCapsule,
+    reached_fixpoint: bool,
+}
+
+fn run_challenge(
+    profile: &DependencyProfile,
+    projections: &[FieldProjection],
+    thought: &ThoughtBody,
+    manifest: &psk_types::objects::RuntimeManifest,
+    plan_digest: Digest,
+    trace_ref: TraceRef,
+) -> Result<ChallengeOutcome, PskError> {
+    // Die eine Quotientenklasse als Projektionsmenge aufloesen - ueber die
+    // IDs des realen Profils, nicht ueber "alle Projektionen".
+    let class_ids = profile
+        .quotient_classes
+        .first()
+        .ok_or(PskError::CorrelatedWitnessOvercount)?;
+    let class: Vec<FieldProjection> = projections
+        .iter()
+        .filter(|p| class_ids.contains(&p.id))
+        .cloned()
+        .collect();
+
+    let capsule = capsulate(
+        &class,
+        CapsuleInputs {
+            // Die behauptete Rolle IST der formale Claim des Gedankens -
+            // ein Laufwert, kein Etikett.
+            surface: psk_types::objects::SurfaceDescriptor(thought.claim.formal.0.clone()),
+            replay: ReplayDescriptor("golden-run/1".into()),
+            boundary: psk_types::objects::ScopeExpr("jacobs-ladder-reference".into()),
+            trace_ref,
+            // Keine gekoppelten Kapseln in diesem Lauf.
+            coupling: vec![],
+            // Der eine Aenderungsvorschlag, ueber seinen realen Plandigest
+            // benannt - die groesste Nachfolgemenge, die diese Kapsel je
+            // haben wird (Invariante 12.6).
+            allowed_next: vec![psk_types::objects::CapsuleId(plan_digest.to_string())],
+        },
+    )?;
+
+    // Ratchet-Schritt. `survivors` = die volle Nachfolgemenge: im Lauf
+    // existiert nichts, das den Kandidaten widerlegt - eine gemessene
+    // Abwesenheit (kein Gegenmodellerzeuger im Workspace), keine Annahme.
+    // Das Budget kommt aus der EINEN deklarierten Quelle (siehe
+    // GOLDEN_RUN_RATCHET_MAX_ROUNDS: derselbe Wert steht im
+    // RunDescriptor, Regel 12.7 / v1.0.26).
+    let survivors = capsule.allowed_next.clone();
+    let after = ratchet(&capsule, &survivors, 1, GOLDEN_RUN_RATCHET_MAX_ROUNDS)?;
+    if !psk_adversarial::is_capsule_resolved(&capsule, &after) {
+        return Err(PskError::MorphogenesisViolation);
+    }
+    let reached_fixpoint = psk_adversarial::is_capsule_fixpoint(&capsule, &after);
+
+    // Pass C8, Definition 11.11: fuenf Pfade, "innerhalb des geltenden
+    // Horizonts DEFINIERT" - definiert, nicht bestanden. Zwei Werte sind
+    // aus realen Objekten BERECHNET, drei sind deklariert und benennen
+    // ihre maschinenlesbare Quelle. Keiner ist gesetzt, damit die Kapsel
+    // einen bestimmten Weg nimmt - der Witness-Pfad auf false, damit sie
+    // RESIDUAL wird und ein Residuenfluss entsteht, waere dieselbe
+    // Erfindung wie das entfernte Phantom-Plugin, nur mit umgekehrtem
+    // Vorzeichen.
+    let paths = SupportPaths {
+        // architecture/gate_registry.yaml fuehrt G-EFFECT; die
+        // capability_matrix routet fs.write.sandbox dorthin.
+        gate: true,
+        // BERECHNET: der unabhaengige Beobachterpfad ist im
+        // RuntimeManifest dieses Laufs deklariert (Boot-Schritt 17).
+        witness: manifest
+            .adapter_versions
+            .keys()
+            .any(|a| a.0 == "observer-local-fs"),
+        // Der deklarierte ReplayDescriptor dieses Laufs (derselbe, den
+        // die Gatberichte tragen).
+        replay: true,
+        // BudgetSpec der Feldfamilie plus das deklarierte Rundenbudget
+        // (Regel 12.7) - beide Ressourcenerklaerungen existieren.
+        resource: true,
+        // BERECHNET: keine Kopplung vorhanden, also keine unaufgeloeste.
+        coupling: capsule.coupling.is_empty(),
+    };
+    let supported = check_support(&after, &paths)?;
+
+    Ok(ChallengeOutcome {
+        capsule: supported,
+        reached_fixpoint,
+    })
+}
+
 fn evaluate_patch_gate(
     trace_ref: TraceRef,
     glue_outcome: &GlueOutcome,
@@ -950,6 +1064,25 @@ pub fn run_golden_run(
     // uebersprungene Pruefung.
     let validation_open_obligations: Vec<ObligationExpr> = Vec::new();
 
+    // Schritt 7b - Challenge. Der Plandigest ist derselbe, den spaeter
+    // Token und Gate binden (der eine Aenderungsvorschlag des Laufs).
+    let challenge = run_challenge(
+        &dependency_profile,
+        &field_projections,
+        &thought,
+        &boot_report.runtime_manifest,
+        Digest::sha256(b"golden-run-patch-plan"),
+        after_glue,
+    )?;
+    let after_challenge = record(
+        &mut trace,
+        "challenge.resolved",
+        ModuleId::AdversarialKernel,
+        vec![challenge.capsule.id],
+        Digest::sha256(b"challenge"),
+    )?;
+    let _ = after_challenge;
+
     let patch_gate = evaluate_patch_gate(after_glue, &glue_outcome, &mut trace, &mut residues)?;
     let after_patch_gate = record(
         &mut trace,
@@ -1035,6 +1168,8 @@ pub fn run_golden_run(
         anchor,
         thought,
         reality,
+        capsule: challenge.capsule,
+        capsule_reached_fixpoint: challenge.reached_fixpoint,
         field_identities,
         field_projections,
         dependency_profile,
@@ -1285,6 +1420,26 @@ mod tests {
             report.reconciliation.fact_promotion,
             psk_types::objects::ReconciliationReportFactPromotionKind::None,
             "CLOSED beabsichtigt ACTUALIZED; NONE hier heisst: die Sperre griff"
+        );
+
+        // Challenge (Definition 14.2): der gemessene Ausgang ist der
+        // KAPSELFIXPUNKT in Runde 1, nicht Budget-RESIDUAL - im Lauf
+        // existiert kein Widerlegungserzeuger, der eine Kandidat
+        // ueberlebt, allowed_next bleibt gleich (Definition 22.2). Die
+        // Supportentscheidung fiel positiv (alle fuenf Pfade definiert,
+        // Definition 11.11), also SUPPORTED.
+        assert!(
+            report.capsule_reached_fixpoint,
+            "der Challenge-Ausgang dieses Laufs ist der Fixpunkt, nicht RESIDUAL"
+        );
+        assert_eq!(
+            report.capsule.phase,
+            psk_types::objects::CandidateCapsulePhaseKind::Supported
+        );
+        assert_eq!(
+            report.capsule.witnesses.len(),
+            6,
+            "die eine Quotientenklasse traegt alle sechs Projektionen"
         );
 
         assert_ne!(report.trace_head, psk_trace::GENESIS_DIGEST);

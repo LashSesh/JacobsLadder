@@ -867,6 +867,7 @@ dependencies = [
  "effect-local-fs",
  "jsonschema",
  "observer-local-fs",
+ "psk-adversarial",
  "psk-anchor",
  "psk-canon",
  "psk-certify",

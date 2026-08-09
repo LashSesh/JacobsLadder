@@ -23,7 +23,8 @@
 
 use psk_certify::{FeatureEvidence, ReplayEvidence};
 use psk_types::objects::{
-    RealityStatus, ReconciliationReportFactPromotionKind, ReconciliationReportVerdictKind,
+    CandidateCapsulePhaseKind, RealityStatus, ReconciliationReportFactPromotionKind,
+    ReconciliationReportVerdictKind,
 };
 use psk_types::Digest;
 
@@ -118,12 +119,30 @@ fn measure_run(run: &GoldenRunReport, evidence: &mut FeatureEvidence) {
     // nicht leer").
     evidence.field_lineages += count_nonempty_lineages(&run.field_identities);
 
-    // ---- FC5: der Golden Run durchlaeuft M24 nicht. Es entstehen keine
-    // CandidateCapsules, kein Ratchet, keine Supportentscheidung und kein
-    // Residuenfluss zwischen Kapselzustaenden. Die vier Zaehler bleiben
-    // deshalb 0. (`psk_closure::CapsuleRestriction` im Glue-Schritt ist
-    // eine Nahtrestriktion, keine Kandidatenkapsel - gleicher Wortstamm,
-    // anderes Objekt.)
+    // ---- FC5: seit dem Challenge-Schritt durchlaeuft der Lauf M24 real.
+    // Drei der vier Nachweise entstehen dabei: die Kapsel (eine je
+    // Quotientenklasse, publiziert im Bericht), der Ratchet-Schritt
+    // (aufgeloest im Kapselfixpunkt, nicht Budget-RESIDUAL - siehe
+    // capsule_reached_fixpoint) und die Supportentscheidung (Phase
+    // SUPPORTED oder RESIDUAL, beides ist eine Entscheidung).
+    //
+    // Der VIERTE Nachweis - Residuenfluss - hat in einem voll
+    // bestehenden Lauf keine ehrliche Quelle: residue_flow greift erst ab
+    // Phase RESIDUAL, und die Kapsel dieses Laufs ist SUPPORTED. Den
+    // Witness-Pfad auf false zu setzen, damit sie RESIDUAL wird und
+    // fliesst, waere die Erfindung mit umgekehrtem Vorzeichen (siehe
+    // run_challenge). `residue_flow_transitions` bleibt deshalb 0, und
+    // FC5 faellt an genau diesem einen benannten Nachweis.
+    evidence.candidate_capsules += 1;
+    if run.capsule_reached_fixpoint || run.capsule.phase == CandidateCapsulePhaseKind::Residual {
+        evidence.ratcheted_capsules += 1;
+    }
+    if matches!(
+        run.capsule.phase,
+        CandidateCapsulePhaseKind::Supported | CandidateCapsulePhaseKind::Residual
+    ) {
+        evidence.support_decisions += 1;
+    }
 
     // ---- FC6.
     evidence.gate_reports += 2; // boot_gate und patch_gate
