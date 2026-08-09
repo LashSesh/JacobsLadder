@@ -162,6 +162,24 @@ pub fn ir_decode(bytes: &[u8]) -> Result<IRBundle, PskError> {
     serde_json::from_slice(bytes).map_err(|_| PskError::UntypedInput)
 }
 
+/// Das Praedikat, mit dem T-IR-001s Fixture seine Kante besetzt.
+///
+/// Es ist stets wahr - und Regel 10.9 nennt genau das einen
+/// Konformitaetsdefekt. Hier ist es dennoch richtig: das Fixture prueft
+/// den CODEC (Sortierung, Kanonisierung, Round-Trip), nicht die
+/// Kantensemantik, und ein Round-Trip-Test braucht irgendeinen
+/// syntaktisch gueltigen Wert.
+///
+/// Damit es nicht als schlechtes Beispiel danebensteht, ist es hier
+/// benannt und wird von `assembly::tests::the_t_ir_001_fixture_predicate_
+/// is_refused_by_the_production_path` als EINGABE verwendet: das Fixture
+/// belegt so die Wache, statt ihr zu widersprechen. Wer diesen Wert
+/// aendert, aendert beide Stellen zugleich - dasselbe Muster wie bei den
+/// compile_fail-Doctests, die ohne Positivkontrolle aus dem falschen
+/// Grund bestehen koennten.
+#[cfg(test)]
+pub(crate) const T_IR_001_FIXTURE_PREDICATE: &str = "true";
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -199,8 +217,12 @@ mod tests {
             target: n_z.id,
             relation_sort: psk_types::objects::RelationSortId::Forks,
             direction: IREdgeDirectionKind::Forward,
-            preconditions: vec![psk_types::objects::PredicateExpr("true".into())],
-            postconditions: vec![psk_types::objects::PredicateExpr("true".into())],
+            preconditions: vec![psk_types::objects::PredicateExpr(
+                T_IR_001_FIXTURE_PREDICATE.into(),
+            )],
+            postconditions: vec![psk_types::objects::PredicateExpr(
+                T_IR_001_FIXTURE_PREDICATE.into(),
+            )],
             gate_ref: None,
             dependency_refs: vec![],
             trace_ref: TraceRef(Digest::sha256(b"edge-trace")),

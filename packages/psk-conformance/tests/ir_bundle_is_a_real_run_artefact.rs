@@ -45,7 +45,7 @@ fn the_golden_run_produces_an_ir_bundle_that_round_trips() {
         "der Round-Trip MUSS verlustfrei sein (Algorithmus 10.3)"
     );
 
-    // Regel 10.7: keine Kante ohne Bedingungen - und Regel 10.8: keine
+    // Regel 10.7: keine Kante ohne Bedingungen - und Regel 10.9: keine
     // davon stets wahr. Das ist der Punkt der ganzen Uebung.
     for e in &bundle.graph.edges {
         assert!(
@@ -56,7 +56,7 @@ fn the_golden_run_produces_an_ir_bundle_that_round_trips() {
         for p in e.preconditions.iter().chain(e.postconditions.iter()) {
             assert!(
                 !p.0.trim().eq_ignore_ascii_case("true") && !p.0.trim().is_empty(),
-                "Regel 10.8: stets wahres Praedikat an Kante {:?}",
+                "Regel 10.9: stets wahres Praedikat an Kante {:?}",
                 e.relation_sort
             );
         }

@@ -49,7 +49,7 @@ const FLOORS: &[(&str, usize)] = &[
     ("psk-effect", 29),
     ("psk-reconciliation", 13),
     ("psk-topology", 18),
-    ("psk-ir", 7),
+    ("psk-ir", 8),
     ("psk-scheduler", 43),
     ("psk-lifecycle", 20),
     ("psk-contract", 22),

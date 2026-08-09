@@ -124,7 +124,7 @@ pub struct GoldenRunReport {
     /// Der IRBundle-Kandidat dieses Laufs (Definition 14.2, Compile).
     /// `emission_class` ist HOLD - siehe psk_ir::assembly.
     pub ir_bundle: psk_types::objects::IRBundle,
-    /// Regel 10.8: je Relationssorte ohne Deklaration im Domaenenprofil
+    /// Regel 10.9: je Relationssorte ohne Deklaration im Domaenenprofil
     /// ein ResidueRecord(scope).
     ///
     /// BEWUSST getrennt von `residues`: jene sind Gate-Residuen

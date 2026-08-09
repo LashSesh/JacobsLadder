@@ -6,7 +6,7 @@
 //! Kapitel 10 (Zwischenrepraesentation): `ir_encode`/`ir_decode` (Algorithmus
 //! 10.3) sind in `codec` real implementiert, inkl. T-IR-001
 //! (Round-Trip-Pflicht). `assembly` baut den IRBundle-Kandidaten
-//! (Definition 14.2, Compile) unter Regel 10.8 - die Kantenbedingungen
+//! (Definition 14.2, Compile) unter Regel 10.9 - die Kantenbedingungen
 //! kommen von der Domaene, nicht von hier.
 
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));

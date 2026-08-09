@@ -1,16 +1,16 @@
 # Domaenenprofil der Referenzdomaene: die Kantenbedingungen je
-# RelationSortId (Regel 10.8, PSK-RA v1.0.24).
+# RelationSortId (Regel 10.9, PSK-RA v1.0.25).
 #
 # ## Warum diese Datei NICHT unter architecture/ liegt
 #
-# Regel 10.8: preconditions und postconditions sind vom Typ PredicateExpr
+# Regel 10.9: preconditions und postconditions sind vom Typ PredicateExpr
 # und damit domaenengeliefert. Vertrag 27.2 fuehrt PredicateExpr unter den
 # domain_supplied_opaque-Typen und sagt zu deren Herkunft: "Die
 # Entscheidung ist getroffen und lautet: extern."
 #
 # architecture/ ist der versiegelte Architekturkoerper, aus dem I_A
 # entsteht. Laege diese Datei dort, waeren die Praedikate der Domaene Teil
-# der Identitaet des Kerns - genau die Vermischung, die Regel 10.8
+# der Identitaet des Kerns - genau die Vermischung, die Regel 10.9
 # ausschliesst. Sie liegt deshalb ausserhalb und wird ueber
 # RunDescriptor.input_digests ("versiegelte Eingaben") an den Lauf
 # gebunden; damit ist ein Replay an dasselbe Profil gebunden, ohne dass
@@ -29,7 +29,7 @@
 # Graph ist ein ehrlicher Messwert; ein vollstaendiger Graph mit
 # erfundenen Bedingungen ist keiner."
 #
-# Kein Praedikat hier ist stets wahr. Regel 10.8 nennt das ausdruecklich
+# Kein Praedikat hier ist stets wahr. Regel 10.9 nennt das ausdruecklich
 # einen Konformitaetsdefekt, und `no_predicate_is_trivially_true` in
 # psk-ir prueft es mechanisch.
 schema: psk.domain-profile/1.0
@@ -98,7 +98,7 @@ edge_conditions:
 #     KEINE ObjectId-Referenz auf den Versuch - der Beobachter ist
 #     unabhaengig und sieht den Versuch nie. Eine Kante hier waere eine
 #     Verknuepfung, die kein Objekt festhaelt: dieselbe Sorte Erfindung,
-#     die Regel 10.8 fuer Praedikate verbietet.
+#     die Regel 10.9 fuer Praedikate verbietet.
 #
 #   quotients (S-DEP -> S-WIT), supports (S-WIT -> S-GAT): der
 #     Referenzlauf erzeugt kein EvidenceObject.

@@ -4,7 +4,7 @@
 //!
 //! ## Warum das hier liegt und nicht in psk-ir
 //!
-//! Regel 10.8 macht die Kantenbedingungen domaenengeliefert; Vertrag 27.2
+//! Regel 10.9 macht die Kantenbedingungen domaenengeliefert; Vertrag 27.2
 //! sagt, der Kern reicht sie "nur typisiert weiter". Wer das
 //! Domaenenprofil LIEST, ist also die Domaene - und die Referenzdomaene
 //! ist dieser Konformanzlauf. psk-ir kennt deshalb weder den Dateipfad
@@ -69,7 +69,7 @@ pub fn load_port_matrix(
     Ok(out)
 }
 
-/// Laedt das Domaenenprofil der Referenzdomaene (Regel 10.8).
+/// Laedt das Domaenenprofil der Referenzdomaene (Regel 10.9).
 ///
 /// Bewusst ausserhalb von architecture/: laege es dort, waeren die
 /// Praedikate der Domaene Teil von I_A und damit Teil der Identitaet des
@@ -108,7 +108,7 @@ pub fn load_reference_domain_profile(
         // sie stuende in keiner Zeile der Portmatrix und koennte nie eine
         // Kante tragen.
         let relation = RelationSortId::from_id(relation).ok_or(PskError::UntypedInput)?;
-        // `declare` erzwingt Invariante 10.7 (nichtleer) und Regel 10.8
+        // `declare` erzwingt Invariante 10.7 (nichtleer) und Regel 10.9
         // (kein stets wahres Praedikat) - hier wird nichts nachgeprueft,
         // was M23 schon prueft.
         declarations.declare(
@@ -187,7 +187,7 @@ pub fn build_node<T: serde::Serialize>(
 
 /// Eine belegte Verknuepfung: welches Objektfeld sie festhaelt, steht
 /// daneben. Ohne ein solches Feld entsteht keine Kante - eine Kante, die
-/// kein Objekt festhaelt, waere dieselbe Sorte Erfindung, die Regel 10.8
+/// kein Objekt festhaelt, waere dieselbe Sorte Erfindung, die Regel 10.9
 /// fuer Praedikate verbietet.
 pub fn edge(
     source: ObjectId,
@@ -251,7 +251,7 @@ mod tests {
 
     #[test]
     fn a_profile_with_an_always_true_predicate_is_refused_at_load_time() {
-        // Regel 10.8 mechanisch: das Muster des T-IR-001-Fixtures darf
+        // Regel 10.9 mechanisch: das Muster des T-IR-001-Fixtures darf
         // nicht durch den Lader kommen.
         let dir = std::env::temp_dir().join(format!("psk-profile-{}", std::process::id()));
         let profile_dir = dir.join("domains/jacobs-ladder-reference");

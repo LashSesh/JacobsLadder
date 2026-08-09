@@ -1,7 +1,7 @@
 //! M23: den IRBundle-Kandidaten zusammenbauen (Definition 14.2, Compile:
 //! "IRBundle als Kandidat vorhanden").
 //!
-//! ## Regel 10.8 ist der Kern dieser Datei
+//! ## Regel 10.9 ist der Kern dieser Datei
 //!
 //! "preconditions und postconditions sind vom Typ PredicateExpr und damit
 //! domaenengeliefert. Der Kern DARF NICHT sie berechnen, aus
@@ -21,6 +21,31 @@
 //! Spektrallinse." Genau das tut `assemble_ir_bundle` - und zwar ueber
 //! `RelationSortId::ALL`, also erschoepfend ueber alle 23, nicht nur ueber
 //! die, an die jemand gedacht hat.
+//!
+//! ## Regel 10.8: eine Objektreferenz ist keine IR-Kante
+//!
+//! Beim Bau dieser Datei fiel auf, dass drei Objektschemata Pflicht-
+//! Referenzfelder fuehren, deren Sortenpaar die Portmatrix nicht kennt:
+//! `RealityClassification.thought_ref` (S-CTX/S-HOR),
+//! `FieldIdentity.dependency_profile_ref` (S-FLD/S-DEP) und
+//! `ReconciliationReport.attempt_ref` (S-EFF/S-RCN). Das sah nach einer
+//! unvollstaendigen Matrix aus. Es ist keine.
+//!
+//! Regel 10.8 (v1.0.25) stellt die Trennung fest: ein Referenzfeld ist
+//! Bestandteil der kanonischen Form seines Objekts, geht in dessen Digest
+//! ein und traegt "weder eigene Identitaet noch Bedingungen noch
+//! Gate-Bezug"; eine IREdge ist ein eigenstaendiges Objekt (OBJ-IRE) mit
+//! eigener id, preconditions, postconditions und optionalem gate_ref.
+//! "Die Sorten-Port-Matrix regelt ausschliesslich IREdge. Ein
+//! Referenzfeld DARF bestehen, ohne dass die Matrix ein entsprechendes
+//! Tripel fuehrt ... Ein fehlendes Tripel ist deshalb kein Befund gegen
+//! ein Objektschema."
+//!
+//! Fuer diese Datei heisst das: `EdgeCandidate` vorzulegen ist eine
+//! Entscheidung des Aufrufers UEBER KANTEN, nicht ein Abbild der
+//! Referenzfelder. Dass ein Objekt auf ein anderes zeigt, macht daraus
+//! keine Kante - und dass die Matrix ein Paar nicht fuehrt, macht das
+//! Referenzfeld nicht falsch.
 //!
 //! ## Was der Zusammenbau NICHT tut
 //!
@@ -53,21 +78,21 @@ pub struct EdgeConditions {
     pub postconditions: Vec<PredicateExpr>,
 }
 
-/// Das, was Regel 10.8 "das DomainProfile deklariert je RelationSortId"
+/// Das, was Regel 10.9 "das DomainProfile deklariert je RelationSortId"
 /// nennt - im Kern nur als Abbildung, ohne Wissen darueber, woher sie kam.
 #[derive(Debug, Clone, Default)]
 pub struct EdgeConditionDeclarations {
     by_relation: BTreeMap<RelationSortId, EdgeConditions>,
 }
 
-/// Ein PredicateExpr, das stets wahr ist - Regel 10.8 nennt das
+/// Ein PredicateExpr, das stets wahr ist - Regel 10.9 nennt das
 /// ausdruecklich einen Konformitaetsdefekt, nicht bloss schlechten Stil.
 ///
 /// Die Liste ist bewusst klein und woertlich: sie faengt genau das Muster,
 /// das das T-IR-001-Fixture verwendet (`PredicateExpr("true")`), und
 /// behauptet nicht, Tautologien allgemein erkennen zu koennen. Was sie
 /// nicht faengt, faengt sie nicht - ein Praedikatenprueferwaere der Kern,
-/// der die Bedingungen bewertet, und genau das verbietet Regel 10.8.
+/// der die Bedingungen bewertet, und genau das verbietet Regel 10.9.
 fn is_trivially_true(p: &PredicateExpr) -> bool {
     let normalized = p.0.trim().to_ascii_lowercase();
     matches!(
@@ -78,7 +103,7 @@ fn is_trivially_true(p: &PredicateExpr) -> bool {
 
 impl EdgeConditionDeclarations {
     /// Nimmt eine Deklaration entgegen und weist die beiden Formen zurueck,
-    /// die Regel 10.8 verbietet: leere Bedingungen (Invariante 10.7,
+    /// die Regel 10.9 verbietet: leere Bedingungen (Invariante 10.7,
     /// "implizite Erlaubnis existiert nicht") und stets wahre Praedikate.
     pub fn declare(
         &mut self,
@@ -135,7 +160,7 @@ pub struct EdgeCandidate {
 /// Warum eine Kante nicht entstand.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EdgeOmission {
-    /// Regel 10.8: keine Deklaration im Domaenenprofil.
+    /// Regel 10.9: keine Deklaration im Domaenenprofil.
     Undeclared(RelationSortId),
     /// Regel 10.6: das Sortenpaar steht nicht in der Portmatrix.
     NotInPortMatrix {
@@ -157,7 +182,7 @@ pub enum EdgeOmission {
 #[derive(Debug, Clone)]
 pub struct AssemblyOutcome {
     pub bundle: IRBundle,
-    /// Regel 10.8s ResidueRecord(scope) je nicht gebauter Relationssorte.
+    /// Regel 10.9s ResidueRecord(scope) je nicht gebauter Relationssorte.
     pub residues: Vec<ResidueRecord>,
     /// Jede einzelne Auslassung mit Grund - fuer den Bericht, damit ein
     /// duenner Graph seinen Grund mitbringt statt nur seine Duenne.
@@ -268,7 +293,7 @@ pub fn assemble_ir_bundle(inputs: AssemblyInputs<'_>) -> Result<AssemblyOutcome,
             continue;
         }
 
-        // 3. Regel 10.8: ohne Deklaration keine Kante.
+        // 3. Regel 10.9: ohne Deklaration keine Kante.
         let Some(conditions) = inputs.declarations.get(candidate.relation) else {
             omissions.push(EdgeOmission::Undeclared(candidate.relation));
             continue;
@@ -299,7 +324,7 @@ pub fn assemble_ir_bundle(inputs: AssemblyInputs<'_>) -> Result<AssemblyOutcome,
         });
     }
 
-    // Regel 10.8: je undeklarierter Relationssorte ein ResidueRecord(scope).
+    // Regel 10.9: je undeklarierter Relationssorte ein ResidueRecord(scope).
     let mut residues = Vec::new();
     for relation in inputs.declarations.undeclared() {
         residues.push(scope_residue(
@@ -307,7 +332,7 @@ pub fn assemble_ir_bundle(inputs: AssemblyInputs<'_>) -> Result<AssemblyOutcome,
             &inputs.scope,
             &inputs.opened_at,
             format!(
-                "Regel 10.8: das Domaenenprofil deklariert fuer die Relationssorte {} keine Vor- \
+                "Regel 10.9: das Domaenenprofil deklariert fuer die Relationssorte {} keine Vor- \
                  und Nachbedingungen; es entsteht keine Kante dieser Sorte",
                 relation.id()
             ),
@@ -364,7 +389,7 @@ mod tests {
 
     #[test]
     fn a_trivially_true_predicate_is_refused() {
-        // Regel 10.8 nennt das einen Konformitaetsdefekt. Der Kern kann
+        // Regel 10.9 nennt das einen Konformitaetsdefekt. Der Kern kann
         // Praedikate nicht bewerten - aber DIESE eine Form muss er
         // zurueckweisen, sonst ist die Regel nicht durchgesetzt.
         let mut d = EdgeConditionDeclarations::default();
@@ -377,6 +402,59 @@ mod tests {
         }
         // Positivkontrolle: ein echtes Praedikat geht durch, sonst wuerde
         // der Test auch bestehen, wenn `declare` alles ablehnte.
+        assert!(d
+            .declare(
+                RelationSortId::Grounds,
+                cond(
+                    "anchor.observations ist nicht leer",
+                    "thought erbt den Horizont"
+                )
+            )
+            .is_ok());
+    }
+
+    /// Befund aus dem FC2-Bau, jetzt abgesichert: das T-IR-001-Fixture
+    /// verwendet `PredicateExpr("true")` - exakt das Muster, das Regel
+    /// 10.9 verbietet. Das Fixture bleibt (es prueft den Codec, nicht die
+    /// Kantensemantik), aber es steht nicht laenger unkommentiert daneben:
+    /// sein eigener Wert wird hier gegen den Produktionsweg gehalten und
+    /// MUSS abgelehnt werden.
+    ///
+    /// Beide Stellen teilen eine Konstante. Wer das Fixture aendert,
+    /// aendert die Eingabe dieses Tests mit - er kann nicht dadurch
+    /// veralten, dass jemand woanders "true" durch etwas anderes ersetzt.
+    #[test]
+    fn the_t_ir_001_fixture_predicate_is_refused_by_the_production_path() {
+        let fixture = PredicateExpr(crate::codec::T_IR_001_FIXTURE_PREDICATE.to_string());
+        let mut d = EdgeConditionDeclarations::default();
+
+        assert!(
+            d.declare(
+                RelationSortId::Grounds,
+                EdgeConditions {
+                    preconditions: vec![fixture.clone()],
+                    postconditions: vec![PredicateExpr("etwas Echtes".into())],
+                }
+            )
+            .is_err(),
+            "das Fixturepraedikat {:?} MUSS im Produktionsweg scheitern",
+            fixture.0
+        );
+        assert!(
+            d.declare(
+                RelationSortId::Grounds,
+                EdgeConditions {
+                    preconditions: vec![PredicateExpr("etwas Echtes".into())],
+                    postconditions: vec![fixture.clone()],
+                }
+            )
+            .is_err(),
+            "auch als Nachbedingung MUSS es scheitern"
+        );
+
+        // Positivkontrolle: derselbe Aufruf mit echten Praedikaten geht
+        // durch. Ohne sie bestuende der Test auch, wenn `declare` alles
+        // ablehnte - und bewiese dann nichts ueber das Fixture.
         assert!(d
             .declare(
                 RelationSortId::Grounds,
