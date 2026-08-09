@@ -21,8 +21,13 @@
 //! (Markdown) und - sobald vorhanden - die QPM/NRAII-Zweitschicht.
 //!
 //! Die Nummernraeume UEBERSCHNEIDEN sich: `Definition 15.1` ist in PSK-RA
-//! die Instruktionsmenge und in QPM/NRAII das Lokale Vierfachprimitiv;
-//! zwischen diesen beiden allein gibt es 18 solche Kollisionen. Eine
+//! die Instruktionsmenge und in QPM/NRAII das Lokale Vierfachprimitiv.
+//! Wie VIELE solche Kollisionen es gibt, steht bewusst nicht hier: die
+//! Zahl haengt an zwei unabhaengig fortgeschriebenen Werken und war nach
+//! einer einzigen Einfuegung in QPM-Kapitel 2 bereits falsch (18 gegen
+//! v1.0.32/QPM v1.0.0, 16 gegen v1.0.33/QPM v1.0.1, ohne dass PSK-RA
+//! einen Block bewegt haette). Der Lauf misst sie stattdessen und nennt
+//! sie in der Berichtszeile. Eine
 //! Aufloesung gegen "irgendeine Quelle" wuerde eine QPM-Nummer gegen
 //! einen gleichnummerierten PSK-RA-Block durchwinken - der Titelvergleich
 //! faengt das nur bei den Zitaten MIT Titel, die uebrigen liefen blind
@@ -493,6 +498,16 @@ fn main() -> ExitCode {
             .map(|i| i.len().to_string())
             .unwrap_or_else(|| "- (Dokument nicht im Repo)".to_string())
     );
+    // Die Kollisionszahl wird gemessen, nicht behauptet - sie haengt an
+    // zwei unabhaengig fortgeschriebenen Werken und ist genau die Groesse,
+    // die begruendet, warum ein Zitat seinen Raum benennen muss.
+    if let Some(q) = qpm_index.as_ref() {
+        let collisions = ra_index.keys().filter(|k| q.contains_key(*k)).count();
+        eprintln!(
+            "    {collisions} Nummern tragen in PSK-RA und QPM verschiedene Bloecke - \
+             ohne Praefix waere jede davon blind aufloesbar"
+        );
+    }
     if problems.is_empty() {
         eprintln!("verify-citations: PASS — jede Zitierung loest gegen die aktuelle Fassung auf.");
         ExitCode::SUCCESS
