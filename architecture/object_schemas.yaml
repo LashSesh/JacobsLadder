@@ -121,7 +121,7 @@ objects:
 
   - id: OBJ-THB
     name: ThoughtBody
-    struktur: "7.7"
+    struktur: "7.9"
     schema_id: psk.thought-body/1.0
     fields:
       - {name: schema, type: "psk.thought-body/1.0"}
@@ -149,7 +149,7 @@ objects:
 
   - id: OBJ-RCL
     name: RealityClassification
-    struktur: "7.9"
+    struktur: "7.11"
     schema_id: psk.reality-classification/1.0
     note: "Nachgetragen in v1.0.7 (Fehlerkorrektur Punkt 10). Das Objekt war
       schon vorher Exklusivbesitz von M07 und Nutzlast von P09, besass aber
@@ -179,7 +179,7 @@ objects:
 
   - id: OBJ-FLD
     name: FieldIdentity
-    struktur: "7.12"
+    struktur: "7.14"
     schema_id: psk.field-identity/1.0
     fields:
       - {name: schema, type: "psk.field-identity/1.0"}
@@ -202,7 +202,7 @@ objects:
 
   - id: OBJ-PRJ
     name: FieldProjection
-    struktur: "7.13"
+    struktur: "7.15"
     schema_id: psk.field-projection/1.0
     note: "Nachgetragen in v1.0.3 (Fehlerkorrektur Punkt 4). Kein Randfall:
       Eingang der Kernproduktionen ((ThoughtBody, FieldIdentity) => FieldProjection,
@@ -244,7 +244,7 @@ objects:
 
   - id: OBJ-IRB
     name: IRBundle
-    struktur: "7.19"
+    struktur: "7.21"
     schema_id: psk.ir/1.0
     fields:
       - {name: schema, type: "psk.ir/1.0"}
@@ -269,7 +269,7 @@ objects:
 
   - id: OBJ-IRN
     name: IRNode
-    struktur: "7.20"
+    struktur: "7.22"
     fields:
       - {name: id, type: ObjectId}
       - {name: sort, type: SortId, note: "genau eine Primaersorte"}
@@ -286,7 +286,7 @@ objects:
 
   - id: OBJ-IRE
     name: IREdge
-    struktur: "7.20"
+    struktur: "7.22"
     fields:
       - {name: id, type: ObjectId}
       - {name: source, type: ObjectId}
@@ -301,7 +301,7 @@ objects:
 
   - id: OBJ-CAP
     name: CandidateCapsule
-    struktur: "7.21"
+    struktur: "7.23"
     schema_id: psk.candidate-capsule/1.0
     fields:
       - {name: schema, type: "psk.candidate-capsule/1.0"}
@@ -319,7 +319,7 @@ objects:
 
   - id: OBJ-EVD
     name: EvidenceObject
-    struktur: "7.23"
+    struktur: "7.25"
     schema_id: psk.evidence/1.0
     fields:
       - {name: schema, type: "psk.evidence/1.0"}
@@ -337,7 +337,7 @@ objects:
 
   - id: OBJ-DEP
     name: DependencyProfile
-    struktur: "7.24"
+    struktur: "7.26"
     schema_id: psk.dependency-profile/1.0
     fields:
       - {name: schema, type: "psk.dependency-profile/1.0"}
@@ -352,7 +352,7 @@ objects:
 
   - id: OBJ-SEA
     name: SeamReport
-    struktur: "7.28"
+    struktur: "7.30"
     fields:
       - {name: id, type: ObjectId}
       - {name: overlap, type: "[ObjectId, ObjectId]"}
@@ -364,7 +364,7 @@ objects:
 
   - id: OBJ-OBS
     name: ObstructionRecord
-    struktur: "7.28"
+    struktur: "7.30"
     fields:
       - {name: id, type: ObjectId}
       - {name: kind, type: "seam | order | identity | time | resource | capability | calibration"}
@@ -376,7 +376,7 @@ objects:
 
   - id: OBJ-GAT
     name: GateReport
-    struktur: "7.30"
+    struktur: "7.32"
     schema_id: psk.gate-report/1.0
     fields:
       - {name: schema, type: "psk.gate-report/1.0"}
@@ -395,7 +395,7 @@ objects:
 
   - id: OBJ-TOK
     name: EffectToken
-    struktur: "7.31"
+    struktur: "7.33"
     schema_id: psk.effect-token/1.0
     fields:
       - {name: schema, type: "psk.effect-token/1.0"}
@@ -417,7 +417,7 @@ objects:
 
   - id: OBJ-ATT
     name: EffectAttempt
-    struktur: "7.33"
+    struktur: "7.35"
     fields:
       - {name: id, type: ObjectId}
       - {name: token_ref, type: ObjectId}
@@ -432,7 +432,7 @@ objects:
 
   - id: OBJ-RCP
     name: ExternalReceipt
-    struktur: "7.33"
+    struktur: "7.35"
     fields:
       - {name: id, type: ObjectId}
       - {name: observer_adapter, type: AdapterId, note: "MUSS != EffectAttempt.adapter"}
@@ -445,7 +445,7 @@ objects:
 
   - id: OBJ-RCN
     name: ReconciliationReport
-    struktur: "7.35"
+    struktur: "7.37"
     schema_id: psk.reconciliation/1.0
     fields:
       - {name: schema, type: "psk.reconciliation/1.0"}
@@ -541,7 +541,7 @@ objects:
 
   - id: OBJ-TRC
     name: TraceSegment
-    struktur: "7.38"
+    struktur: "7.40"
     schema_id: psk.trace-segment/1.0
     rules:
       - {id: "Regel 7.41", title: "Zwei Digests je Segment",
@@ -574,7 +574,7 @@ objects:
 
   - id: OBJ-RES
     name: ResidueRecord
-    struktur: "7.40"
+    struktur: "7.43"
     schema_id: psk.residue/1.0
     fields:
       - {name: schema, type: "psk.residue/1.0"}
@@ -592,7 +592,7 @@ objects:
 
   - id: OBJ-RUN
     name: RunDescriptor
-    struktur: "7.42"
+    struktur: "7.45"
     schema_id: psk.run-descriptor/1.0
     fields:
       - {name: schema, type: "psk.run-descriptor/1.0"}
@@ -616,7 +616,7 @@ objects:
 
   - id: OBJ-EXC
     name: ExcisionCertificate
-    struktur: "7.44"
+    struktur: "7.47"
     schema_id: psk.excision/1.0
     fields:
       - {name: schema, type: "psk.excision/1.0"}
@@ -633,7 +633,7 @@ objects:
 
   - id: OBJ-CRT
     name: MachineCertificate
-    struktur: "7.46"
+    struktur: "7.49"
     schema_id: psk.machine-certificate/1.0
     fields:
       - {name: schema, type: "psk.machine-certificate/1.0"}
@@ -678,7 +678,7 @@ objects:
 
   - id: OBJ-RPM
     name: ReplayManifest
-    struktur: "22.5"
+    struktur: "22.7"
     fields:
       - {name: run_id, type: RunId}
       - {name: run_descriptor_digest, type: Digest}

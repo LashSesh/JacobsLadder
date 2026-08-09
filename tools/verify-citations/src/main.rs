@@ -487,10 +487,54 @@ fn main() -> ExitCode {
         }
     }
 
+    // ---- Registerrueckverweise: `struktur: "N.M"`-Felder.
+    //
+    // Sie sind maschinenlesbar und wurden von nichts geprueft - 23 von
+    // 29 waren gedriftet (meist +2, unsichtbar seit zwanzig Editionen),
+    // weil diese Stufe nur Fliesstext las. Fuenfte Instanz derselben
+    // Klasse (Objektzahlen, Testzahl, Kollisionszahl, Katalogeintraege,
+    // Registerrueckverweise); die Loesung ist jedes Mal dieselbe:
+    // pruefen, nicht pflegen.
+    //
+    // Der TITEL wird mitgeprueft: der Eintragsname MUSS im Blocktitel
+    // stecken. Blosse Aufloesbarkeit reicht nicht - wenn eine
+    // Einfuegung die alte Nummer neu besetzt, loest der gedriftete
+    // Verweis wieder auf und die Verschiebung waere erneut still (im
+    // Fliesstext real passiert: "Regel 9.9" ueberlebte so eine ganze
+    // Edition).
+    let register_backrefs = scan_register_backrefs(&[
+        root.join("architecture").as_path(),
+        root.join("constitution").as_path(),
+    ]);
+    for r in &register_backrefs {
+        let key = ("Struktur".to_string(), r.number.clone());
+        let Some(title) = ra_index.get(&key) else {
+            problems.push(format!(
+                "{}:{}: Registerrueckverweis struktur: \"{}\" ({}) loest in PSK-RA nicht auf",
+                r.file, r.line, r.number, r.name
+            ));
+            continue;
+        };
+        if !title.contains(&normalize(&r.name)) {
+            problems.push(format!(
+                "{}:{}: struktur: \"{}\" gehoert laut Register zu {}, PSK-RA fuehrt dort \"{}\"",
+                r.file, r.line, r.number, r.name, title
+            ));
+        }
+    }
+    if register_backrefs.is_empty() {
+        // Nullwache: object_schemas.yaml traegt diese Felder seit I0.
+        eprintln!(
+            "verify-citations: FAIL — kein einziger Registerrueckverweis gefunden; Scanner kaputt."
+        );
+        return ExitCode::FAILURE;
+    }
+
     eprintln!(
-        "    {} Zitierungen geprueft ({} mit Titel) | PSK-RA {} Bloecke, CPSK {}, QPM {}",
+        "    {} Zitierungen geprueft ({} mit Titel), {} Registerrueckverweise | PSK-RA {} Bloecke, CPSK {}, QPM {}",
         citations.len(),
         titled,
+        register_backrefs.len(),
         ra_index.len(),
         cpsk_index.len(),
         qpm_index
@@ -518,6 +562,55 @@ fn main() -> ExitCode {
         }
         ExitCode::FAILURE
     }
+}
+
+/// Ein Registerrueckverweis: der Eintrag `name` beansprucht, sein
+/// normativer Block sei `Struktur <number>`.
+struct RegisterBackref {
+    file: String,
+    line: usize,
+    name: String,
+    number: String,
+}
+
+/// Sammelt `struktur: "N.M"`-Felder aus den YAML-Registern; der
+/// zugehoerige Eintragsname ist das letzte vorangegangene `name:`-Feld.
+/// Ohne Praefixspalte gilt wie im Fliesstext: PSK-RA.
+fn scan_register_backrefs(dirs: &[&Path]) -> Vec<RegisterBackref> {
+    let mut out = Vec::new();
+    for dir in dirs {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.extension().map(|e| e != "yaml").unwrap_or(true) {
+                continue;
+            }
+            let Ok(text) = std::fs::read_to_string(&p) else {
+                continue;
+            };
+            let mut current_name: Option<String> = None;
+            for (i, raw) in text.lines().enumerate() {
+                let line = raw.trim();
+                if let Some(rest) = line.strip_prefix("name:") {
+                    current_name = Some(rest.trim().to_string());
+                }
+                if let Some(rest) = line.strip_prefix("struktur:") {
+                    let number = rest.trim().trim_matches('"').to_string();
+                    if let Some(name) = &current_name {
+                        out.push(RegisterBackref {
+                            file: p.display().to_string(),
+                            line: i + 1,
+                            name: name.clone(),
+                            number,
+                        });
+                    }
+                }
+            }
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -554,6 +647,42 @@ mod tests {
     /// ein Praefix waehlt den Raum; ein UNBEKANNTES Praefix ist ein
     /// Fehler und kein stiller Standardfall - sonst waere ein Tippfehler
     /// im Raumnamen von "meint PSK-RA" nicht zu unterscheiden.
+    #[test]
+    fn register_backrefs_are_scanned_and_the_title_check_catches_reoccupied_numbers() {
+        // Der Fall, der die Erweiterung ausgeloest hat: 23 von 29
+        // struktur:-Feldern waren gedriftet, und blosse Aufloesbarkeit
+        // haette die neu besetzte Nummer wieder durchgewunken.
+        let dir = std::env::temp_dir().join(format!("psk-backref-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("reg.yaml"),
+            "objects:
+  - id: OBJ-X
+    name: IRBundle
+    struktur: \"7.19\"
+",
+        )
+        .unwrap();
+        let refs = scan_register_backrefs(&[dir.as_path()]);
+        assert_eq!(refs.len(), 1);
+        assert_eq!(refs[0].name, "IRBundle");
+        assert_eq!(refs[0].number, "7.19");
+
+        // Titelpruefung: 7.19 existiere wieder, tritt aber unter fremdem
+        // Titel auf - der Rueckverweis DARF NICHT durchgehen.
+        let idx = index_source("Struktur 7.19 (CandidateCapsule). Struktur 7.21 (IRBundle).");
+        let title = idx
+            .get(&("Struktur".to_string(), "7.19".to_string()))
+            .unwrap();
+        assert!(!title.contains(&normalize("IRBundle")));
+        let right = idx
+            .get(&("Struktur".to_string(), "7.21".to_string()))
+            .unwrap();
+        assert!(right.contains(&normalize("IRBundle")));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn the_declared_namespaces_are_exactly_two_and_unknown_is_not_a_default() {
         assert_eq!(NAMESPACES, ["QPM", "CPSK"]);
