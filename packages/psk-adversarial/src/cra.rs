@@ -57,6 +57,11 @@ pub struct ProposalInputs {
     pub hardening_class: RevisionProposalHardeningClassKind,
     /// Was sich aendert - domaenengeliefert, hier nur typisiert.
     pub proposed_delta: DeltaSpec,
+    /// Ergebnis des getrennten Prozessbaus, falls er stattfand - der
+    /// Algorithmus Revisionsvorschlag baut VOR der Emission in Isolation,
+    /// also ist der Verweis Teil des versiegelten Inhalts, keine
+    /// nachtraegliche Mutation.
+    pub isolation_build_ref: Option<ObjectId>,
     /// ParentBound gegen die LAUFENDE Instanz: deren drei Identitaeten.
     pub parent_constitution: Digest,
     pub parent_architecture: Digest,
@@ -139,8 +144,7 @@ pub fn cra(inputs: CraInputs, proposal: ProposalInputs) -> Result<RevisionPropos
             architecture: proposal.parent_architecture,
             implementation: proposal.parent_implementation,
         },
-        isolation_build_ref: None,
-        gate_report_ref: None,
+        isolation_build_ref: proposal.isolation_build_ref,
         trace_ref: proposal.trace_ref,
     };
 
@@ -178,6 +182,7 @@ mod tests {
             source_evidence: vec![ObjectId::new(SortId::Branch, Digest::sha256(b"cm"))],
             hardening_class: RevisionProposalHardeningClassKind::TestsAndFalsifiers,
             proposed_delta: DeltaSpec("gegenmodell in die stehende negativsuite".into()),
+            isolation_build_ref: None,
             parent_constitution: Digest::sha256(b"ic"),
             parent_architecture: Digest::sha256(b"ia"),
             parent_implementation: Digest::sha256(b"im"),

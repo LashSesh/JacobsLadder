@@ -491,8 +491,10 @@ objects:
       - {name: parent_binding, type: nested_struct, nested_struct: ParentBinding,
           note: "ParentBound gegen die laufende Instanz"}
       - {name: isolation_build_ref, type: ObjectId, optional: true, note: "Ergebnis des getrennten Prozessbaus"}
-      - {name: gate_report_ref, type: ObjectId, optional: true, note: "G-SELF-COMPILE, gesetzt erst nach Auswertung"}
-      - {name: trace_ref, type: TraceRef}
+      - {name: trace_ref, type: TraceRef, note: "KEIN gate_report_ref (v1.0.30, Regel Urteil
+          verweist, Gegenstand nicht): das Urteil verweist auf seinen Gegenstand ueber
+          input_digests, nicht umgekehrt - ein nachtraeglich gesetztes Feld waere eine
+          Mutation gegen Kein In-place-Rueckfluss"}
     nested_structs:
       ParentBinding:
         - {name: constitution, type: Digest}

@@ -870,6 +870,83 @@ fn run_challenge(
     })
 }
 
+/// Ergebnis des getrennten Prozessbaus (Algorithmus Revisionsvorschlag:
+/// build_in_isolation). `None`-Faelle gibt es hier nicht - konnte der
+/// Kindprozess nicht laufen, sagt `spawned: false` genau das, und die
+/// Gatebedingungen bleiben unentscheidbar statt falsch.
+struct IsolatedCandidate {
+    spawned: bool,
+    /// Der Delta-Falsifikator des Kandidaten lief im Kind und fand den
+    /// erwarteten Gegenbeleg.
+    falsifier_pass: bool,
+    /// Der Kandidatenlauf im Kind reproduziert den kanonischen Kopf des
+    /// Elternlaufs.
+    digest_match: bool,
+    /// H(stdout des Kindes) - das Artefakt des isolierten Baus, in den
+    /// Vorschlag versiegelt (isolation_build_ref).
+    artefact: Option<ObjectId>,
+}
+
+/// Spawnt den Kandidaten als ECHTEN zweiten Prozess (dasselbe Muster wie
+/// I8: `sibling_binary_path` + `psk-cli`), laesst dort Delta-Falsifikator
+/// und vollen Lauf ausfuehren und liest beide Befunde aus dessen stdout.
+///
+/// Derselbe Sandboxpfad wie der Elternlauf, mit Reset im Kind: der
+/// kanonische Kopf haengt ueber die Ankerbeobachtung am beobachteten
+/// Pfad, also ist Pfadgleichheit Voraussetzung der Vergleichbarkeit -
+/// exakt wie bei `cmd_golden_run_independent`.
+fn run_isolated_candidate(
+    sandbox_root: &Path,
+    expected_countermodel: &str,
+    parent_trace_head: Digest,
+) -> IsolatedCandidate {
+    let no_spawn = IsolatedCandidate {
+        spawned: false,
+        falsifier_pass: false,
+        digest_match: false,
+        artefact: None,
+    };
+    let Ok(exe) = psk_lifecycle::sibling_binary_path("psk-cli") else {
+        return no_spawn;
+    };
+    let Ok(output) = std::process::Command::new(exe)
+        .arg("candidate-check")
+        .arg(sandbox_root)
+        .arg(expected_countermodel)
+        .output()
+    else {
+        return no_spawn;
+    };
+    if !output.status.success() {
+        return IsolatedCandidate {
+            spawned: true,
+            falsifier_pass: false,
+            digest_match: false,
+            // Auch ein gescheiterter isolierter Lauf ist ein Artefakt.
+            artefact: Some(ObjectId::new(
+                SortId::Branch,
+                Digest::sha256(&output.stdout),
+            )),
+        };
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+    let falsifier_pass = stdout.lines().any(|l| l.trim() == "falsifier=PASS");
+    let digest_match = stdout
+        .lines()
+        .find_map(|l| l.trim().strip_prefix("digest="))
+        .map(|d| d == parent_trace_head.to_string())
+        .unwrap_or(false);
+    IsolatedCandidate {
+        spawned: true,
+        falsifier_pass,
+        digest_match,
+        artefact: Some(ObjectId::new(
+            SortId::Branch,
+            Digest::sha256(stdout.as_bytes()),
+        )),
+    }
+}
+
 /// PROPOSE_REVISION plus G-SELF-COMPILE, auf Zertifizierungsebene - nach
 /// beiden Laeufen, weil die Vorbedingungen des Gates (Replay, Residuen)
 /// erst dort vollstaendig vorliegen.
@@ -889,6 +966,7 @@ struct SelfCompileOutcome {
 
 fn propose_and_evaluate_self_compile(
     workspace_root: &Path,
+    sandbox_root: &Path,
     first: &GoldenRunReport,
     second: &GoldenRunReport,
     replay_manifest_digest: Digest,
@@ -915,6 +993,11 @@ fn propose_and_evaluate_self_compile(
         .map(|c| c.0.clone())
         .ok_or(PskError::SelfAmendmentWithoutIdentity)?;
 
+    // build_in_isolation VOR der Emission (Algorithmus Revisionsvorschlag:
+    // erst bauen und pruefen, dann vorschlagen) - damit ist der Verweis
+    // Teil des versiegelten Inhalts, keine nachtraegliche Mutation.
+    let isolated = run_isolated_candidate(sandbox_root, &countermodel_name, first.trace_head);
+
     let identity = &first.boot_report.identity;
     let proposal = psk_adversarial::cra(
         psk_adversarial::CraInputs {
@@ -932,6 +1015,7 @@ fn propose_and_evaluate_self_compile(
             proposed_delta: psk_types::objects::DeltaSpec(format!(
                 "Gegenmodell {countermodel_name} als stehenden Falsifikator in die Negativsuite aufnehmen (neuer Branch, neue ID - Regel Branch statt Umschreibung)"
             )),
+            isolation_build_ref: isolated.artefact,
             parent_constitution: identity.I_C,
             parent_architecture: identity.I_A,
             parent_implementation: identity.I_M,
@@ -985,23 +1069,37 @@ fn propose_and_evaluate_self_compile(
                 cond(parent_bound, "Elternbindung verletzt"),
                 cond(invariants_preserved, "Invarianzerhalt verletzt"),
                 cond(round_trip, "Round-Trip des Bundles nicht verlustfrei"),
-                // Die zwei ehrlich UNENTSCHEIDBAREN: beide setzen den
-                // isolierten Kandidatenbau voraus (Algorithmus
-                // Revisionsvorschlag: build_in_isolation, getrennter
-                // Prozess), und der findet nicht statt. FALSE waere die
-                // Behauptung, die Suite sei GELAUFEN und durchgefallen -
-                // dieselbe Verwechslung von ungeprueft und widerlegt, die
-                // Regel Klassifikation-ist-eigenes-Objekt fuer die
-                // Erreichbarkeit verbietet. Undecidable fuehrt zu HOLD:
-                // "unvollstaendige, aber nicht verworfene Kandidaten".
-                // isolation_build_ref ist entsprechend None.
-                ConditionOutcome::Undecidable(ReasonCode(
-                    "kein isolierter Kandidatenbau: Negativsuite des Kandidaten nie gelaufen"
-                        .into(),
-                )),
-                ConditionOutcome::Undecidable(ReasonCode(
-                    "kein isolierter Kandidatenbau: kein Zweitprozess-Replay des Kandidaten".into(),
-                )),
+                // Seit build_in_isolation real laeuft, sind beide
+                // Bedingungen aus dem Artefakt des Kindprozesses
+                // BERECHNET. Konnte das Kind nicht gespawnt werden, sind
+                // sie unentscheidbar (ungeprueft ist nicht widerlegt);
+                // lief es und scheiterte, sind sie FALSE - dann zeigt ein
+                // Artefakt das Scheitern, genau die Unterscheidung, die
+                // beim ersten Bau dieser Stelle gezogen wurde.
+                if !isolated.spawned {
+                    ConditionOutcome::Undecidable(ReasonCode(
+                        "Kindprozess nicht startbar: Negativsuite des Kandidaten ungeprueft".into(),
+                    ))
+                } else if isolated.falsifier_pass {
+                    ConditionOutcome::True
+                } else {
+                    ConditionOutcome::False(ReasonCode(
+                        "Delta-Falsifikator des Kandidaten im isolierten Prozess gescheitert"
+                            .into(),
+                    ))
+                },
+                if !isolated.spawned {
+                    ConditionOutcome::Undecidable(ReasonCode(
+                        "Kindprozess nicht startbar: kein Zweitprozess-Replay des Kandidaten"
+                            .into(),
+                    ))
+                } else if isolated.digest_match {
+                    ConditionOutcome::True
+                } else {
+                    ConditionOutcome::False(ReasonCode(
+                        "Kandidatenlauf reproduziert den kanonischen Kopf nicht".into(),
+                    ))
+                },
                 cond(residues_visible, "keine sichtbaren Residuen"),
             ],
             seam_compatible: Some(first.glue.hold_reason.is_none()),
@@ -1018,13 +1116,11 @@ fn propose_and_evaluate_self_compile(
         &mut residues,
     )?;
 
-    // gate_report_ref bleibt auf dem versiegelten Vorschlag None: das Feld
-    // ist laut Schema "gesetzt erst nach Auswertung", aber das Werk
-    // erklaert nicht, ob das Setzen die Objektidentitaet neu bildet (wie
-    // bei FieldIdentity.lifecycle) oder erhaelt (wie bei
-    // ResidueRecord.state). BEFUND, nicht hier entschieden - Vorschlag
-    // und Gatbericht werden nebeneinander publiziert, die Zuordnung
-    // traegt der Gatbericht selbst ueber input_digests.
+    // Regel "Urteil verweist, Gegenstand nicht" (v1.0.30, den Befund
+    // dieser Stelle schliessend): der GateReport traegt die Zuordnung
+    // ueber seine input_digests, der Vorschlag nimmt keinen Rueckverweis
+    // auf - das Feld existiert nicht mehr, die Identitaetsfrage stellt
+    // sich nicht.
     Ok(SelfCompileOutcome {
         proposal,
         gate_report,
@@ -1670,6 +1766,7 @@ pub fn run_golden_run_with_certificate(
 
     let self_compile = propose_and_evaluate_self_compile(
         workspace_root,
+        sandbox_root,
         &first,
         &second,
         replay_manifest_digest,
@@ -1975,23 +2072,26 @@ mod tests {
             result.revision_proposal.candidate_id.digest, result.first.boot_report.identity.I_M,
             "der Kandidat DARF NICHT die aktive Instanz sein (PSK-E012)"
         );
+        // Der gemessene Ausgang seit build_in_isolation: PASS. Der
+        // Kandidat lief als ECHTER zweiter Prozess (psk-cli
+        // candidate-check), sein Delta-Falsifikator fand den Gegenbeleg,
+        // sein Lauf reproduzierte den kanonischen Kopf des Elternlaufs -
+        // alle sechs Bedingungen wahr. Vorher stand hier HOLD mit zwei
+        // Undecidable; der Uebergang HOLD -> PASS kam durch den Bau des
+        // benannten Mechanismus, nicht durch Aenderung einer Bedingung.
         assert_eq!(
             result.self_compile_gate.decision,
-            psk_types::objects::GateReportDecisionKind::Hold,
-            "HOLD am fehlenden isolierten Kandidatenbau - der gemessene Ausgang"
-        );
-        assert!(
-            result
-                .self_compile_gate
-                .reasons
-                .iter()
-                .any(|r| r.0.contains("isolierter Kandidatenbau")),
-            "der Grund MUSS den fehlenden Kandidatenbau benennen: {:?}",
+            psk_types::objects::GateReportDecisionKind::Pass,
+            "alle sechs Vorbedingungen aus realen Artefakten: {:?}",
             result.self_compile_gate.reasons
         );
         assert!(
-            !result.self_compile_residues.is_empty(),
-            "eine Nicht-PASS-Entscheidung MUSS residualisiert sein (Algorithmus 18.6)"
+            result.revision_proposal.isolation_build_ref.is_some(),
+            "der isolierte Bau MUSS sein Artefakt im versiegelten Vorschlag hinterlassen"
+        );
+        assert!(
+            result.self_compile_residues.is_empty(),
+            "eine PASS-Entscheidung residualisiert nichts"
         );
 
         fs::remove_dir_all(&sandbox).ok();
