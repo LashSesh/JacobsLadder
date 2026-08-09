@@ -22,6 +22,9 @@
 //! Messen.
 
 use psk_certify::{FeatureEvidence, ReplayEvidence};
+use psk_types::objects::{
+    RealityStatus, ReconciliationReportFactPromotionKind, ReconciliationReportVerdictKind,
+};
 use psk_types::Digest;
 
 use crate::baselines::BaselineComparison;
@@ -64,14 +67,30 @@ fn measure_run(run: &GoldenRunReport, evidence: &mut FeatureEvidence) {
     // Klassifikation entstand.
     evidence.reality_classifications += 1;
 
-    // FC3, zweite Haelfte ("ohne Promotionsbypass"): die Sperre aus
-    // Vertrag 7.11 greift bei reality_status = UNKNOWN. Sie kommt in
-    // diesem Lauf nicht zur Anwendung, weil das Subjekt der Reconciliation
-    // ACTUALIZED ist. `psk_thought::check_promotion` ist die einzige
-    // Wache und T-UNKNOWN-001 belegt sie - als Test, nicht als
-    // Laufartefakt. Deshalb bleibt `promotions_barred_on_unknown` hier
-    // unberuehrt; einen UNKNOWN-Fall in den Golden Run zu legen, nur damit
-    // der Zaehler steigt, waere Nachhelfen, nicht Messen.
+    // FC3, zweite Haelfte ("ohne Promotionsbypass"): die real ausgeuebte
+    // Sperre wird aus der ARTEFAKTMENGE gemessen, nicht aus dem Bericht
+    // allein. Der Bericht traegt das Subjekt nicht, und check_promotion
+    // liefert fuer die UNKNOWN-Klausel denselben Fehler wie fuer
+    // Invariante 5.9 - aus dem Bericht allein ist also "dass gesperrt
+    // wurde" erkennbar, aber nicht "warum". Erst das Paar aus (a) einem
+    // Subjekt, dessen Klassifikation UNKNOWN ist, und (b) einem Bericht
+    // mit verdict != UNKNOWN und fact_promotion == NONE belegt die
+    // UNKNOWN-Sperre: dieses Paar ist ohne sie unerreichbar (durch
+    // Aufzaehlung bewiesen in psk-reconciliation::
+    // a_barred_promotion_is_distinguishable_from_nothing_to_promote).
+    //
+    // Seit die zwei Erfindungen des Laufs entfernt sind (Phantom-Plugin,
+    // hartkodiertes Subjektpaar), entsteht dieses Artefaktpaar im
+    // Referenzlauf natuerlich: kein Klassifikationsplugin existiert, also
+    // ist die Klassifikation UNKNOWN (Vertrag 27.2 Pflicht 3), also
+    // faellt die von CLOSED beabsichtigte Promotion auf NONE.
+    let subject_unknown = run.reality.reality_status == RealityStatus::Unknown;
+    let report_shows_barred = run.reconciliation.verdict
+        != ReconciliationReportVerdictKind::Unknown
+        && run.reconciliation.fact_promotion == ReconciliationReportFactPromotionKind::None;
+    if subject_unknown && report_shows_barred {
+        *evidence.promotions_barred_on_unknown.get_or_insert(0) += 1;
+    }
 
     // ---- FC4.
     evidence.field_projections += run.field_projections.len();

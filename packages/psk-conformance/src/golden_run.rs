@@ -67,10 +67,10 @@ use psk_types::objects::{
     EffectTokenRollbackKind, EventTypeId, ExternalReceipt, FeatureCoverageId, FieldIdentity,
     FieldProjection, GateId, IRNodeId, Lineage, M13Address, MachineCertificate,
     MachineCertificateReplayClassKind, ModelRef, ObligationExpr, Observation, OpId, PredicateExpr,
-    ProfileId, QuestionSpec, RealityClassification, RealityClassificationReachabilityKind,
-    RealityStatus, ReasonCode, ReceiptSpec, ReconciliationReport, ReplayDescriptor, RollbackSpec,
-    ScopeExpr, ScopeSpec, SortId, SourceRef, ThoughtBody, TickId, TimeWindow, TrajectoryRef,
-    UncertaintyBlock, UncertaintyModelId, Validity, WitnessPolicy,
+    ProfileId, QuestionSpec, RealityClassification, RealityStatus, ReasonCode, ReceiptSpec,
+    ReconciliationReport, ReplayDescriptor, RollbackSpec, ScopeExpr, ScopeSpec, SortId, SourceRef,
+    ThoughtBody, TickId, TimeWindow, TrajectoryRef, UncertaintyBlock, UncertaintyModelId, Validity,
+    WitnessPolicy,
 };
 use psk_types::{
     ClockRef, Digest, DualTime, MessageType, ModuleId, Msg, ObjectId, PortId, PskError, RunId,
@@ -274,29 +274,28 @@ fn classify_thought_reality(
     anchor: &AnchorSnapshot,
     trace_ref: TraceRef,
 ) -> Result<RealityClassification, PskError> {
-    let evidence = RealityEvidence {
-        coherent: true,
-        lawful: true,
-        constructible: true,
-        actualized: false,
-        reachability: RealityClassificationReachabilityKind::Witnessed,
-    };
+    // Vertrag 27.2 Pflicht 3: "Ein fehlendes oder nicht anwendbares
+    // Plug-in erzeugt UNKNOWN beziehungsweise ein Residuum. Ein
+    // Default-Zweig auf einen positiven Status ist ein
+    // Konformitaetsdefekt."
+    //
+    // Es existiert KEIN Klassifikationsplugin in diesem Workspace. Die
+    // fruehere Fassung nannte hier ein MethodPlugin
+    // ("reference-domain-fs-classifier"), das nirgends sonst vorkam, und
+    // setzte in dessen Namen einen positiven Evidenzvektor von Hand -
+    // woertlich der Konformitaetsdefekt, den Pflicht 3 beschreibt. Der
+    // treue Zustand ist "nichts festgestellt": der Default von
+    // RealityEvidence, ohne method_ref, ohne Grundlage. classify()
+    // erzwingt selbst, dass daraus nur UNKNOWN werden kann - und
+    // UNKNOWN mit leerem evidence_refs IST die Materialisierung
+    // "fehlender Witness" aus Vertrag 7.11, kein fehlender Wert.
     psk_thought::classify(
         thought,
         ClassificationInputs {
             anchor_ref: anchor.id,
-            evidence,
-            // Vertrag 27.2 Pflicht 3 (kein MethodPlugin -> keine positive
-            // Klassifikation) und Struktur 7.9 (Grundlage; leer nur bei
-            // UNKNOWN) verlangen beide ein echtes MethodPlugin und
-            // mindestens eine Evidenzreferenz, sobald reality_status !=
-            // UNKNOWN. Die Anchor-Beobachtung selbst ist hier die
-            // Grundlage - Schritt 4 klassifiziert ja genau deren
-            // Realitaetstyp (Dateien/Werkzeuge/Rechte/Zeit).
-            evidence_refs: vec![anchor.id],
-            method_ref: Some(psk_types::objects::PluginId(
-                "reference-domain-fs-classifier".into(),
-            )),
+            evidence: RealityEvidence::default(),
+            evidence_refs: vec![],
+            method_ref: None,
             residue_refs: vec![],
             trace_ref,
             classified_at: run_time(),
@@ -765,6 +764,8 @@ fn run_reconciliation(
     token_plan_digest: Digest,
     token_issuer_digest: Digest,
     anchor_ref: ObjectId,
+    subject_reality_status: RealityStatus,
+    subject_facticity: psk_types::objects::FactStatus,
 ) -> Result<ReconciliationReport, PskError> {
     let mut residues = ResidueLedger::new();
     reconcile(
@@ -780,10 +781,15 @@ fn run_reconciliation(
             finality: psk_types::objects::ReconciliationReportFinalityKind::Final,
             witness_ref: ObjectId::new(SortId::Witness, Digest::sha256(b"golden-run-witness")),
             opened_at: run_time(),
-            // T-UNKNOWN-001: ein Subjekt, dessen Realitaetsstatus die
-            // Promotion nicht sperrt.
-            subject_reality_status: psk_types::objects::RealityStatus::Actualized,
-            subject_facticity: psk_types::objects::FactStatus::Observed,
+            // Das Subjekt ist der klassifizierte Gedanke dieses Laufs -
+            // seine Werte kommen als Parameter aus den realen Objekten
+            // herein. Die fruehere Fassung setzte hier ein hartkodiertes
+            // Actualized/Observed-Paar, das KEIN Objekt des Laufs trug
+            // ("ein Subjekt, dessen Realitaetsstatus die Promotion nicht
+            // sperrt") - die Wache bekam ein Literal statt eines
+            // Laufwerts und konnte deshalb nie greifen.
+            subject_reality_status,
+            subject_facticity,
         },
         &mut residues,
     )
@@ -973,6 +979,12 @@ pub fn run_golden_run(
         attempt.plan_digest,
         Digest::sha256(b"golden-run-issuer"),
         anchor.id,
+        // Die Werte des klassifizierten Subjekts, nicht eine Vorgabe:
+        // reality_status aus der einzigen Klassifikation des Laufs,
+        // facticity aus derselben (sie kopiert die des ThoughtBody,
+        // Regel 7.10).
+        reality.reality_status,
+        reality.facticity,
     )?;
     let after_reconciliation = record(
         &mut trace,
@@ -1231,13 +1243,33 @@ mod tests {
         let written = fs::read_to_string(sandbox.join("golden-run-patch.txt")).unwrap();
         assert_eq!(written, "hello golden run");
 
+        // Die UNKNOWN-Promotionssperre greift in diesem Lauf gegen ein
+        // echtes Objekt: die einzige Klassifikation ist UNKNOWN (kein
+        // Klassifikationsplugin existiert, Vertrag 27.2 Pflicht 3), also
+        // faellt die von CLOSED beabsichtigte Promotion auf NONE.
+        //
+        // Das Paar (verdict != UNKNOWN, fact_promotion == NONE) ist ohne
+        // die Sperre unerreichbar - nachgewiesen durch Aufzaehlung in
+        // psk-reconciliation::a_barred_promotion_is_distinguishable_from_
+        // nothing_to_promote. Frueher stand hier Actualized: das Subjekt
+        // war ein hartkodiertes Paar, das kein Objekt des Laufs trug.
         assert_eq!(
-            report.reconciliation.fact_promotion,
-            psk_types::objects::ReconciliationReportFactPromotionKind::Actualized
+            report.reality.reality_status,
+            psk_types::objects::RealityStatus::Unknown,
+            "ohne Plugin DARF keine positive Klassifikation entstehen"
+        );
+        assert!(
+            report.reality.evidence_refs.is_empty() && report.reality.method_ref.is_none(),
+            "UNKNOWN mit leerer Grundlage ist die Materialisierung 'fehlender Witness'"
         );
         assert_eq!(
             report.reconciliation.verdict,
             psk_types::objects::ReconciliationReportVerdictKind::Closed
+        );
+        assert_eq!(
+            report.reconciliation.fact_promotion,
+            psk_types::objects::ReconciliationReportFactPromotionKind::None,
+            "CLOSED beabsichtigt ACTUALIZED; NONE hier heisst: die Sperre griff"
         );
 
         assert_ne!(report.trace_head, psk_trace::GENESIS_DIGEST);
