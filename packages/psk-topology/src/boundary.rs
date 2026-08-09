@@ -20,8 +20,10 @@
 //! - `descend` nannte `RuntimeManifest.max_depth` als Blocker - das Feld
 //!   existiert seit v1.0.32; der Stubtext hier war schlicht nicht
 //!   nachgezogen (dieselbe Fehlerklasse, die den Audit-Anlass
-//!   compile_ir_bundle betraf). Offen bleibt allein der Eintrittspunkt im
-//!   Feinchart, siehe `descend`.
+//!   compile_ir_bundle betraf). Der zunaechst offene Eintrittspunkt im
+//!   Feinchart ist seit v1.0.35 durch Regel 9.20 geregelt - dieselbe
+//!   Platzierungsregel, keine eigene; der Erfolgszweig rechnet, siehe
+//!   `descend`.
 //! - `holonomy` nannte "Phi/Transport aus M09 - kein Register definiert
 //!   deren Berechnung". Das war eine echte Dokumentluecke (zehn
 //!   Verwendungen, keine Definition); v1.0.34 schliesst sie: Definition
@@ -130,8 +132,9 @@ pub struct ProbeNote {
     pub probe_steps: u32,
 }
 
-/// Struktur 9.10 (CellReport), plus `closure_mode` fuer die
-/// Ausweispflicht aus Regel 9.21 - siehe Modulkopf zum Dokumentbefund.
+/// Struktur 9.10 (CellReport), feldgetreu seit v1.0.35 - occupancy,
+/// closure_mode und refs_resolution sind die Ausweisfelder, deren
+/// Fuehrung Regel 9.11 zur Pflicht macht.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CellReport {
     pub cell: CellId,
@@ -428,39 +431,76 @@ pub fn all_18_closed(reports: &[CellReport]) -> bool {
     reports.len() == 18 && reports.iter().all(|r| r.closed())
 }
 
-/// Skalenabstieg (Definition 9.24, Invariante 9.25).
+/// Skalenabstieg (Definition 9.24, Invariante 9.25, Regel 9.20).
 ///
-/// Der VERWEIGERUNGSPFAD ist vollstaendig: eine Adresse, deren Abstieg
-/// die deklarierte Tiefenschranke ueberschritte, erzeugt PSK-E011 und
-/// steigt nicht ab - im Referenzlauf (max_depth = 0) ist das der einzige
-/// erreichbare Ausgang, und genau er ist der ehrlich erbringbare
-/// Nachweis.
+/// Der v1.0.34-Dokumentbefund (Eintrittszelle normativ offen) ist in
+/// v1.0.35 an der Quelle geschlossen - Regel 9.20 (Eintrittszelle eines
+/// Abstiegs): "Es wird dafuer keine eigene Regel eingefuehrt: es gilt
+/// dieselbe Platzierungsregel wie auf jeder anderen Skalenstufe -
+/// Sortenklasse bestimmt die Zellklasse, k = H(Can(node)) mod 6,
+/// Konflikte durch aufsteigende Sondierung, vermerkt in probe_notes.
+/// Der Abstieg verlaengert den scale_path um genau ein Paar; die Zelle
+/// darin wird platziert, nicht vererbt."
 ///
-/// Der EINTRITTSPUNKT im Feinchart ist normativ offen: Definition 9.12
-/// verlangt im Feinchart eine cell_id, aber kein Block bestimmt, in
-/// welcher Zelle ein Abstieg das Feinchart betritt. DOKUMENTBEFUND
-/// (gemeldet, nicht durch eine erfundene Eintrittsregel ueberspielt) -
-/// bis zur Entscheidung bleibt der Erfolgspfad eine dokumentierte Grenze.
+/// Damit ist der Abstieg eine Funktion des KNOTENS, nicht der Adresse:
+/// die Platzierungsregel braucht Sorte und kanonisierten Inhalt.
+/// (Schnittstelle 9.26 fuehrt weiterhin `descend(addr) -> M13Address` -
+/// diese Signatur kann Regel 9.20 nicht erfuellen; kleine
+/// Registerspannung, gemeldet.) Der Hash laeuft wie bei jeder
+/// Platzierung ueber den Knoten MIT leerem Adressplatzhalter
+/// (Zweiphasenmuster, siehe `build_node`-Aufrufer) - dieselbe Regel,
+/// derselbe Hash, dieselbe Sondierung; nur der scale_path unterscheidet
+/// Grob- von Feinplatzierung.
+///
+/// Der Verweigerungspfad bleibt vollstaendig: Ueberschreitung der
+/// deklarierten Tiefe und Abstieg ohne Knotenposition sind PSK-E011 -
+/// im Referenzlauf (max_depth = 0) weiterhin der einzige erreichbare
+/// Ausgang.
 pub fn descend(
-    addr: &psk_types::objects::M13Address,
+    node: &psk_types::objects::IRNode,
+    ctx: &crate::EdgeContext,
     max_depth: u32,
-) -> Result<psk_types::objects::M13Address, PskError> {
-    let parsed =
-        parse_m13_address(&addr.0).map_err(|_: M13AddressError| PskError::NonclosingM13Seam)?;
+) -> Result<crate::PlacementOutcome, PskError> {
+    let parsed = parse_m13_address(&node.m13_address.0)
+        .map_err(|_: M13AddressError| PskError::NonclosingM13Seam)?;
     crate::wellformed::check_wellformed(&parsed, max_depth).map_err(|v| v.error_code())?;
     // Abstieg geschieht an einem Knoten (Definition 9.24: "Jeder Knoten
     // DARF auf feinerer Skala selbst einen M13-Chart tragen") - eine
     // Adresse ohne node_id benennt keinen.
-    if parsed.node.is_none() {
+    let Some(at_node) = parsed.node else {
         return Err(PskError::NonclosingM13Seam);
-    }
+    };
     if parsed.level + 1 > max_depth {
         // Invariante 9.25 / Regel 9.13 Punkt 3: die Verweigerung.
         return Err(PskError::NonclosingM13Seam);
     }
-    unimplemented!(
-        "Eintrittszelle im Feinchart ist normativ nicht bestimmt (Dokumentbefund, siehe Kopfkommentar)"
-    )
+
+    // Regel 9.20: dieselbe Platzierungsregel im Feinchart. `place`
+    // rechnet klassenrein auf dem kanonisierten Knoten mit leerem
+    // Adressplatzhalter; `ctx.occupied` ist die Belegung des FEINCHARTS.
+    let mut draft = node.clone();
+    draft.m13_address = psk_types::objects::M13Address(String::new());
+    let fine = crate::place(&draft, ctx)?;
+    let fine_parsed = parse_m13_address(&fine.address.0)
+        .map_err(|_: M13AddressError| PskError::NonclosingM13Seam)?;
+
+    // "Der Abstieg verlaengert den scale_path um genau ein Paar" - das
+    // Paar ist die Grobposition, an der abgestiegen wird.
+    let mut ancestors = parsed.ancestors.clone();
+    ancestors.push(psk_types::ScaleAncestor {
+        cell: parsed.cell,
+        node: at_node,
+    });
+    let descended = psk_types::ParsedM13Address {
+        level: parsed.level + 1,
+        ancestors,
+        cell: fine_parsed.cell,
+        node: None,
+    };
+    Ok(crate::PlacementOutcome {
+        address: psk_types::objects::M13Address(psk_types::format_m13_address(&descended)),
+        probed_k: fine.probed_k,
+    })
 }
 
 /// Definition 9.19: akkumulierte Rahmenaenderung entlang einer
@@ -825,13 +865,44 @@ mod tests {
 
     #[test]
     fn descend_refuses_beyond_the_declared_depth_and_without_a_node() {
-        use psk_types::objects::M13Address;
+        let ctx = crate::EdgeContext::default();
         // Invariante 9.25: max_depth = 0 -> jeder Abstieg verweigert.
-        let addr = M13Address("m13:0/c2/i2".into());
-        assert!(descend(&addr, 0).is_err());
+        let n = node(SortId::Context, "d", "m13:0/c2/i2");
+        assert!(descend(&n, &ctx, 0).is_err());
         // Definition 9.24: Abstieg geschieht an einem KNOTEN.
-        let cell_only = M13Address("m13:0/c2".into());
-        assert!(descend(&cell_only, 5).is_err());
+        let cell_only = node(SortId::Context, "d2", "m13:0/c2");
+        assert!(descend(&cell_only, &ctx, 5).is_err());
+    }
+
+    #[test]
+    fn descend_places_the_fine_cell_and_extends_the_scale_path_by_one_pair() {
+        // Regel 9.20: dieselbe Platzierungsregel - Sortenklasse bestimmt
+        // die Zellklasse, die Zelle wird PLATZIERT, nicht vererbt.
+        let ctx = crate::EdgeContext::default();
+        let n = node(SortId::Context, "descender", "m13:0/c2/i2");
+        let out = descend(&n, &ctx, 1).expect("Abstieg innerhalb der Tiefe");
+        let parsed = parse_m13_address(&out.address.0).expect("parsebar");
+        assert_eq!(parsed.level, 1);
+        assert_eq!(parsed.ancestors.len(), 1);
+        assert_eq!(parsed.ancestors[0].cell, cell(CellKind::Center, 2));
+        assert_eq!(parsed.ancestors[0].node, M13NodeId::Inner(2));
+        // S-CTX ist Zentrumssorte: die Feinzelle traegt Klasse c - und
+        // ihr k stammt aus H(Can(node)), nicht aus der Grobzelle.
+        assert_eq!(parsed.cell.kind, CellKind::Center);
+        assert!(
+            !out.probed_k.is_empty(),
+            "Sondierung vermerkt, nicht verworfen"
+        );
+
+        // Determinismus: derselbe Knoten steigt in dieselbe Feinzelle.
+        let again = descend(&n, &ctx, 1).expect("Abstieg wiederholbar");
+        assert_eq!(out, again);
+
+        // Und die Route grob -> fein ist fuer holonomy ein offener
+        // Abstieg: der Transport ist die Rahmenaenderung "c2.i2".
+        let route = [n.m13_address.clone(), again.address];
+        let t = holonomy(&route).expect("zulaessiger Chartwechsel");
+        assert_eq!(t.0, b"c2.i2".to_vec());
     }
 
     #[test]
