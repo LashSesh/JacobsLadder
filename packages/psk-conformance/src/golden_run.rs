@@ -254,6 +254,9 @@ fn run_boot(
             trace_ref,
             replay_descriptor: ReplayDescriptor("golden-run/1".into()),
             budget: psk_contract::default_budget(psk_types::RunId("golden-run".into())),
+            // Skalentiefe 0: der Referenzlauf betritt nur M13(0), er
+            // steigt nicht ab. Deklariert, nicht bequem gewaehlt.
+            max_depth: 0,
         },
         trace,
         residues,

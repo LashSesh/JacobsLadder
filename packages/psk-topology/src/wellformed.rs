@@ -20,18 +20,19 @@
 //! (dieses Paket, generiert aus architecture/m13_topology.yaml); psk-types
 //! kennt nur die Grammatik.
 //!
-//! ## Dokumentbefund zu Punkt 3 (gemeldet, nicht selbst aufgeloest)
+//! ## Dokumentbefund zu Punkt 3: gemeldet, inzwischen an der Quelle geschlossen
 //!
 //! Regel 9.9 Punkt 3 und Invariante 9.18 verlangen beide `max_depth` bzw.
-//! `N` "des RuntimeManifest". Struktur 7.1 (RuntimeManifest), OBJ-RTM fuehrt jedoch genau
-//! zehn Felder - schema, constitution_id, architecture_id,
-//! implementation_id, profile, capability_matrix, build_digest,
-//! operator_versions, adapter_versions, determinism_class - und keines
-//! davon ist `max_depth` oder `N`. Auch das Register selbst notiert nur
-//! `scale: {max_depth: declared_in_runtime_manifest}`, also einen Verweis
-//! auf ein Feld, das die Struktur nicht definiert. `max_depth` wird daher
-//! hier als expliziter Parameter uebergeben, statt ein Feld zu erfinden,
-//! das die Objektstruktur nicht kennt.
+//! `N` "des RuntimeManifest". Struktur 7.1 (RuntimeManifest), OBJ-RTM
+//! fuehrte jedoch zehn Felder, von denen keines `max_depth` hiess - eine
+//! haengende Referenz, hier gemeldet statt durch ein erfundenes Feld
+//! ueberspielt. v1.0.32 ergaenzt das Feld (Fehlerkorrektur Punkt 34,
+//! dieselbe Klasse wie zuvor `ratchet_max_rounds`).
+//!
+//! Die Signatur bleibt dennoch parametrisch: `check_address` prueft eine
+//! Adresse gegen EINE Tiefenschranke und braucht dafuer kein ganzes
+//! Manifest - der Aufrufer reicht `manifest.max_depth` herein. Das ist
+//! jetzt eine Uebergabe statt eines Ersatzes.
 
 use psk_types::objects::M13Address;
 use psk_types::{CellId, CellKind, M13NodeId, ParsedM13Address, PskError};

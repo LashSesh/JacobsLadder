@@ -49,6 +49,7 @@ fn manifest() -> RuntimeManifest {
         operator_versions: Default::default(),
         adapter_versions: Default::default(),
         determinism_class: RuntimeManifestDeterminismClassKind::R0,
+        max_depth: 0,
     }
 }
 

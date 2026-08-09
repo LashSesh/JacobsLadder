@@ -68,6 +68,11 @@ objects:
       - {name: operator_versions, type: "map<OpId,SemVer>"}
       - {name: adapter_versions, type: "map<AdapterId,SemVer>"}
       - {name: determinism_class, type: "R0 | R1 | R2 | R3"}
+      - {name: max_depth, type: uint32, note: "Skalentiefe; das Topologieregister verweist
+          hierher (Invariante Skalenturm). Nachgetragen in v1.0.32: die Referenz bestand,
+          das Feld nicht - haengende Referenz derselben Klasse wie ratchet_max_rounds. Ohne
+          es ist descend unimplementierbar und die Wohlgeformtheitsbedingung
+          level <= max_depth einer M13Address nicht pruefbar."}
 
   - id: OBJ-IDB
     name: IdentityBinding

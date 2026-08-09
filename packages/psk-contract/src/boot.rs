@@ -111,6 +111,11 @@ pub struct BootInputs {
     /// `trace`/`residues`, die ebenfalls von aussen kommen. Sie sind Teil
     /// des Laufzustands, ueber den Schritt 12 `I_t` bildet.
     pub budget: BudgetLedger,
+    /// Skalentiefe des M13-Turms (v1.0.32, Struktur 7.1). Eine
+    /// DEKLARATION des Laufs - das Topologieregister verweist auf sie
+    /// ("scale: {max_depth: declared_in_runtime_manifest}"), berechnen
+    /// kann sie niemand. Vom Aufrufer geliefert, wie `budget`.
+    pub max_depth: u32,
 }
 
 /// `BootReport` (Algorithmus 17.1s Rueckgabetyp - kein registriertes
@@ -283,6 +288,7 @@ pub fn boot(
             .as_ref()
             .map(|r| r.adapter_versions.clone())
             .unwrap_or_default(),
+        inputs.max_depth,
     );
 
     // Schritt 12, zweite Haelfte: der Laufzustand zum Bindezeitpunkt.
@@ -428,6 +434,12 @@ pub fn default_inputs(
         trace_ref,
         replay_descriptor: ReplayDescriptor("boot/1".into()),
         budget: default_budget(RunId(trace_ref_run_id())),
+        // Skalentiefe 0: der Referenzlauf steigt nicht ab (M13(0)).
+        // Bewusst der niedrigste ehrliche Wert statt eines bequemen
+        // grossen - dieselbe Ueberlegung wie beim Vorgabebudget: ein
+        // Vorgabewert darf bequem sein, aber keine Tiefe behaupten, die
+        // kein Lauf betritt.
+        max_depth: 0,
     }
 }
 

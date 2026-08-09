@@ -162,6 +162,10 @@ pub fn build_runtime_manifest(
     build_digest: Digest,
     operator_versions: BTreeMap<OpId, SemVer>,
     adapter_versions: BTreeMap<AdapterId, SemVer>,
+    // Skalentiefe (v1.0.32). Das Topologieregister verweist hierher
+    // ("scale: {max_depth: declared_in_runtime_manifest}"); der Wert ist
+    // eine DEKLARATION des Laufs, nicht etwas, das M04 berechnen koennte.
+    max_depth: u32,
 ) -> RuntimeManifest {
     RuntimeManifest {
         schema: "psk.runtime-manifest/1.0".to_string(),
@@ -173,6 +177,7 @@ pub fn build_runtime_manifest(
         build_digest,
         operator_versions,
         adapter_versions,
+        max_depth,
         determinism_class: RuntimeManifestDeterminismClassKind::R0,
     }
 }
@@ -260,6 +265,7 @@ mod tests {
                 Digest::sha256(b"build"),
                 BTreeMap::new(),
                 BTreeMap::new(),
+                0,
             ),
             crate::boot::default_budget(psk_types::RunId("run-0".into())),
         )
@@ -372,6 +378,7 @@ mod tests {
             Digest::sha256(b"build"),
             BTreeMap::new(),
             BTreeMap::new(),
+            0,
         );
         assert_eq!(
             manifest.determinism_class,
@@ -390,6 +397,7 @@ mod tests {
             Digest::sha256(b"build"),
             BTreeMap::new(),
             BTreeMap::new(),
+            0,
         );
         assert_eq!(
             check_profile_binding(&manifest, ProfileId::Reference),
