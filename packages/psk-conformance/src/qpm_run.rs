@@ -35,7 +35,7 @@ use std::path::Path;
 use psk_adversarial::CounterHorizonStanding;
 use psk_fields::{
     account_mass, ApertureBank, ApertureId, ChannelId, MassClass, MassProducers, PanopticScope,
-    ScopeCeiling, ShadowRecord,
+    ShadowRecord,
 };
 use psk_types::objects::IRNodeId;
 use psk_types::PskError;
@@ -98,6 +98,11 @@ pub struct QpmRunReport {
     pub run_gate: RunGate,
     /// Warum das Verdikt so ausfiel - benannt, nicht zu erraten.
     pub verdict_reason: String,
+    /// Das Ergebnis der Pipelinestufe QueryVersionedTemplateCatalog,
+    /// im Artefakt sichtbar (Regel 7.51 (Erklärter Nullstand), dritte
+    /// Pflicht): die Leerform steht HIER, nicht nur im Grundtext des
+    /// Verdikts.
+    pub catalog_query: crate::qpm_query::CatalogQuery,
 }
 
 /// Beobachtet einen abgeschlossenen Golden Run.
@@ -175,20 +180,43 @@ pub fn observe_golden_run(
     };
     let account = account_mass(&mass, &producers).map_err(|f| psk_fields::as_psk_error(&f))?;
 
-    // ---- QPM-0: das Verdikt, abgeleitet.
-    let (verdict, verdict_reason) = match scope.ceiling() {
-        // QPM Regel 3.3 (Scope ist explizit, nie universell) letzter Satz, woertlich: "Fehlt catalog_ref, so
-        // endet jeder Lauf in UNKNOWN, nicht in FAIL (QPM-OBL-002)."
-        ScopeCeiling::ForcedUnknown => (
-            IdentityVerdict::Unknown,
-            "kein catalog_ref im Scope: QPM-OBL-002 deckelt jeden Lauf auf UNKNOWN".to_string(),
-        ),
-        ScopeCeiling::Unconstrained => (
-            IdentityVerdict::Unknown,
-            "Katalog registriert, aber kein Katalogtreffer ausgewertet - \
-             QPM-6 (Open-Set) ist nicht gebaut"
-                .to_string(),
-        ),
+    // ---- QPM-6, Schicht 2: die Ergebnisordnung (QPM Struktur 4.2 (Ergebnisordnung)),
+    // Bedingung fuer Bedingung GEMESSEN, von der staerksten Stoerung
+    // abwaerts gelesen: erst ob das Beweismaterial traegt (INVALID),
+    // dann ob der Scope-Vertrag erfuellt ist (OUT_OF_SCOPE), erst
+    // dann die Katalogachse. KNOWN und AMBIGUOUS bleiben ohne
+    // Erzeuger - beide sind per Definition Katalogtreffer, und ein
+    // Katalog ist nicht registriert.
+    let breaks = evidence_breaks(run);
+    let scope_breaks = scope_contract_breaks(&scope, &profile.undeclared_channels());
+    let (verdict, verdict_reason, catalog_query) = if !breaks.is_empty() {
+        (
+            IdentityVerdict::Invalid,
+            format!("Beweismaterial gebrochen: {}", breaks.join("; ")),
+            // Ohne tragfaehiges Beweismaterial findet keine Abfrage
+            // statt - eine Identitaetsfrage ueber gebrochener Evidenz
+            // waere selbst ein Defekt.
+            crate::qpm_query::CatalogQuery::NotQueried {
+                reason: "keine Abfrage ueber gebrochenem Beweismaterial".to_string(),
+            },
+        )
+    } else if !scope_breaks.is_empty() {
+        (
+            IdentityVerdict::OutOfScope,
+            format!("Scope-Vertrag nicht erfuellt: {}", scope_breaks.join("; ")),
+            crate::qpm_query::CatalogQuery::NotQueried {
+                reason: "keine Abfrage ausserhalb des Scope-Vertrags".to_string(),
+            },
+        )
+    } else {
+        // QPM Regel 3.3 (Scope ist explizit, nie universell) letzter Satz: "Fehlt catalog_ref, so
+        // endet jeder Lauf in UNKNOWN, nicht in FAIL (QPM-OBL-002)." Die
+        // Deckelung wird an der Abfragestufe selbst abgelesen, nicht an
+        // der Scope-Politik vorweggenommen - `ScopeCeiling` bleibt die
+        // Typaussage der Politik, das VERDIKT kommt aus der Stufe.
+        let query = crate::qpm_query::query_versioned_template_catalog(&scope);
+        let (verdict, reason) = crate::qpm_query::open_set_decide(&query);
+        (verdict, reason, query)
     };
 
     // QPM Regel 4.3 (Zwei orthogonale Statusachsen): die Gate-Achse ist unabhaengig vom Verdikt. Der
@@ -221,11 +249,107 @@ pub fn observe_golden_run(
         verdict,
         run_gate,
         verdict_reason,
+        catalog_query,
     })
 }
 
-/// QPM-2, effektiver Witnessrang (QPM Regel 3.18 (Splitbild und Parallaxe), Splitbild und
-/// Parallaxe): "Der effektive Witnessrang folgt PSK-RAs
+/// Die neun Kanaele, die QPM Struktur 3.20 (SignatureAtlas) woertlich
+/// nennt - die Menge, gegen die QPM Regel 3.3 (Scope ist explizit, nie universell)
+/// Satz 1 die Vollstaendigkeit der Deklaration misst.
+const ATLAS_CHANNELS: [&str; 9] = [
+    "topology", "spectrum", "phase", "symmetry", "rank", "entropy", "seam", "trace", "residue",
+];
+
+/// OUT_OF_SCOPE-Erzeuger: "Scope-, Apertur- oder Domänenvertrag nicht
+/// erfüllt" (QPM Struktur 4.2 (Ergebnisordnung)).
+///
+/// Gemessen wird die Pflicht aus QPM Regel 3.3 (Scope ist explizit, nie universell):
+/// "declared_channels MUSS vollständig sein. Ein im Zustandsraum
+/// vorhandener, aber nicht deklarierter Kanal ... erscheint als
+/// OUT_OF_SCOPE oder als blockierendes Residuum — niemals als
+/// Abwesenheit." Vollstaendig heisst: jeder der neun Atlas-Kanaele ist
+/// entweder deklariert oder BENANNT UND BEGRUENDET ausgenommen. Ein
+/// Kanal, der weder das eine noch das andere ist, ist eine Abwesenheit -
+/// genau das, was die Regel verbietet.
+pub fn scope_contract_breaks(
+    scope: &PanopticScope,
+    undeclared: &[(ChannelId, String)],
+) -> Vec<String> {
+    let mut breaks = Vec::new();
+    for name in ATLAS_CHANNELS {
+        let channel = ChannelId(name.to_string());
+        if scope.declared_channels.contains(&channel) {
+            continue;
+        }
+        match undeclared.iter().find(|(c, _)| *c == channel) {
+            Some((_, reason)) if !reason.trim().is_empty() => {}
+            Some(_) => breaks.push(format!(
+                "Kanal {name} ist ausgenommen, aber ohne Begruendung - eine Ausnahme ohne Grund \
+                 ist eine Abwesenheit"
+            )),
+            None => breaks.push(format!(
+                "Kanal {name} ist weder deklariert noch begruendet ausgenommen - eine Abwesenheit"
+            )),
+        }
+    }
+    breaks
+}
+
+/// INVALID-Erzeuger: "Provenienz-, Gate-, Trace- oder Replaybruch"
+/// (QPM Struktur 4.2 (Ergebnisordnung)). BINDUNG, kein Neubau - dieselbe
+/// Linie wie beim Witnessrang: gemessen wird mit den Pruefungen, die
+/// PSK-RA bereits hat.
+///
+/// - Trace-Bruch: die Segmentkette des Laufs, geprueft mit
+///   `psk_trace::verify_chain_detailed` (Regel 7.41 (Zwei Digests je Segment),
+///   Kettenfortschreibung) - und der Taktabgleich: so viele
+///   `tick.closed`-Siegel wie Takte.
+/// - Provenienz-Bruch: dieselbe Pruefung, zweite Haelfte - die
+///   Aufzeichnungsintegritaet ueber `segment_record_digest` sichert die
+///   Herkunft der gespeicherten Bytes.
+/// - Gate-Bruch: ein FAIL in den Gate-Berichten des Beweismaterials
+///   (G-BOOT, PATCH) - ein Lauf, dessen eigene Gates fielen, traegt
+///   keine Identitaetsfrage.
+/// - Replay-Bruch: HIER NICHT MESSBAR, benannt statt vorgetaeuscht -
+///   Definition 22.1 (Replayklassen) macht Replay zur Eigenschaft eines
+///   VERGLEICHS zweier Laeufe; das Material dafuer liegt in der
+///   Zertifizierung (`replay_check`), nicht im Einzellaufbericht.
+pub fn evidence_breaks(run: &GoldenRunReport) -> Vec<String> {
+    let mut breaks = Vec::new();
+
+    match psk_trace::verify_chain_detailed(&run.trace_segments) {
+        Ok(()) => {}
+        Err(psk_trace::ChainViolation::RecordDigestMismatch { at }) => breaks.push(format!(
+            "Provenienz-Bruch: Aufzeichnungsintegritaet verletzt bei Segment {at}"
+        )),
+        Err(v) => breaks.push(format!("Trace-Bruch: Segmentkette verletzt ({v:?})")),
+    }
+
+    let closed_ticks = run
+        .trace_segments
+        .iter()
+        .filter(|s| s.event_type.0 == "tick.closed")
+        .count() as u64;
+    if closed_ticks != run.ticks {
+        breaks.push(format!(
+            "Trace-Bruch: {closed_ticks} Taktsiegel gegen ticks={}",
+            run.ticks
+        ));
+    }
+
+    use psk_types::objects::GateReportDecisionKind as Decision;
+    if run.boot_gate.decision == Decision::Fail {
+        breaks.push("Gate-Bruch: G-BOOT steht auf FAIL im Beweismaterial".to_string());
+    }
+    if run.patch_gate.decision == Decision::Fail {
+        breaks.push("Gate-Bruch: PATCH steht auf FAIL im Beweismaterial".to_string());
+    }
+
+    breaks
+}
+
+/// QPM-2, effektiver Witnessrang (QPM Regel 3.19 (Splitbild und Parallaxe)):
+/// "Der effektive Witnessrang folgt PSK-RAs
 /// Abhaengigkeitsquotient ... korrelierte Facetten (identisches
 /// Modell, identische Quelle) erhoehen den Rang nicht kuenstlich."
 ///

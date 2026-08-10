@@ -116,7 +116,7 @@ fn undeclared_channels_are_named_never_treated_as_absent() {
     let run = psk_conformance::run_golden_run(&root, &sandbox).expect("Golden Run");
     let qpm = psk_conformance::observe_golden_run(&run, &root).expect("QPM-Beobachtung");
 
-    // QPM Struktur 3.19 (SignatureAtlas) nennt neun Kanaele; der Lauf
+    // QPM Struktur 3.20 (SignatureAtlas) nennt neun Kanaele; der Lauf
     // deklariert vier. Der Titel ist kein Schmuck: dieselbe Tatsache
     // stand hier eine Runde lang OHNE ihn unter der damaligen Nummer,
     // die v1.0.5 neu besetzte - die Stelle zeigte danach stumm auf ein

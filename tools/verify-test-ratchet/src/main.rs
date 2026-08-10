@@ -55,7 +55,7 @@ const FLOORS: &[(&str, usize)] = &[
     ("psk-contract", 22),
     ("psk-certify", 32),
     ("psk-observe", 6),
-    ("psk-conformance", 81),
+    ("psk-conformance", 89),
     ("psk-cli", 1),
     ("psk-ipc", 5),
 ];

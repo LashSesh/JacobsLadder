@@ -44,8 +44,14 @@ pub use qpm_cycle::{
 
 mod qpm_run;
 pub use qpm_run::{
-    books_balanced, census_lines, counter_horizon_note, findings_admissible, observe_golden_run,
-    witness_rank, IdentityVerdict, QpmRunReport, RunGate, WitnessRank,
+    books_balanced, census_lines, counter_horizon_note, evidence_breaks, findings_admissible,
+    observe_golden_run, scope_contract_breaks, witness_rank, IdentityVerdict, QpmRunReport,
+    RunGate, WitnessRank,
+};
+
+mod qpm_query;
+pub use qpm_query::{
+    open_set_decide, query_versioned_template_catalog, Candidate, CatalogQuery, ClassId,
 };
 
 mod ir_assembly;

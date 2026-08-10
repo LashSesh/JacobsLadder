@@ -1,8 +1,7 @@
 //! QPM-4: kanonische Signaturgrammatik, reproduzierbarer Multiview-Atlas.
 //!
-//! QPM Struktur 3.13 (SignatureVector) und QPM Struktur 3.19 (SignatureAtlas)
-//! geben die Form vor; QPM Regel 3.18 (Splitbild und
-//! Parallaxe) bindet den effektiven Witnessrang an den
+//! QPM Struktur 3.13 (SignatureVector) und QPM Struktur 3.20 (SignatureAtlas)
+//! geben die Form vor; QPM Regel 3.19 (Splitbild und Parallaxe) bindet den effektiven Witnessrang an den
 //! Abhaengigkeitsquotienten, und QPM Regel 2.9 (Keine Ablesung auf
 //! halber Rückkehr) bindet jede Ablesung an ein Siegel.
 //!
@@ -31,7 +30,7 @@
 //! ## Reproduzierbarkeit ist eine Eigenschaft des VERGLEICHS
 //!
 //! Das Stufenkriterium nennt den Atlas "reproduzierbar", und
-//! QPM Struktur 3.19 (SignatureAtlas) fuehrt dafuer ein Feld
+//! QPM Struktur 3.20 (SignatureAtlas) fuehrt dafuer ein Feld
 //! `reproducible: bool`. Ein
 //! einzelner Lauf kann es nicht ausfuellen - genau wie die Replayklasse
 //! (Definition 22.1 (Replayklassen)) ist es eine Eigenschaft zweier
@@ -97,7 +96,7 @@ pub struct SignatureVector {
     pub trace_ref: TraceRef,
 }
 
-/// QPM Struktur 3.19 (SignatureAtlas). Profil von S-WIT.
+/// QPM Struktur 3.20 (SignatureAtlas). Profil von S-WIT.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct SignatureAtlas {
     pub id: ObjectId,
@@ -107,7 +106,7 @@ pub struct SignatureAtlas {
     /// erscheint nicht mit null (QPM Struktur 2.6 (Kanal)).
     pub channels: Vec<ChannelId>,
     pub vectors: Vec<SignatureVector>,
-    /// QPM Regel 3.18 (Splitbild und Parallaxe): aus dem
+    /// QPM Regel 3.19 (Splitbild und Parallaxe): aus dem
     /// Abhaengigkeitsquotienten, nicht aus der Zahl der Sichten.
     pub effective_witness_rank: i64,
     pub provenance: Vec<SourceRef>,
@@ -233,7 +232,7 @@ pub fn build_atlas(
         // Je Kanal EINE Sicht als Herkunft: die erste Projektion. Der
         // Lauf hat genau eine Quotientenklasse, alle sechs Projektionen
         // teilen dieselbe Ankerquelle - eine Sicht je Kanal zu waehlen
-        // erhoeht den Rang nicht (QPM Regel 3.18 (Splitbild und Parallaxe)).
+        // erhoeht den Rang nicht (QPM Regel 3.19 (Splitbild und Parallaxe)).
         let view_ref = *views.first().ok_or(PskError::UntypedInput)?;
         let body = (
             &view_ref,
@@ -254,7 +253,7 @@ pub fn build_atlas(
         });
     }
 
-    // QPM Regel 3.18 (Splitbild und Parallaxe): der Rang kommt aus dem Abhaengigkeitsquotienten.
+    // QPM Regel 3.19 (Splitbild und Parallaxe): der Rang kommt aus dem Abhaengigkeitsquotienten.
     let effective_witness_rank = crate::witness_rank(run).effective_rank;
 
     let body = (

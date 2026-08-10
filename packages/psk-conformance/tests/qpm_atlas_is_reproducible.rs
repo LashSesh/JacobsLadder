@@ -158,7 +158,7 @@ fn undeclared_channels_are_absent_not_zero() {
     }
 }
 
-/// QPM Regel 3.18 (Splitbild und Parallaxe): der effektive Witnessrang
+/// QPM Regel 3.19 (Splitbild und Parallaxe): der effektive Witnessrang
 /// folgt dem Abhaengigkeitsquotienten, nicht der Zahl der Sichten.
 /// Sechs Sichten, eine Quotientenklasse - der Rang DARF nicht sechs
 /// sein. Das ist derselbe Negativnachweis, den QPM-2 als
