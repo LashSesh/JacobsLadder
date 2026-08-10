@@ -82,7 +82,7 @@ fn measure_run(run: &GoldenRunReport, evidence: &mut FeatureEvidence) {
     // Sperre wird aus der ARTEFAKTMENGE gemessen, nicht aus dem Bericht
     // allein. Der Bericht traegt das Subjekt nicht, und check_promotion
     // liefert fuer die UNKNOWN-Klausel denselben Fehler wie fuer
-    // Invariante 5.9 - aus dem Bericht allein ist also "dass gesperrt
+    // Invariante 5.10 - aus dem Bericht allein ist also "dass gesperrt
     // wurde" erkennbar, aber nicht "warum". Erst das Paar aus (a) einem
     // Subjekt, dessen Klassifikation UNKNOWN ist, und (b) einem Bericht
     // mit verdict != UNKNOWN und fact_promotion == NONE belegt die

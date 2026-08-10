@@ -4,8 +4,9 @@
 //! Modul realisiert (Regel 32.2).
 //!
 //! WP06: `thought` (M06, Konstruktion des ThoughtBody), `reality` (M07,
-//! Klassifikation als eigenstaendiges Objekt). Der Schreibpfad folgt Regel
-//! 5.10: der ThoughtBody ist nach Konstruktion unveraenderlich, der
+//! Klassifikation als eigenstaendiges Objekt). Der Schreibpfad folgt
+//! Regel 5.11 (Schreibpfad der Statusfelder): der ThoughtBody ist nach
+//! Konstruktion unveraenderlich, der
 //! geltende Status lebt im IRNode, und es gibt keinen Port M07 -> M06.
 //! Seit v1.0.7 traegt RealityClassification eine eigene Feldstruktur
 //! (Struktur 7.11, OBJ-RCL) und ist damit ein kanonisches Objekt, keine

@@ -7,7 +7,7 @@
 //! ausschliesslich als RealityClassification ueber P09." Deshalb nimmt
 //! `classify` den Koerper nur als unveraenderliche Referenz.
 //!
-//! Das Feld `reachability` traegt die von Definition 5.11 verlangte
+//! Das Feld `reachability` traegt die von Definition 5.12 verlangte
 //! Dreiteilung: `refuted` setzt bezeugte Nichterreichbarkeit voraus und ist
 //! die einzige Auspraegung, unter der `imaginary` gelten kann; `unexamined`
 //! fuehrt zu UNKNOWN und DARF NICHT zu IMAGINARY.
@@ -97,7 +97,7 @@ pub fn classify_reality(evidence: &RealityEvidence) -> RealityStatus {
     }
 }
 
-/// Definition 5.11 (Ankerrelativ imaginaer):
+/// Definition 5.12 (Ankerrelativ imaginaer):
 /// `imaginary(x,a) :<=> reality_status(x) in {COHERENT, LAWFUL} and not reachable(x,a)`.
 ///
 /// Regel 7.12 praezisiert die Nichterreichbarkeit: nur `refuted` traegt sie
@@ -156,7 +156,7 @@ const CLASSIFICATION_SORT: SortId = SortId::Horizon;
 ///
 /// `facticity` bleibt auf dem Anfangswert des Koerpers: jede
 /// Faktizitaetspromotion ueber SPECIFIED hinaus verlangt ein Gate
-/// (Invariante 5.9: "Jede Promotion MUSS einen benannten Konstruktor, einen
+/// (Invariante 5.10: "Jede Promotion MUSS einen benannten Konstruktor, einen
 /// GateReport und einen TraceSegment besitzen"), und Gates entstehen erst
 /// mit M14 in WP11 (Phase I6).
 ///
@@ -196,7 +196,7 @@ pub fn classify(
     Ok(RealityClassification { id, ..draft })
 }
 
-/// Invariante 5.9 (Keine implizite Promotion), woertlich:
+/// Invariante 5.10 (Keine implizite Promotion), woertlich:
 /// SIMULATED !=> ACTUALIZED, SELECTED !=> OBSERVED, ATTEMPTED !=> ACTUALIZED,
 /// POSSIBLE !=> ACTUALIZED. Diese vier Kanten sind auch die `forbidden`-Liste
 /// von FSM-THOUGHT.
@@ -221,7 +221,7 @@ pub fn is_implicit_promotion(from: FactStatus, to: FactStatus) -> bool {
 ///    wirksam statt beschreibend - zuvor produzierte `classify_reality`
 ///    UNKNOWN korrekt, aber nichts hinderte einen spaeteren Schritt
 ///    daran, DAVON WEG zu promovieren.
-/// 2. Invariante 5.9s vier implizite Promotionen (siehe
+/// 2. Invariante 5.10s vier implizite Promotionen (siehe
 ///    `is_implicit_promotion`), wie bisher.
 ///
 /// **Warum eine Wache und nicht zwei:** M18 (`psk_reconciliation::
@@ -239,7 +239,7 @@ pub fn check_promotion(
 ) -> Result<(), PskError> {
     if reality_status == RealityStatus::Unknown {
         // Die Sperre gilt fuer JEDE Promotion - auch fuer eine, die
-        // Invariante 5.9 fuer sich genommen erlauben wuerde.
+        // Invariante 5.10 fuer sich genommen erlauben wuerde.
         return Err(PskError::SurfaceInvariantCollapse);
     }
     if is_implicit_promotion(from, to) {
@@ -363,7 +363,7 @@ mod tests {
 
     #[test]
     fn imaginary_is_not_a_status_value() {
-        // Definition 5.11: IMAGINARY DARF NICHT ein Wert von RealityStatus
+        // Definition 5.12: IMAGINARY DARF NICHT ein Wert von RealityStatus
         // oder FactStatus sein. Die geschlossenen Mengen bleiben bei 6 bzw. 9.
         assert_eq!(RealityStatus::ALL.len(), 6);
         assert_eq!(FactStatus::ALL.len(), 9);

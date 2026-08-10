@@ -1,7 +1,7 @@
 //! M06 ThoughtCompiler: konstruiert ThoughtBody-Objekte (Struktur 7.9,
 //! OBJ-THB).
 //!
-//! Regel 5.10 (Schreibpfad der Statusfelder), Schritt 1: "M06 setzt
+//! Regel 5.11 (Schreibpfad der Statusfelder), Schritt 1: "M06 setzt
 //! ThoughtBody.reality_status bei Konstruktion auf UNKNOWN und facticity
 //! auf SPECIFIED. Andere Anfangswerte sind unzulaessig." Der Konstruktor
 //! nimmt diese beiden Felder deshalb NICHT entgegen - sie sind nicht
@@ -22,7 +22,7 @@ use psk_types::objects::{
 use psk_types::{Digest, ObjectId, PskError, TraceRef};
 
 /// Eingaben fuer eine ThoughtBody-Konstruktion. `reality_status` und
-/// `facticity` fehlen hier absichtlich: Regel 5.10 legt sie fest, sie sind
+/// `facticity` fehlen hier absichtlich: Regel 5.11 legt sie fest, sie sind
 /// keine Wahl des Aufrufers.
 pub struct ThoughtInputs {
     pub anchor_refs: Vec<ObjectId>,
@@ -79,7 +79,7 @@ fn compute_identity(draft: &ThoughtBody) -> Result<(ObjectId, Digest), PskError>
 
 /// M06: konstruiert einen ThoughtBody. Der zurueckgegebene Koerper ist
 /// vollstaendig und unveraenderlich; `reality_status` ist UNKNOWN und
-/// `facticity` ist SPECIFIED (Regel 5.10, Schritt 1).
+/// `facticity` ist SPECIFIED (Regel 5.11, Schritt 1).
 ///
 /// Die Felder `witness_refs`, `validation_plan_ref` und `gate_refs` bleiben
 /// leer bzw. None: ihre Erzeuger sind M12 (WP09, I4), M13 (WP09, I4) und

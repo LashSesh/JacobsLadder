@@ -243,7 +243,7 @@
 //!   sperrt JEDE Promotion.
 //!   Befund vor dem Bau: keine Promotionsstelle prueft e das. Es gab EINE
 //!   Wache (`check_promotion`, M07), die ausschliesslich `FactStatus`-Paare
-//!   gegen Invariante 5.9 pruefte, und eine ZWEITE, unabhaengige Ableitung
+//!   gegen Invariante 5.10 pruefte, und eine ZWEITE, unabhaengige Ableitung
 //!   in M18 (`reconcile`s `fact_promotion`), die `reality_status` gar nicht
 //!   sah. Vertrag 7.13s "Promotionssperre" war damit beschreibend, nicht
 //!   wirksam.

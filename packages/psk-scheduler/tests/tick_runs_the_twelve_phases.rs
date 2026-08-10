@@ -202,7 +202,7 @@ fn a_type_phase_item_reaches_its_real_receiver_and_lands_in_sigma() {
     tick(&mut sigma, &rd, queues, time(), &mut Profiling::off()).unwrap();
 
     // M06 compile_thought hat real gelaufen: der ThoughtBody liegt in Sigma
-    // und traegt Regel 5.10 (Schreibpfad der Statusfelder)s Anfangswerte.
+    // und traegt Regel 5.11 (Schreibpfad der Statusfelder)s Anfangswerte.
     assert_eq!(sigma.thoughts.len(), 1);
     assert_eq!(
         sigma.thoughts[0].reality_status,
