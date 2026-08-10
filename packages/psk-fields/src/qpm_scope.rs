@@ -22,7 +22,9 @@ use psk_types::{ObjectId, PskError, TraceRef};
 macro_rules! qpm_newtype {
     ($(#[$m:meta])* $name:ident) => {
         $(#[$m])*
-        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+        // `Serialize`: QPM-3 fuehrt den Kanal im Rollzustand mit, und
+        // der Bericht darueber wird digestet.
+        #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize)]
         pub struct $name(pub String);
     };
 }
@@ -101,9 +103,9 @@ pub enum UndeclaredChannel {
 
 /// Was ein Lauf unter diesem Scope hoechstens erreichen kann.
 ///
-/// QPM Regel 3.3 letzter Satz: "Fehlt catalog_ref, so endet jeder Lauf
+/// QPM Regel 3.3 (Scope ist explizit, nie universell) letzter Satz: "Fehlt catalog_ref, so endet jeder Lauf
 /// in UNKNOWN, nicht in FAIL (QPM-OBL-002)." Das ist genau das Muster
-/// aus Vertrag 27.2 Pflicht 3: ein fehlendes Plugin erzeugt UNKNOWN,
+/// aus Vertrag 27.2 (Domänengelieferte opake Eingaben) Pflicht 3: ein fehlendes Plugin erzeugt UNKNOWN,
 /// und ein Vorgabezweig auf einen positiven Status waere der
 /// Konformitaetsdefekt.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -115,7 +117,7 @@ pub enum ScopeCeiling {
 }
 
 impl PanopticScope {
-    /// QPM Regel 3.3: der Deckel des Laufs, ABGELEITET aus dem Objekt,
+    /// QPM Regel 3.3 (Scope ist explizit, nie universell): der Deckel des Laufs, ABGELEITET aus dem Objekt,
     /// nicht danebengestellt.
     pub fn ceiling(&self) -> ScopeCeiling {
         match self.policies.catalog_ref {
@@ -124,7 +126,7 @@ impl PanopticScope {
         }
     }
 
-    /// QPM Regel 3.3: ein vorhandener, nicht deklarierter Kanal.
+    /// QPM Regel 3.3 (Scope ist explizit, nie universell): ein vorhandener, nicht deklarierter Kanal.
     ///
     /// Welche der beiden zulaessigen Antworten gilt, entscheidet der
     /// Aufrufer ueber `belongs_in_scope` - der Kern kann nicht wissen,
@@ -145,7 +147,7 @@ impl PanopticScope {
         })
     }
 
-    /// QPM Regel 3.3 Satz 1: "declared_channels MUSS vollstaendig sein."
+    /// QPM Regel 3.3 (Scope ist explizit, nie universell) Satz 1: "declared_channels MUSS vollstaendig sein."
     /// Vollstaendig heisst: gegen die im Zustandsraum vorhandenen
     /// Kanaele geprueft - und jeder Rest benannt, nicht gezaehlt.
     pub fn undeclared_among(&self, present: &[ChannelId]) -> Vec<ChannelId> {
@@ -179,7 +181,7 @@ pub struct ApertureBank {
 }
 
 impl ApertureBank {
-    /// QPM Regel 3.5 letzter Satz: "ein stets wahres Praedikat ist
+    /// QPM Regel 3.5 (Eine Apertur erzeugt Schatten, keine Abwesenheit) letzter Satz: "ein stets wahres Praedikat ist
     /// Konformitaetsdefekt - eine Apertur, die alles durchlaesst, ist
     /// keine."
     ///

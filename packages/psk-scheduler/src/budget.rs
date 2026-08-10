@@ -7,7 +7,7 @@
 //! hier ein reiner Rust-Typ, ohne Registrierung in object_schemas.yaml.
 //!
 //! v1.0.19-Praezisierung: BudgetLedger ist keine der elf benannten
-//! Sigma_t-Positionen (Definition 13.1 nennt C/I/At/Tt/Ft/Ht/Wt/Qt/Et/Lt/Rt
+//! Sigma_t-Positionen (Definition 13.1 (Laufzustand) nennt C/I/At/Tt/Ft/Ht/Wt/Qt/Et/Lt/Rt
 //! woertlich, keine Budgetposition) - die fruehere Notiz hier ("Teil von
 //! Sigma, Ft und benachbarte Komponenten") war eine Vermutung aus der Zeit
 //! vor einem realen `Sigma`-Typ. Jetzt, wo `sigma::Sigma` real existiert,

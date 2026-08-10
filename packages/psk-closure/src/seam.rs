@@ -11,7 +11,7 @@
 //!                                    severity: blocking}
 //! ```
 //!
-//! Vertrag 7.3 (Identitätsclosure)1 (Kein halluziniertes Gluing) und Invariante 11.14 (Eindeutigkeit der Verklebung)
+//! Vertrag 7.31 (Kein halluziniertes Gluing) und Invariante 11.14 (Eindeutigkeit der Verklebung)
 //! (Eindeutigkeit der Verklebung): "Der Compiler DARF NICHT zwischen
 //! mehreren globalen Sektionen waehlen; Mehrdeutigkeit ist ein Defekt und
 //! erzeugt PSK-E011." Deshalb gibt `unique_global_section` keinen "besten"
@@ -37,7 +37,7 @@ use psk_types::{Digest, ObjectId, PskError};
 /// dort geltenden Restriktionen.
 ///
 /// `overlap(a,b)` und `compare_restrictions(a,b)` sind in Algorithmus 11.13 (Verklebung)
-/// benannt, aber nicht ausgeschrieben - Struktur 7.2 (IdentityBinding)3 (CandidateCapsule)
+/// benannt, aber nicht ausgeschrieben - Struktur 7.23 (CandidateCapsule)
 /// fuehrt weder Zellen noch Restriktionen als Felder. Die Zuordnung
 /// Kapsel -> (Zellen, Restriktionsdigest) ist damit eine Angabe von aussen,
 /// nicht aus der Kapsel ableitbar; sie wird hier als `CapsuleRestriction`
@@ -420,7 +420,7 @@ mod tests {
 
     #[test]
     fn tolerance_class_is_never_silently_declared_equivalent() {
-        // Vertrag 7.3 (Identitätsclosure)1 (Kein halluziniertes Gluing): ohne deklarierte
+        // Vertrag 7.31 (Kein halluziniertes Gluing): ohne deklarierte
         // Aequivalenz gilt exakt.
         let a = restriction("a", &[("m13:0/c0", b"x")]);
         let b = restriction("b", &[("m13:0/c0", b"x")]);

@@ -995,7 +995,7 @@ pub fn dispatch_readonly(
             }
             let reached_fixpoint = psk_adversarial::is_capsule_fixpoint(&before, &after);
 
-            // Definition 11.1 (Passfolge)1 (Perkolationssupport): drei Pfade
+            // Definition 11.11 (Perkolationssupport): drei Pfade
             // DEKLARIERT (deponiert), zwei BERECHNET.
             let paths = psk_adversarial::SupportPaths {
                 gate: spec.support_gate,

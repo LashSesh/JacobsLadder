@@ -34,7 +34,7 @@
 //!
 //! - Schritte 6/11 ("else FAIL(PSK-E103)") speisen `all_of(above)` als
 //!   `ConditionOutcome::False` statt vorzeitig zurueckzukehren. Begruendung:
-//!   Regel 17.2 fuehrt `digest_mismatch: fail` als EINE von vier
+//!   Regel 17.2 (Bootpolitik) fuehrt `digest_mismatch: fail` als EINE von vier
 //!   gate-vermittelten Reaktionen, nicht als gatefreien Sonderpfad, und
 //!   Schritt 20 selbst spricht von `g.decision` als der massgeblichen
 //!   Groesse. Ein direkter frueher Fehler wuerde Schritt 19s eigene
@@ -48,7 +48,7 @@
 //!   `psk_lifecycle::boot_policy::decide(BootSituation::DigestMismatch)`,
 //!   nicht neu erfunden. `Hold` bleibt dagegen ein inspizierbares `Ok`
 //!   (wie im bisherigen `golden_run.rs`s Testmuster) - kein Fehlercode
-//!   benennt "HOLD" als Fehler, Regel 17.2 nennt es eine Reaktion, kein
+//!   benennt "HOLD" als Fehler, Regel 17.2 (Bootpolitik) nennt es eine Reaktion, kein
 //!   FAIL.
 //! - Schritt 9 (`register_state_machines`/`register_invariants`) traegt
 //!   keine eigene Laufzeitbedingung: beides ist Build-Zeit-Codegen
@@ -111,14 +111,14 @@ pub struct BootInputs {
     /// `trace`/`residues`, die ebenfalls von aussen kommen. Sie sind Teil
     /// des Laufzustands, ueber den Schritt 12 `I_t` bildet.
     pub budget: BudgetLedger,
-    /// Skalentiefe des M13-Turms (v1.0.32, Struktur 7.1). Eine
+    /// Skalentiefe des M13-Turms (v1.0.32, Struktur 7.1 (RuntimeManifest)). Eine
     /// DEKLARATION des Laufs - das Topologieregister verweist auf sie
     /// ("scale: {max_depth: declared_in_runtime_manifest}"), berechnen
     /// kann sie niemand. Vom Aufrufer geliefert, wie `budget`.
     pub max_depth: u32,
 }
 
-/// `BootReport` (Algorithmus 17.1s Rueckgabetyp - kein registriertes
+/// `BootReport` (Algorithmus 17.1 (Boot)s Rueckgabetyp - kein registriertes
 /// Kapitel-7-Objekt, siehe object_registry.yaml). `state` nutzt das
 /// bereits reale `psk_lifecycle::runtime::RuntimeState` statt eines neu
 /// erfundenen Enums - siehe Modulkopf.
@@ -132,7 +132,7 @@ pub struct BootReport {
     pub posture: Releaseposture,
 }
 
-/// Die 23 ISA-Operatoren (Definition 12.1, `OpId::ALL`) plus die beiden
+/// Die 23 ISA-Operatoren (Definition 12.1 (Adversarialer Kern), `OpId::ALL`) plus die beiden
 /// real existierenden Adaptercrates dieses Workspace, jeweils Version
 /// 1.0.0 - Schritt 17s reale Eingabe fuer DIESE Referenzimplementierung
 /// (welche Operatoren/Adapter ein Build traegt, ist eine Buildtatsache,
@@ -233,7 +233,7 @@ pub fn boot(
     {
         ConditionOutcome::True
     } else {
-        // Invariante 9.5 verletzt waere ein Programmierfehler im
+        // Invariante 9.5 (Exakte Kardinalität) verletzt waere ein Programmierfehler im
         // generierten Register, kein Laufzeitzustand - echtes False.
         ConditionOutcome::False(ReasonCode("m13-cardinality-violated".into()))
     };
@@ -260,7 +260,7 @@ pub fn boot(
     // Nummer, nicht der Berechnungsreihenfolge hier. Seit I_t ueber den
     // realen Laufzustand gebildet wird, gilt dasselbe fuer Schritt 12s
     // ZWEITE Haelfte: `Sigma` traegt das RuntimeManifest als Position `I`
-    // (Definition 13.1), also MUSS das Manifest vor `bind` stehen. Die
+    // (Definition 13.1 (Laufzustand)), also MUSS das Manifest vor `bind` stehen. Die
     // Nummernfolge im Bericht bleibt unveraendert; nur die
     // Berechnungsreihenfolge folgt der Datenabhaengigkeit.
     let registration = psk_effect::register_only_versioned_operators_and_capabilities(
@@ -343,7 +343,7 @@ pub fn boot(
             architecture_matches: registry.architecture_check.matches(),
             architecture_schema_conformant: registry.architecture_check.schema_conformant(),
             identity_bound: true, // Schritt 12 hat oben unbedingt ein IdentityBinding gebaut
-            full_release_verified: false, // Vertrag 31.4: am Boot nie erfuellt, siehe posture.rs Modulkopf
+            full_release_verified: false, // Vertrag 31.4 (Verified Release): am Boot nie erfuellt, siehe posture.rs Modulkopf
             externally_reproduced: false,
         });
     let posture_condition = match posture {
@@ -390,11 +390,11 @@ pub fn boot(
 
     // Schritt 20-21: require g.decision == PASS else HOLD or QUARANTINE;
     // activate_cognition_compiler() == FSM BOOTING->BOUND, siehe Modulkopf.
-    let _ = advance(RuntimeState::Booting, "bind_identity"); // Operator-Teil von Invariante 13.3; das Gate selbst ist der zweite Teil
+    let _ = advance(RuntimeState::Booting, "bind_identity"); // Operator-Teil von Invariante 13.3 (Keine Textzustandsübergänge); das Gate selbst ist der zweite Teil
     let state = match gate_report.decision {
         GateReportDecisionKind::Pass => RuntimeState::Bound,
         GateReportDecisionKind::Hold => {
-            let _ = decide(BootSituation::Undecidable); // Regel 17.2: undecidable -> hold, inspizierbar ueber gate_report
+            let _ = decide(BootSituation::Undecidable); // Regel 17.2 (Bootpolitik): undecidable -> hold, inspizierbar ueber gate_report
             RuntimeState::Booting
         }
         GateReportDecisionKind::Fail => {

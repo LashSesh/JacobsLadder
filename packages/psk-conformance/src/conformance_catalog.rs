@@ -221,7 +221,7 @@
 //!   benannte Vertrag 20.13 (Prognosepersistenz) vier Pflichtfelder,
 //!   ohne dass ein Objekt sie trug - es gab nichts zu ueberschreiben.
 //!   Befund bei der Umsetzung: der GENERIERTE Typ allein genuegt
-//!   Regel 20.12 nicht - alle Felder sind `pub` (Codegen-Konvention), also ist
+//!   Regel 20.12 (Prognosen werden bewertet, nicht umgeschrieben) nicht - alle Felder sind `pub` (Codegen-Konvention), also ist
 //!   "besitzen keinen Schreibpfad nach Konstruktion" auf ihm eine blosse
 //!   Konvention, dieselbe Lage wie bei T-OWN-001. `SealedForecast` (M07)
 //!   schliesst das mit dem Muster von `ResidueLedger`/`TraceStore`:
@@ -243,9 +243,9 @@
 //!   sperrt JEDE Promotion.
 //!   Befund vor dem Bau: keine Promotionsstelle prueft e das. Es gab EINE
 //!   Wache (`check_promotion`, M07), die ausschliesslich `FactStatus`-Paare
-//!   gegen Invariante 5.10 pruefte, und eine ZWEITE, unabhaengige Ableitung
+//!   gegen Invariante 5.10 (Keine implizite Promotion) pruefte, und eine ZWEITE, unabhaengige Ableitung
 //!   in M18 (`reconcile`s `fact_promotion`), die `reality_status` gar nicht
-//!   sah. Vertrag 7.13s "Promotionssperre" war damit beschreibend, nicht
+//!   sah. Vertrag 7.13 (Unknown als wirksamer Status)s "Promotionssperre" war damit beschreibend, nicht
 //!   wirksam.
 //!   Umsetzung: EINE Wache, ZWEI Aufrufer. `check_promotion` nimmt jetzt
 //!   auch `reality_status` und ist die einzige Stelle, die ueber Promotion
@@ -699,7 +699,7 @@ mod tests {
         assert_eq!(
             reg["unmapped_is_blocking"].as_bool(),
             Some(true),
-            "eine unabgebildete konkrete Transition MUSS blockieren (Vertrag 23.5) - diese Policy \
+            "eine unabgebildete konkrete Transition MUSS blockieren (Vertrag 23.5 (Maschinencheckbare Verfeinerung)) - diese Policy \
              darf nicht versehentlich auf 'nicht blockierend' stehen"
         );
         // Aktueller, tatsaechlicher Stand: vollstaendig (kein Mangel im Bundle

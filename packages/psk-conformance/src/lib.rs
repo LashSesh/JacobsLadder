@@ -1,7 +1,7 @@
-//! Testtreiber, Golden-Run-Harness (Struktur 26.1). Kein eigenes Modul.
+//! Testtreiber, Golden-Run-Harness (Struktur 26.1 (Repositorybaum)). Kein eigenes Modul.
 //! Portgrenzen generiert aus architecture/port_registry.yaml (Phase I0,
-//! Regel 32.1). Ausimplementierung folgt in der Phase, die das jeweilige
-//! Modul realisiert (Regel 32.2).
+//! Regel 32.1 (Eine Phasenordnung)). Ausimplementierung folgt in der Phase, die das jeweilige
+//! Modul realisiert (Regel 32.2 (Phasenabhängigkeit der Passfolge)).
 
 mod golden_run;
 pub use golden_run::{
@@ -25,6 +25,14 @@ pub use feature_evidence::collect_feature_evidence;
 
 mod qpm_profile;
 pub use qpm_profile::{load_qpm_profile, QpmProfile};
+
+pub use psk_fields::ChannelId;
+
+mod qpm_cycle;
+pub use qpm_cycle::{
+    cycle_index_matches_ticks, observe_cycle, BoundaryKind, ChannelSwitchObservation, LeakStatus,
+    Orientation, QpmCycleReport, RollState, SamplingGap, SamplingRate, TWELFTHS_PER_TURN,
+};
 
 mod qpm_run;
 pub use qpm_run::{

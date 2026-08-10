@@ -6,13 +6,13 @@
 //! Deckt zwei registrierte Tests ab:
 //!
 //! - **T-ARCH-002** (`introduce_cyclic_module_dependency -> build_fail`,
-//!   Invariante 2.3: "Der Modulabhaengigkeitsgraph ist azyklisch.") -
+//!   Invariante 2.3 (Abhängigkeitsazyklizität): "Der Modulabhaengigkeitsgraph ist azyklisch.") -
 //!   Zyklenpruefung ueber den aus `architecture/port_registry.yaml`
 //!   gebildeten Modulgraphen, plus Pruefung der in
 //!   `architecture/module_map.yaml`s `forbidden_edges` explizit
 //!   untersagten Kanten.
 //! - **T-PORT-001** (`add_direct_cross_module_call_without_port ->
-//!   build_fail`, Invariante 26.3: "Der Paketabhaengigkeitsgraph ist
+//!   build_fail`, Invariante 26.3 (Abhängigkeitsordnung der Pakete): "Der Paketabhaengigkeitsgraph ist
 //!   azyklisch und respektiert die Schichtenordnung.") - Zyklenpruefung
 //!   ueber den tatsaechlichen Cargo-Abhaengigkeitsgraphen (jedes
 //!   `[dependencies]` in jedem Mitgliedspaket), plus Pruefung, dass jede
@@ -23,7 +23,7 @@
 //!
 //! ## Was dieses Werkzeug NICHT prueft (ehrlicher Deckungsluecken-Hinweis)
 //!
-//! Invariante 2.3s Schichtrichtungs-Vergleichsoperator war in der v1.0.13-
+//! Invariante 2.3 (Abhängigkeitsazyklizität)s Schichtrichtungs-Vergleichsoperator war in der v1.0.13-
 //! Quelle nicht sicher rekonstruierbar (siehe Git-Historie dieser Datei
 //! fuer die damalige Gegenprobe). PSK-RA v1.0.14 hat das an der Quelle
 //! korrigiert: der Fehler lag in der Norm selbst, nicht im Register - die
@@ -120,7 +120,7 @@ struct PortRegistry {
     ports: Vec<PortEntry>,
 }
 
-/// `kind` (Regel 4.7: request/event) steht im realen Register, treibt aber
+/// `kind` (Regel 4.7 (Synchronität): request/event) steht im realen Register, treibt aber
 /// KEINE Pruefung mehr in diesem Werkzeug (siehe `is_verified_call_return_leg`s
 /// Kopfkommentar fuer den Grund) - deshalb hier bewusst nicht deserialisiert,
 /// statt eines gelesenen-aber-nie-benutzten Feldes.
@@ -306,7 +306,7 @@ fn find_cycle(nodes: &BTreeSet<String>, edges: &BTreeMap<String, BTreeSet<String
 /// ProbeRequest (P39). Erzeugt eine neue FieldProjection mit neuer
 /// Objektidentitaet; niemals ein direkter Aufruf in eine bestehende
 /// Projektion hinein." Kanal (v) wurde mit v1.0.14 ergaenzt - v1.0.13s
-/// Invariante 2.3 hatte die Schichtungleichung invertiert und damit
+/// Invariante 2.3 (Abhängigkeitsazyklizität) hatte die Schichtungleichung invertiert und damit
 /// P39 als echten Zyklus (M09->..->M13->M09) gemeldet, obwohl der
 /// eigentliche Fehler in der Norm lag, nicht im Register (siehe
 /// Modulkopf). Diese fuenf - und NUR diese fuenf - sind per Definition
@@ -323,7 +323,7 @@ fn is_named_backflow(p: &PortEntry) -> bool {
         || (p.from == "M13" && p.to == "M09")
 }
 
-/// PSK-RA v1.0.15, Invariante 2.3s vierte Ausnahmeklasse: "...oder wenn Ma
+/// PSK-RA v1.0.15, Invariante 2.3 (Abhängigkeitsazyklizität)s vierte Ausnahmeklasse: "...oder wenn Ma
 /// und Mb laut pass_registry.yaml gemeinsame Traeger derselben Passe sind
 /// (Zusammenarbeit innerhalb einer Passe, kein Rueckfluss zwischen
 /// Passen)." Grund, real gefunden: der M11<->M22-Zyklus (P16 SeamQuery,
@@ -344,8 +344,8 @@ fn shares_a_pass(from: &str, to: &str, passes: &[PassEntry]) -> bool {
 /// Regel 4.7 (Synchronitaet) macht "request" damit zum GEWOEHNLICHEN Fall
 /// (33 von 42 Ports) - jeder synchrone Pipelineschritt innerhalb eines Ticks
 /// ist "request", unabhaengig davon, ob er architektonisch vorwaerts oder
-/// rueckwaerts zeigt. `kind` beschreibt Zustellzeitpunkt (Regel 4.7), NICHT
-/// Abhaengigkeitsrichtung (Invariante 2.3) - zwei orthogonale Eigenschaften.
+/// rueckwaerts zeigt. `kind` beschreibt Zustellzeitpunkt (Regel 4.7 (Synchronität)), NICHT
+/// Abhaengigkeitsrichtung (Invariante 2.3 (Abhängigkeitsazyklizität)) - zwei orthogonale Eigenschaften.
 ///
 /// Die FRUEHERE Fassung dieser Funktion behandelte JEDEN `kind: request`-Port
 /// als Ausnahme von der Zyklenpruefung - richtig fuer die neun ehemaligen
@@ -363,7 +363,7 @@ fn shares_a_pass(from: &str, to: &str, passes: &[PassEntry]) -> bool {
 /// Modulgraph NUR aus konkreten (nicht-Wildcard-) Ports, ohne Definition
 /// 2.7s fuenf benannte Rueckflusskanaele, ohne verifizierte Anruf-
 /// Ruecksprung-Kanten und ohne Kanten zwischen gemeinsamen Passtraegern
-/// (Invariante 2.3, v1.0.15) - vier getrennt verifizierte Ausnahmeklassen,
+/// (Invariante 2.3 (Abhängigkeitsazyklizität), v1.0.15) - vier getrennt verifizierte Ausnahmeklassen,
 /// keine geratenen:
 ///
 /// 1. `"*"`-Ports (P28, P30) sind Fan-in/Fan-out-Sammel-/Streubeziehungen,
@@ -375,9 +375,9 @@ fn shares_a_pass(from: &str, to: &str, passes: &[PassEntry]) -> bool {
 ///    `is_verified_call_return_leg`. NICHT laenger "jeder kind:request-Port"
 ///    (siehe Erklaerung oben), sondern eine explizite, an echtem Code
 ///    verifizierte Aufzaehlung, genau wie Klasse 3.
-/// 3. Definition 2.7s fuenf benannte Rueckflusskanaele - siehe
+/// 3. Definition 2.7 (Zulässige Rückflüsse)s fuenf benannte Rueckflusskanaele - siehe
 ///    `is_named_backflow`.
-/// 4. Gemeinsame Passtraeger (Invariante 2.3, v1.0.15) - siehe
+/// 4. Gemeinsame Passtraeger (Invariante 2.3 (Abhängigkeitsazyklizität), v1.0.15) - siehe
 ///    `shares_a_pass`.
 fn module_graph_edges(regs: &Registers) -> BTreeMap<String, BTreeSet<String>> {
     let mut edges: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
@@ -403,8 +403,8 @@ fn module_graph_edges(regs: &Registers) -> BTreeMap<String, BTreeSet<String>> {
 }
 
 /// Explizit verifizierte Ruecksprung-Haelften synchroner Anruf/Ruecksprung-
-/// Grenzen (Regel 4.7: `kind: request` = synchron und blockierend innerhalb
-/// desselben Ticks) - Definition 4.4s "Port" bindet Erzeuger und Verbraucher
+/// Grenzen (Regel 4.7 (Synchronität): `kind: request` = synchron und blockierend innerhalb
+/// desselben Ticks) - Definition 4.4 (Port)s "Port" bindet Erzeuger und Verbraucher
 /// symmetrisch, aber ein Ruecksprungwert, der denselben Aufruf abschliesst,
 /// ist keine ZWEITE, unabhaengige Architekturkante im Sinne von Invariante
 /// 2.3s Modulabhaengigkeitsgraph - er ist derselbe Aufruf, einmal hin und
@@ -415,7 +415,7 @@ fn module_graph_edges(regs: &Registers) -> BTreeMap<String, BTreeSet<String>> {
 /// allein abgeleitet:
 ///
 /// - (M04, M26): P05 "IdentityBinding", Ruecksprung von P00 "BootRequest".
-///   `psk_contract::boot()` (boot.rs, Algorithmus 17.1) ist EIN
+///   `psk_contract::boot()` (boot.rs, Algorithmus 17.1 (Boot)) ist EIN
 ///   Funktionsaufruf, der Schritt 1-21 (M00 bis M04, G-BOOT) sequenziell
 ///   ausfuehrt und EIN `Result<BootReport, _>` zurueckgibt - P00 (M26->M00)
 ///   und P05 (M04->M26) beschreiben zusammen EINE Aufruf-Ruecksprung-Grenze.
@@ -481,10 +481,10 @@ fn check_forbidden_edges(regs: &Registers) -> Vec<String> {
 
 /// Vier textlich benannte, in der REALEN Abhaengigkeitsmatrix gegen-
 /// gepruefte Ausnahmen von "jede Paketkante braucht einen deckenden Port":
-/// - psk-types: Invariante 26.3, "psk-types ... besitzt keine internen
+/// - psk-types: Invariante 26.3 (Abhängigkeitsordnung der Pakete), "psk-types ... besitzt keine internen
 ///   Abhaengigkeiten" - die universelle Objektvokabular-Kiste, die JEDES
 ///   Modul kennen muss, um Kapitel-7-Objekte ueberhaupt auszutauschen.
-/// - psk-canon: Invariante 26.3, gemeinsam mit psk-types genannt - reale
+/// - psk-canon: Invariante 26.3 (Abhängigkeitsordnung der Pakete), gemeinsam mit psk-types genannt - reale
 ///   Abhaengigkeitspruefung zeigt psk-canons EINZIGE interne Abhaengigkeit
 ///   ist psk-types selbst, keine andere Modulkante.
 /// - psk-trace: Definition 2.7(i), "Residuenrueckfluss: jede Schicht ->
@@ -525,7 +525,7 @@ fn check_package_cycle(regs: &Registers) -> Option<String> {
         None
     } else {
         Some(format!(
-            "T-PORT-001 / Invariante 26.3: zyklische Paketabhaengigkeit: {}",
+            "T-PORT-001 / Invariante 26.3 (Abhängigkeitsordnung der Pakete): zyklische Paketabhaengigkeit: {}",
             cycle.join(" -> ")
         ))
     }
@@ -562,7 +562,7 @@ fn is_orchestrator(package: &str) -> bool {
 /// Kernpruefung von T-PORT-001: fuer jede Paket-zu-Paket-Cargo-Kante
 /// zwischen zwei MODULBESITZENDEN Paketen (Orchestratoren/Werkzeuge wie
 /// psk-conformance, psk-cli, alle tools/* besitzen KEIN M00-M27-Modul und
-/// sind damit automatisch ausgenommen - Definition 3.1s geschlossene
+/// sind damit automatisch ausgenommen - Definition 3.1 (Modulmenge)s geschlossene
 /// Modulmenge, nicht Ratespiel; psk-contract besitzt zwar Module, ist aber
 /// laut `is_orchestrator` ebenfalls ausgenommen), die nicht auf eine der
 /// vier `is_foundational_dependency`-Ausnahmen zielt, muss ein Port
@@ -596,7 +596,7 @@ fn check_unjustified_package_edges(regs: &Registers) -> Vec<String> {
     problems
 }
 
-/// Invariante 26.3, woertlich benannte Einzelfaelle, unabhaengig von der
+/// Invariante 26.3 (Abhängigkeitsordnung der Pakete), woertlich benannte Einzelfaelle, unabhaengig von der
 /// generischen Portdeckungspruefung oben verifiziert.
 fn check_named_invariant_26_3(regs: &Registers) -> Vec<String> {
     let mut problems = Vec::new();
@@ -604,7 +604,7 @@ fn check_named_invariant_26_3(regs: &Registers) -> Vec<String> {
     if let Some(deps) = regs.package_deps.get("psk-types") {
         if !deps.is_empty() {
             problems.push(format!(
-                "Invariante 26.3: psk-types soll keine internen Abhaengigkeiten haben, hat aber {deps:?}"
+                "Invariante 26.3 (Abhängigkeitsordnung der Pakete): psk-types soll keine internen Abhaengigkeiten haben, hat aber {deps:?}"
             ));
         }
     }
@@ -612,7 +612,7 @@ fn check_named_invariant_26_3(regs: &Registers) -> Vec<String> {
         let extra: Vec<&String> = deps.iter().filter(|d| d.as_str() != "psk-types").collect();
         if !extra.is_empty() {
             problems.push(format!(
-                "Invariante 26.3: psk-canons einzige interne Abhaengigkeit soll psk-types sein, \
+                "Invariante 26.3 (Abhängigkeitsordnung der Pakete): psk-canons einzige interne Abhaengigkeit soll psk-types sein, \
                  zusaetzlich gefunden: {extra:?}"
             ));
         }
@@ -625,14 +625,14 @@ fn check_named_invariant_26_3(regs: &Registers) -> Vec<String> {
         .collect();
     if !observe_dependents.is_empty() {
         problems.push(format!(
-            "Invariante 26.3: psk-observe wird von keinem anderen Paket referenziert, \
+            "Invariante 26.3 (Abhängigkeitsordnung der Pakete): psk-observe wird von keinem anderen Paket referenziert, \
              gefunden: {observe_dependents:?}"
         ));
     }
     if let Some(deps) = regs.package_deps.get("psk-effect") {
         if deps.contains("psk-anchor") {
             problems.push(
-                "Invariante 26.3: psk-effect DARF NICHT psk-anchor referenzieren \
+                "Invariante 26.3 (Abhängigkeitsordnung der Pakete): psk-effect DARF NICHT psk-anchor referenzieren \
                  (Beobachterteil-Trennung)"
                     .to_string(),
             );
@@ -714,7 +714,7 @@ mod tests {
     fn the_real_module_graph_is_now_fully_acyclic_all_four_findings_closed() {
         // Vier Funde, jeweils an der Quelle bzw. an echtem Code verifiziert,
         // nicht geraten - keiner durch eine erratene Ausnahme geschlossen:
-        // (1) M09/M13 (P39) - PSK-RA v1.0.14 korrigierte Invariante 2.3s
+        // (1) M09/M13 (P39) - PSK-RA v1.0.14 korrigierte Invariante 2.3 (Abhängigkeitsazyklizität)s
         //     invertierte Schichtungleichung und nahm P39 als fuenften
         //     benannten Rueckflusskanal auf.
         // (2) M11/M22 (P16/P17) - PSK-RA v1.0.15 ergaenzte die Ausnahme
@@ -964,7 +964,7 @@ mod tests {
     #[test]
     fn the_real_package_dependencies_are_all_port_justified_or_exempt() {
         // psk-contracts drei urspruenglich gemeldeten Funde sind an
-        // boot.rs verifiziert (Algorithmus 17.1 Schritt 8/17/18) und ueber
+        // boot.rs verifiziert (Algorithmus 17.1 (Boot) Schritt 8/17/18) und ueber
         // `is_orchestrator` ausgenommen - siehe deren Modulkopf.
         // psk-adversarials frueherer Fund (M24::split() rief real
         // `psk_witness::has_independent_evidence` auf) ist behoben:

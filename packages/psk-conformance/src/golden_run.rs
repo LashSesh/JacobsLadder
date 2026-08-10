@@ -190,7 +190,7 @@ pub struct GoldenRunReport {
     /// Jede nicht gebaute Kante mit Grund.
     pub ir_omissions: Vec<psk_ir::EdgeOmission>,
     /// Die Residuensaetze selbst, nicht nur ihre Anzahl - Eingabe des
-    /// `residue_report_digest`, das Struktur 7.4 (AnchorSnapshot)9 (MachineCertificate) als einen der vier
+    /// `residue_report_digest`, das Struktur 7.49 (MachineCertificate) als einen der vier
     /// Berichtsdigests verlangt. Ein Bericht ueber eine Zahl waere keiner.
     pub residues: Vec<psk_types::objects::ResidueRecord>,
     /// Vertrag 9.7 (Zellclosure) ueber dem finalen Graphen: alle 18 Zellberichte
@@ -213,6 +213,11 @@ pub struct GoldenRunReport {
     /// Identitaeten; Regel 24.4 (Der Golden Run läuft unter tick): "Sigma_t ist der Zustand nach den
     /// Takten"). Abgeleitet, nie behauptet.
     pub i_t: Digest,
+    /// Die Tracesegmente des Laufs - nicht nur ihr Kopf. QPM-3 misst den
+    /// Phasenlift an den SIEGELN: eine Beobachtung ohne Siegelbezug waere
+    /// eine Ablesung im offenen Umlauf. Dieselbe Ueberlegung, aus der
+    /// schon `residues` und die Feldidentitaeten herausgegeben wurden.
+    pub trace_segments: Vec<psk_trace::TraceSegment>,
 }
 
 /// pass_registry.yaml, `executable_requires`: [fully_typed,
@@ -1218,6 +1223,7 @@ fn build_report(
             .cloned()
             .ok_or(PskError::UntypedInput)?,
         trace_head: sigma.trace.head(),
+        trace_segments: sigma.trace.segments().to_vec(),
         residues_opened: sigma.residues.all().len(),
         residues: sigma.residues.all().to_vec(),
         ir_bundle: final_assembly.bundle.clone(),
@@ -1594,7 +1600,7 @@ mod tests {
         // existiert kein Widerlegungserzeuger, der eine Kandidat
         // ueberlebt, allowed_next bleibt gleich (Definition 22.2 (Kapselfixpunkt)). Die
         // Supportentscheidung fiel positiv (alle fuenf Pfade definiert,
-        // Definition 11.1 (Passfolge)1 (Perkolationssupport)), also SUPPORTED.
+        // Definition 11.11 (Perkolationssupport)), also SUPPORTED.
         // Schritt 2/3: beide Widerspruchsarten identifiziert, jede mit
         // bestimmter Geltung. Die Kontrollmenge des Korpus stellt sicher,
         // dass hier nicht einfach alles als widerspruechlich gilt.

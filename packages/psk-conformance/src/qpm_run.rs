@@ -43,7 +43,7 @@ use psk_types::PskError;
 use crate::golden_run::GoldenRunReport;
 
 /// QPM Struktur 4.2 (Ergebnisordnung): die fuenf Werte, geschlossen.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum IdentityVerdict {
     Known,
     Ambiguous,
@@ -72,14 +72,14 @@ pub struct QpmRunReport {
     pub scope: PanopticScope,
     /// QPM-1: die Bank, deren Aperturen die Schatten erzeugten.
     pub bank: ApertureBank,
-    /// QPM-1: der Gegenhorizont und sein Stand (QPM Regel 3.7).
+    /// QPM-1: der Gegenhorizont und sein Stand (QPM Regel 3.7 (Gegenhorizont ist konstruiert oder begründet leer)).
     pub counter_horizon_standing: CounterHorizonStanding,
     /// QPM-1: die Buchfuehrung nach QPM Axiom 3.1 (Kein stiller Ausschluss), je Klasse gezaehlt.
     /// Alle vier Klassen erscheinen; eine Null ist eine Aussage.
     pub census: BTreeMap<MassClass, usize>,
     /// Die Gesamtmasse, ueber der die Buchfuehrung aufging.
     pub total_mass: usize,
-    /// Je Schatten die Apertur, die ihn zurueckhielt (QPM Regel 3.5).
+    /// Je Schatten die Apertur, die ihn zurueckhielt (QPM Regel 3.5 (Eine Apertur erzeugt Schatten, keine Abwesenheit)).
     /// Enthaelt AUCH die Knoten, die die Praezedenz anderswo zaehlt -
     /// der Schattenbeleg bleibt bestehen.
     pub shadows: Vec<(IRNodeId, ApertureId)>,
@@ -89,7 +89,7 @@ pub struct QpmRunReport {
     pub displaced: Vec<(IRNodeId, Vec<MassClass>)>,
     /// Die Zaehlklasse je Knoten - das Ergebnis der Praezedenz.
     counted: BTreeMap<IRNodeId, MassClass>,
-    /// QPM Regel 3.3: vorhandene, nicht deklarierte Kanaele - jeder mit
+    /// QPM Regel 3.3 (Scope ist explizit, nie universell): vorhandene, nicht deklarierte Kanaele - jeder mit
     /// seiner Einordnung, keiner als Abwesenheit.
     pub undeclared_channels: Vec<(ChannelId, String)>,
     /// QPM Struktur 4.2 (Ergebnisordnung), abgeleitet.
@@ -133,7 +133,7 @@ pub fn observe_golden_run(
         match profile.first_aperture_passing(node.sort) {
             Some(_) => visible.push(id),
             None => {
-                // QPM Regel 3.5: die zurueckhaltende Apertur MUSS
+                // QPM Regel 3.5 (Eine Apertur erzeugt Schatten, keine Abwesenheit): die zurueckhaltende Apertur MUSS
                 // benannt sein. Der Kanal `topology` ist der, unter dem
                 // ein IR-Knoten ueberhaupt Gegenstand ist.
                 let (ap, pred) = profile.holding_aperture(&ChannelId("topology".into()))?;
@@ -177,7 +177,7 @@ pub fn observe_golden_run(
 
     // ---- QPM-0: das Verdikt, abgeleitet.
     let (verdict, verdict_reason) = match scope.ceiling() {
-        // QPM Regel 3.3 letzter Satz, woertlich: "Fehlt catalog_ref, so
+        // QPM Regel 3.3 (Scope ist explizit, nie universell) letzter Satz, woertlich: "Fehlt catalog_ref, so
         // endet jeder Lauf in UNKNOWN, nicht in FAIL (QPM-OBL-002)."
         ScopeCeiling::ForcedUnknown => (
             IdentityVerdict::Unknown,
@@ -191,7 +191,7 @@ pub fn observe_golden_run(
         ),
     };
 
-    // QPM Regel 4.3: die Gate-Achse ist unabhaengig vom Verdikt. Der
+    // QPM Regel 4.3 (Zwei orthogonale Statusachsen): die Gate-Achse ist unabhaengig vom Verdikt. Der
     // beobachtete Lauf hat beide Gates auf PASS - das bleibt wahr,
     // waehrend das Verdikt UNKNOWN ist. Genau die Kombination, die die
     // Regel ausdruecklich erwuenscht nennt.
@@ -296,7 +296,7 @@ pub fn witness_rank(run: &GoldenRunReport) -> WitnessRank {
 
 impl QpmRunReport {
     /// Die Klasse, in der dieser Knoten GEZAEHLT wird - das Ergebnis
-    /// der Praezedenz aus QPM Regel 3.9.
+    /// der Praezedenz aus QPM Regel 3.9 (Präzedenz unter den Erzeugern).
     pub fn census_class_of(&self, node: &IRNodeId) -> Option<MassClass> {
         self.counted.get(node).copied()
     }
@@ -311,7 +311,7 @@ pub fn census_lines(report: &QpmRunReport) -> Vec<String> {
         .collect()
 }
 
-/// QPM Regel 3.7: ein Gegenhorizont, der seine Pflicht nicht erfuellt,
+/// QPM Regel 3.7 (Gegenhorizont ist konstruiert oder begründet leer): ein Gegenhorizont, der seine Pflicht nicht erfuellt,
 /// macht jeden darauf gestuetzten Befund unvollstaendig. Diese Funktion
 /// benennt das, statt es im Bericht zu verstecken.
 pub fn counter_horizon_note(standing: CounterHorizonStanding) -> &'static str {

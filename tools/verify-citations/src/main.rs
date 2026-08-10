@@ -20,7 +20,7 @@
 //! im Wurzelverzeichnis), der konstitutionelle Maschinenvertrag
 //! (Markdown) und - sobald vorhanden - die QPM/NRAII-Zweitschicht.
 //!
-//! Die Nummernraeume UEBERSCHNEIDEN sich: `Definition 15.1` ist in PSK-RA
+//! Die Nummernraeume UEBERSCHNEIDEN sich: `Definition 15.1 (Instruktionsmenge)` ist in PSK-RA
 //! die Instruktionsmenge und in QPM/NRAII das Lokale Vierfachprimitiv.
 //! Wie VIELE solche Kollisionen es gibt, steht bewusst nicht hier: die
 //! Zahl haengt an zwei unabhaengig fortgeschriebenen Werken und war nach
@@ -34,8 +34,8 @@
 //! durch. Deshalb benennt das Zitat seinen Raum:
 //!
 //!   `Struktur 7.38`            -> PSK-RA (implizit, ohne Praefix)
-//!   `QPM Struktur 1.2`         -> QPM/NRAII-RA
-//!   `CPSK Definition 7.1`      -> Maschinenvertrag
+//!   `QPM Struktur 1.2 (Modulbindung)`         -> QPM/NRAII-RA
+//!   `CPSK Definition 7.1 (AnchorSnapshot)`      -> Maschinenvertrag
 //!
 //! Ohne Praefix gilt PSK-RA. Das haelt die bestehenden Zitate gueltig,
 //! ohne Migration, und macht das Praefix fuer alles andere zur Pflicht.
@@ -66,7 +66,7 @@
 //!   `Struktur 3.2` loest weiterhin auf - auf den FALSCHEN Block, ohne
 //!   ein Wort. Nur der Titelvergleich sieht das.
 //!
-//! Dasselbe war in PSK-RA v1.0.35 schon real: "Regel 9.9" ueberlebte
+//! Dasselbe war in PSK-RA v1.0.35 schon real: "Regel 9.9 (Leere Zelle schließt vakuum, aber nicht stillschweigend)" ueberlebte
 //! eine ganze Edition in der Bedeutung Wohlgeformtheit, weil die neue
 //! Leere-Zelle-Regel die Nummer wieder besetzte. Kosten: 42
 //! handgepruefte Korrekturen. Titel immunisieren dagegen; Nummern
@@ -96,7 +96,7 @@ const NAMESPACES: [&str; 2] = ["QPM", "CPSK"];
 /// erreichten Stand nicht mehr. Genau wie die Testuntergrenzen wird sie
 /// von Hand gepflegt, weil eine automatisch nachgezogene Grenze keine
 /// Grenze ist.
-const UNTITLED_CEILING: usize = 869;
+const UNTITLED_CEILING: usize = 809;
 
 const KINDS: [&str; 8] = [
     "Struktur",
@@ -466,7 +466,7 @@ fn main() -> ExitCode {
     let mut problems: Vec<String> = Vec::new();
     let mut titled = 0usize;
     for c in &citations {
-        // "Regel 9.13.2" zitiert Punkt 2 der Regel 9.13 - der BLOCK ist
+        // "Regel 9.13 (Wohlgeformtheit einer M13Address).2" zitiert Punkt 2 der Regel 9.13 (Wohlgeformtheit einer M13Address) - der BLOCK ist
         // 9.9, und nur Bloecke tragen Nummern im Werk.
         let block_number = {
             let parts: Vec<&str> = c.number.split('.').collect();
@@ -536,7 +536,7 @@ fn main() -> ExitCode {
     // stecken. Blosse Aufloesbarkeit reicht nicht - wenn eine
     // Einfuegung die alte Nummer neu besetzt, loest der gedriftete
     // Verweis wieder auf und die Verschiebung waere erneut still (im
-    // Fliesstext real passiert: "Regel 9.9" ueberlebte so eine ganze
+    // Fliesstext real passiert: "Regel 9.9 (Leere Zelle schließt vakuum, aber nicht stillschweigend)" ueberlebte so eine ganze
     // Edition).
     let register_backrefs = scan_register_backrefs(&[
         root.join("architecture").as_path(),
@@ -740,7 +740,7 @@ mod tests {
         );
     }
 
-    /// Die Kollision, die den Bau ausgeloest hat: Definition 15.1 ist in
+    /// Die Kollision, die den Bau ausgeloest hat: Definition 15.1 (Instruktionsmenge) ist in
     /// PSK-RA die Instruktionsmenge, in QPM/NRAII das Lokale
     /// Vierfachprimitiv. Zwei Indizes, dieselbe Nummer, zwei Titel.
     #[test]

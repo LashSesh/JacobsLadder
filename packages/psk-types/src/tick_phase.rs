@@ -14,7 +14,7 @@
 //! Die zweite Observe-Phase heisst hier `Observe2`: Rust-Enums kennen keine
 //! doppelten Varianten, das Werk selbst schreibt sie als "Observe (2)".
 
-/// Definition 14.1s zwoelf Phasen, in der dort festgelegten Reihenfolge.
+/// Definition 14.1 (Kanonische Taktfolge)s zwoelf Phasen, in der dort festgelegten Reihenfolge.
 /// `Ord` sortiert nach Deklarationsreihenfolge - dieselbe Reihenfolge, in
 /// der `tick()` sie durchlaeuft.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -54,7 +54,7 @@ impl Phase {
     }
 }
 
-/// Definition 14.1, als feste Reihenfolge. `tick()` iteriert genau darueber
+/// Definition 14.1 (Kanonische Taktfolge), als feste Reihenfolge. `tick()` iteriert genau darueber
 /// ("for phase in CANONICAL_PHASES: // feste Reihenfolge", Algorithmus 14.5 (Tick)).
 pub const CANONICAL_PHASES: [Phase; 12] = [
     Phase::Observe,
