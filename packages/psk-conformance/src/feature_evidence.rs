@@ -169,7 +169,7 @@ fn measure_run(run: &GoldenRunReport, evidence: &mut FeatureEvidence) {
 /// Die Teile eines Zertifizierungslaufs, aus denen der Deckungsvektor
 /// folgt - OHNE das Zertifikat selbst.
 ///
-/// Warum diese Form: Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat)
+/// Warum diese Form: Regel 7.54 (Plattformgebundene Verpflichtungsauflösung im Zertifikat)
 /// verlangt `feature_coverage` als ABGELEITETEN Wert, also muss die
 /// Ableitung VOR der Ausstellung laufen. `GoldenRunCertification` enthaelt
 /// aber das Zertifikat - die alte Signatur war zirkulaer und konnte

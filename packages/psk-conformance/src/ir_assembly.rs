@@ -1,7 +1,7 @@
 //! Die Domaenenseite des IRBundle-Zusammenbaus: das Domaenenprofil und
 //! die versiegelten Register LADEN. Der Bau selbst (Knoten, Kanten,
-//! Sondierungsvermerke) liegt seit der Taktumverdrahtung (Regel 24.4 (Der Golden Run läuft unter tick)
-//! (Der Golden Run laeuft unter tick)) in M23 (`psk_ir::builders`, siehe
+//! Sondierungsvermerke) liegt seit der Taktumverdrahtung (Regel 24.4 (Der Golden Run läuft unter tick))
+//! in M23 (`psk_ir::builders`, siehe
 //! dortigen Modulkopf): die Compile-Phase wickelt ihn als Arbeit ab.
 //!
 //! ## Warum die Lader hier liegen und nicht in psk-ir

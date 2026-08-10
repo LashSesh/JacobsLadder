@@ -1,7 +1,6 @@
 //! T-CONC-001 (`architecture/ra_tests.yaml`: `{kind: property, run:
 //! concurrent_dispatch, expect: canonical_digest_equals_sequential}`) /
-//! Regel 14.8 (Nebenläufigkeitsmodell) / Invariante 14.9 (Serialisierbarkeit)
-//! (Serialisierbarkeit).
+//! Regel 14.8 (Nebenläufigkeitsmodell) / Invariante 14.9 (Serialisierbarkeit).
 //!
 //! Die Saat: mehrere deponierte Records MIT gebundener Provenienz. Die
 //! Anchor-Phase leitet daraus je ein `AnchorBind` ab - freigegebene,

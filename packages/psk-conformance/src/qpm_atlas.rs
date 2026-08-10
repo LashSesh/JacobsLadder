@@ -1,7 +1,7 @@
 //! QPM-4: kanonische Signaturgrammatik, reproduzierbarer Multiview-Atlas.
 //!
 //! QPM Struktur 3.13 (SignatureVector) und QPM Struktur 3.19 (SignatureAtlas)
-//! (SignatureAtlas) geben die Form vor; QPM Regel 3.18 (Splitbild und
+//! geben die Form vor; QPM Regel 3.18 (Splitbild und
 //! Parallaxe) bindet den effektiven Witnessrang an den
 //! Abhaengigkeitsquotienten, und QPM Regel 2.9 (Keine Ablesung auf
 //! halber Rückkehr) bindet jede Ablesung an ein Siegel.
@@ -51,8 +51,7 @@
 //!    Fragezeichen, aber aus einem Lauf nicht bestimmbar (siehe oben).
 //!
 //! Beide sind hier als `Option` gefuehrt UND mit einem erklaerten
-//! Grund - dieselbe Form, die Regel 7.51 (Unsignierte Ausstellung
-//! unterhalb C4) fuer das leere Signaturfeld verlangt: der Nullstand
+//! Grund - dieselbe Form, die Regel 7.52 (Unsignierte Ausstellung unterhalbC4) fuer das leere Signaturfeld verlangt: der Nullstand
 //! als erklaerter, nicht als stiller. Gemeldet, nicht ueberspielt.
 
 use std::collections::BTreeMap;

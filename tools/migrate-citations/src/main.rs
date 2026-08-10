@@ -65,7 +65,20 @@ const KINDS: &[&str] = &[
 ];
 
 /// Ein Blockindex: (Art, Nummer) -> Titel, aus einer Werksfassung.
-type Index = BTreeMap<(String, String), String>;
+/// Traegt BEIDE Formen: den Anzeigetitel (wie er im Werk steht - er
+/// wird GESCHRIEBEN) und die normalisierte Form (sie wird VERGLICHEN).
+/// Die erste Fassung fuehrte nur die normalisierte und schrieb sie auch:
+/// aus einem lesbaren Titel wurde ein Kleinbuchstabenblock. Das Werkzeug
+/// gegen stille Zitatschaeden hat damit selbst welche erzeugt - und
+/// Stufe elf liess sie durch, weil ihr Titelvergleich ebenfalls
+/// normalisiert. Schreiben und Vergleichen sind zwei Formen.
+#[derive(Debug, Clone, PartialEq)]
+struct BlockTitle {
+    display: String,
+    normalized: String,
+}
+
+type Index = BTreeMap<(String, String), BlockTitle>;
 
 /// Eine Umschreibung, wie der Aufrufer sie deklariert.
 #[derive(Debug, Clone)]
@@ -107,7 +120,7 @@ fn index_of(text: &str) -> Index {
 }
 
 /// Liest ` N.M (Titel)` ab Position `at`. Gibt (Nummer, Titel, Endposition).
-fn parse_number_and_title(c: &[char], at: usize) -> Option<(String, String, usize)> {
+fn parse_number_and_title(c: &[char], at: usize) -> Option<(String, BlockTitle, usize)> {
     let mut i = at;
     if i >= c.len() || c[i] != ' ' {
         return None;
@@ -137,7 +150,15 @@ fn parse_number_and_title(c: &[char], at: usize) -> Option<(String, String, usiz
         return None;
     }
     let title: String = c[tstart..i].iter().collect();
-    Some((number, normalize(&title), i + 1))
+    let display = title.split_whitespace().collect::<Vec<_>>().join(" ");
+    Some((
+        number,
+        BlockTitle {
+            normalized: normalize(&display),
+            display,
+        },
+        i + 1,
+    ))
 }
 
 /// Titelvergleich unabhaengig von Umlautschreibweise und Leerraum - die
@@ -231,14 +252,14 @@ fn migrate(
                 let old_t = before.get(&(kind.to_string(), number.clone()));
                 let new_t = after.get(&(kind.to_string(), number.clone()));
                 if let (Some(o), Some(n)) = (old_t, new_t) {
-                    if o != n {
+                    if o.normalized != n.normalized {
                         violations.push(format!(
                             "{}: {} {} ist neu besetzt ('{}' -> '{}') und wurde NICHT angefasst",
                             f.display(),
                             kind,
                             number,
-                            o,
-                            n
+                            o.display,
+                            n.display
                         ));
                     }
                 }
@@ -252,11 +273,13 @@ fn migrate(
             let meant_before = before.get(&(kind.to_string(), shift.from.clone()));
             let meant_after = after.get(&(kind.to_string(), shift.to.clone()));
             match (meant_before, meant_after) {
-                (Some(b), Some(a)) if b == a => {
+                (Some(b), Some(a)) if b.normalized == a.normalized => {
                     // Verschiebung: derselbe Block, neue Nummer. Zulaessig.
                     // Der Titel wird mitgezogen, damit die Zitierung
                     // gegen die naechste Neubesetzung laut wird.
-                    out.push_str(&format!("{} {} ({})", kind, shift.to, a));
+                    // GESCHRIEBEN wird der Anzeigetitel, nie die
+                    // normalisierte Vergleichsform.
+                    out.push_str(&format!("{} {} ({})", kind, shift.to, a.display));
                     rewritten += 1;
                     changed = true;
                 }
@@ -266,8 +289,8 @@ fn migrate(
                     kind,
                     shift.from,
                     shift.to,
-                    b,
-                    a
+                    b.display,
+                    a.display
                 )),
                 (b, a) => violations.push(format!(
                     "{}: {} {} -> {} nicht pruefbar (vorher {:?}, nachher {:?})",
@@ -297,6 +320,14 @@ fn migrate(
 }
 
 /// Liest eine Zitierung `Art N.M` oder `Art N.M (Titel)` ab `i`.
+///
+/// Der Titel DARF ueber einen Zeilenumbruch laufen: in Kommentaren
+/// werden lange Titel umbrochen, und die Folgezeile beginnt mit einem
+/// Kommentarzeichen. Wer den Umbruch nicht liest, haelt die Zitierung
+/// fuer titellos, schreibt einen neuen Titel davor und laesst den alten
+/// als Rest stehen - genau der Doppelrest, den die erste Fassung dieses
+/// Werkzeugs erzeugt hat. Gelesen wird hoechstens ueber ZWEI Umbrueche;
+/// eine offene Klammer ohne Schluss in dieser Spanne ist kein Titel.
 fn read_citation(c: &[char], i: usize, kind: &str) -> Option<(String, String, usize)> {
     let mut j = i + kind.chars().count();
     if j >= c.len() || c[j] != ' ' {
@@ -311,19 +342,43 @@ fn read_citation(c: &[char], i: usize, kind: &str) -> Option<(String, String, us
     if !number.contains('.') || number.ends_with('.') {
         return None;
     }
-    // Optionaler Titel.
+    // Optionaler Titel, gegebenenfalls umbrochen.
     let mut k = j;
     while k < c.len() && c[k] == ' ' {
         k += 1;
     }
     if k < c.len() && c[k] == '(' {
         let mut m = k + 1;
-        while m < c.len() && c[m] != ')' && c[m] != '\n' {
+        let mut title = String::new();
+        let mut breaks = 0u8;
+        while m < c.len() && c[m] != ')' {
+            if c[m] == '\n' {
+                breaks += 1;
+                if breaks > 2 {
+                    break;
+                }
+                // Umbruch samt Kommentarauftakt der Folgezeile als EIN
+                // Leerzeichen lesen.
+                m += 1;
+                while m < c.len() && (c[m] == ' ' || c[m] == '\t') {
+                    m += 1;
+                }
+                while m < c.len() && (c[m] == '/' || c[m] == '!' || c[m] == '#' || c[m] == '*') {
+                    m += 1;
+                }
+                while m < c.len() && (c[m] == ' ' || c[m] == '\t') {
+                    m += 1;
+                }
+                if !title.is_empty() && !title.ends_with(' ') {
+                    title.push(' ');
+                }
+                continue;
+            }
+            title.push(c[m]);
             m += 1;
         }
         if m < c.len() && c[m] == ')' {
-            let title: String = c[k + 1..m].iter().collect();
-            return Some((number, title, m + 1));
+            return Some((number, title.trim().to_string(), m + 1));
         }
     }
     Some((number, String::new(), j))
@@ -518,6 +573,105 @@ mod tests {
             out.violations.iter().any(|v| v.contains("neu besetzt")),
             "{:?}",
             out.violations
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// Der Befund dieser Runde: GESCHRIEBEN wird der Anzeigetitel, nie
+    /// die normalisierte Vergleichsform. Die erste Fassung schrieb den
+    /// Kleinbuchstabenblock - lesbar fuer Stufe elf, unlesbar fuer
+    /// Menschen, und ununterscheidbar von einem Titel, der wirklich so
+    /// hiesse.
+    #[test]
+    fn the_rewritten_citation_carries_the_display_title_not_the_normalized_form() {
+        let before = &index_of(&block(
+            "Regel",
+            "99.7",
+            "Unsignierte Ausstellung unterhalb C4",
+        ));
+        let after = &index_of(&block(
+            "Regel",
+            "99.8",
+            "Unsignierte Ausstellung unterhalb C4",
+        ));
+        let dir = std::env::temp_dir().join(format!("psk-mig-disp-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("x.rs");
+        let fixture = block("Regel", "99.7", "Unsignierte Ausstellung unterhalb C4");
+        fs::write(&f, format!("// {} steht hier\n", fixture)).unwrap();
+
+        let out = migrate(
+            std::slice::from_ref(&f),
+            &[Shift {
+                kind: "Regel".into(),
+                from: "99.7".into(),
+                to: "99.8".into(),
+            }],
+            before,
+            after,
+            true,
+        );
+        assert!(out.violations.is_empty(), "{:?}", out.violations);
+        let written = fs::read_to_string(&f).unwrap();
+        assert!(
+            written.contains("(Unsignierte Ausstellung unterhalb C4)"),
+            "der Anzeigetitel MUSS geschrieben sein: {written}"
+        );
+        assert!(
+            !written.contains("unsignierteausstellungunterhalbc4"),
+            "die Vergleichsform DARF nie in die Quelle: {written}"
+        );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    /// Ein umbrochener Titel wird GANZ konsumiert - sonst bleibt sein
+    /// Rest hinter dem neu geschriebenen Titel stehen (der Doppelrest
+    /// der ersten Fassung).
+    #[test]
+    fn a_wrapped_title_is_consumed_whole_not_left_as_a_remnant() {
+        let before = &index_of(&block(
+            "Regel",
+            "99.7",
+            "Unsignierte Ausstellung unterhalb C4",
+        ));
+        let after = &index_of(&block(
+            "Regel",
+            "99.8",
+            "Unsignierte Ausstellung unterhalb C4",
+        ));
+        let dir = std::env::temp_dir().join(format!("psk-mig-wrap-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("x.rs");
+        // Der Titel bricht ueber die Kommentarzeile um. Zusammengesetzt,
+        // damit im Quelltext keine Zitatform steht (siehe block()).
+        let wrapped = block("Regel", "99.7", "Unsignierte Ausstellung unterhalb C4")
+            .replace("Ausstellung ", "Ausstellung\n// ");
+        fs::write(&f, format!("// {} steht hier\n", wrapped)).unwrap();
+
+        let out = migrate(
+            std::slice::from_ref(&f),
+            &[Shift {
+                kind: "Regel".into(),
+                from: "99.7".into(),
+                to: "99.8".into(),
+            }],
+            before,
+            after,
+            true,
+        );
+        assert!(out.violations.is_empty(), "{:?}", out.violations);
+        assert_eq!(out.rewritten, 1);
+        let written = fs::read_to_string(&f).unwrap();
+        assert!(
+            written.contains("(Unsignierte Ausstellung unterhalb C4)"),
+            "der umbrochene Titel MUSS als Ganzes ersetzt sein: {written}"
+        );
+        assert_eq!(
+            written.matches("Unsignierte").count(),
+            1,
+            "kein Doppelrest: {written}"
         );
         let _ = fs::remove_dir_all(&dir);
     }

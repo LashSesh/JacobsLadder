@@ -245,8 +245,7 @@ pub enum LifecycleStep {
 /// (nach bestandenem G-MORPH/G-EXCISION, siehe `morphogenesis`-Modul)
 /// braucht. Oeffentlich fuer M20: M20 wertet das Gate selbst aus
 /// (`psk_gate::evaluate_gate`, Gate-Owner laut gate_registry.yaml), aber
-/// nur M08 (dieses Modul) konstruiert FieldIdentity-Objekte - Vertrag 3.4 (Ownership-Exklusivität)
-/// (Ownership-Exklusivitaet).
+/// nur M08 (dieses Modul) konstruiert FieldIdentity-Objekte - Vertrag 3.4 (Ownership-Exklusivität).
 pub fn complete_transition(
     field: &FieldIdentity,
     to: FieldIdentityLifecycleKind,

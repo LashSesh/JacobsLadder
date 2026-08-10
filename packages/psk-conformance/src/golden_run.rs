@@ -755,7 +755,7 @@ impl psk_effect::ExclusiveLine for HeldChild {
 /// zweier Laeufe folgt (Definition 22.1 (Replayklassen): keine Eigenschaft eines
 /// einzelnen Laufs).
 /// Schritt 13, Zertifikatsteil. **Jedes Feld kommt vom Aufrufer, keines
-/// entsteht hier** - Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat):
+/// entsteht hier** - Regel 7.54 (Plattformgebundene Verpflichtungsauflösung im Zertifikat):
 /// "Kein Feld eines MachineCertificate DARF einen Wert tragen, der nicht
 /// aus einem Artefakt des zertifizierten Laufes stammt."
 ///
@@ -808,7 +808,7 @@ fn issue_golden_run_certificate(
         negative_test_report_digest: reports.negative_test_report.digest,
         scope: ScopeExpr("golden-run".into()),
         issued_at: run_time(),
-        // Regel 7.51 (Unsignierte Ausstellung unterhalb C4), seit
+        // Regel 7.52 (Unsignierte Ausstellung unterhalbC4), seit
         // v1.0.42 normativ und woertlich die Lesart, die dieser Lauf
         // gemeldet hatte: "signature ist ein Pflichtfeld; ein leerer
         // Wert ist kein Verfahren. Er ist dennoch zulaessig, solange die
@@ -824,8 +824,7 @@ fn issue_golden_run_certificate(
         // Bedingung, unter der der Nullstand zulaessig bleibt, und faellt
         // bei C4. Der Lauf steht heute auf C3 - eine Stufe darunter.
         signature: psk_types::Signature(vec![]),
-        // Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat) (Plattformgebundene Verpflichtungsaufloesung im
-        // Zertifikat): der abgeleitete Vektor haelt diesen Lauf
+        // Regel 7.54 (Plattformgebundene Verpflichtungsauflösung im Zertifikat): der abgeleitete Vektor haelt diesen Lauf
         // unterhalb jeder Klasse, die OBL-010 (blocking_from: C4)
         // betrifft - siehe `is_relevant` in
         // `check_platform_bound_obligations`. Ein leerer Vektor ist hier
@@ -1455,7 +1454,7 @@ pub fn run_golden_run_with_certificate(
 
     // Der Selbstkompilationsvorschlag steht JETZT vor dem Zertifikat, und
     // das ist keine Umsortierung aus Bequemlichkeit: sein GateReport ist
-    // FC7s Beleg, und Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat)
+    // FC7s Beleg, und Regel 7.54 (Plattformgebundene Verpflichtungsauflösung im Zertifikat)
     // verlangt `feature_coverage` als abgeleiteten Wert. Solange das
     // Zertifikat zuerst entstand, konnte der Vektor nicht abgeleitet
     // werden - er wurde behauptet. Das Zertifikat ist das LETZTE Artefakt

@@ -10,7 +10,7 @@
 //! Bis zur Taktumverdrahtung (Regel 24.4 (Der Golden Run laeuft unter
 //! tick)) lag diese Logik im Konformanzpaket. Sie gehoert hierher, weil
 //! die Challenge-Phase sie als Arbeit abwickelt und Definition 14.2 (Phasen-Modul-Bindung)
-//! (Phasen-Modul-Bindung) der Challenge-Phase genau M24 zuordnet - der
+//! der Challenge-Phase genau M24 zuordnet - der
 //! Konformanzlauf DEPONIERT die Anforderungen als Werte im Laufzustand,
 //! er identifiziert nicht mehr selbst. Das LESEN des Korpus (Dateipfade,
 //! Zeilenform) bleibt Domaenensache und damit im Konformanzpaket.

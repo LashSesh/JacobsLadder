@@ -9,7 +9,7 @@
 //! ```
 //!
 //! Dieses Modul deckt ausschliesslich die GRAMMATIK ab. Regel 9.13 (Wohlgeformtheit einer M13Address)
-//! (Wohlgeformtheit einer M13Address) stellt drei zusaetzliche Bedingungen,
+//! stellt drei zusaetzliche Bedingungen,
 //! die die Grammatik allein nicht traegt; zwei davon setzen das Zellregister
 //! voraus ("geprueft gegen m13_topology.yaml, nicht gegen die
 //! Schreibweise"). Sie sind daher in `psk_topology::check_wellformed`

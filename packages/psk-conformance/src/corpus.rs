@@ -5,7 +5,7 @@
 //! Taktumverdrahtung (Regel 24.4 (Der Golden Run laeuft unter tick)) in
 //! M24 (`psk_adversarial::corpus`, siehe dortigen Modulkopf): die
 //! Challenge-Phase wickelt sie als Arbeit ab, und Definition 14.2 (Phasen-Modul-Bindung)
-//! (Phasen-Modul-Bindung) ordnet der Challenge-Phase genau M24 zu. Hier
+//! ordnet der Challenge-Phase genau M24 zu. Hier
 //! bleibt, was Domaenensache ist - Dateipfade, Zeilenform, Praedikat-
 //! auswertung -, dieselbe Trennung wie bei `ir_assembly` (Lader hier,
 //! Zusammenbau in M23).

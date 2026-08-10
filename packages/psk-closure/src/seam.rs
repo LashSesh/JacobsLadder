@@ -11,8 +11,8 @@
 //!                                    severity: blocking}
 //! ```
 //!
-//! Vertrag 7.31 (Kein halluziniertes Gluing) und Invariante 11.14 (Eindeutigkeit der Verklebung)
-//! (Eindeutigkeit der Verklebung): "Der Compiler DARF NICHT zwischen
+//! Vertrag 7.31 (Kein halluziniertes Gluing) und Invariante 11.14 (Eindeutigkeit der Verklebung):
+//! "Der Compiler DARF NICHT zwischen
 //! mehreren globalen Sektionen waehlen; Mehrdeutigkeit ist ein Defekt und
 //! erzeugt PSK-E011." Deshalb gibt `unique_global_section` keinen "besten"
 //! Kandidaten zurueck, sondern scheitert bei Mehrdeutigkeit.
