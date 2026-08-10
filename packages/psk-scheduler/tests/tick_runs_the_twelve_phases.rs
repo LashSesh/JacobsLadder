@@ -1,4 +1,4 @@
-//! Algorithmus 14.4 (Tick) end-to-end: `select(phase, state)` leitet die
+//! Algorithmus 14.5 (Tick) end-to-end: `select(phase, state)` leitet die
 //! Arbeit aus dem gesaeten Zustand ab, die Phasen laufen in kanonischer
 //! Folge, jedes Produkt faellt nach Sigma zurueck. Plus T-REPLAY-002s
 //! Negativnachweis (Regel 22.3 (Replay laeuft unter shadow)).
@@ -102,7 +102,7 @@ fn every_phase_is_sealed_even_when_empty() {
     assert_eq!(sigma.tick_no, 1);
 }
 
-/// Algorithmus 14.4 (Tick): "if budget.exhausted: M19.residue(item, kind:
+/// Algorithmus 14.5 (Tick): "if budget.exhausted: M19.residue(item, kind:
 /// budget); continue" - das Element laeuft nicht, der Lauf schon.
 #[test]
 fn an_exhausted_budget_residualizes_the_item_instead_of_dispatching_it() {

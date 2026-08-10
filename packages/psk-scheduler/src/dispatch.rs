@@ -1,4 +1,4 @@
-//! `dispatch(phase, item, state)` (Algorithmus 14.4 (Tick)). Fuer jede Phase die
+//! `dispatch(phase, item, state)` (Algorithmus 14.5 (Tick)). Fuer jede Phase die
 //! reale Modulfunktion, die Definition 14.2 (Phasen-Modul-Bindung) ihr
 //! zuordnet.
 //!
@@ -19,14 +19,15 @@
 //! | Reconcile | M18 | `psk_reconciliation::reconcile` |
 //! | Archive | M19 | Sammelschritt ueber dem Residuenstand (`seal_phase`/`close_tick` laufen in `tick()`, nicht hier) |
 //!
-//! Die Praegung (M06) laeuft nach Regel 5.9 (Kandidat und Gedankenkoerper)
-//! in der ANCHOR-Phase ("Praegung ebendort"), obwohl Definition 14.2 (Phasen-Modul-Bindung) der
-//! Anchor-Phase M05/M07 zuordnet - die speziellere und juengere Regel
-//! entscheidet die Phasenlage der Praegung ausdruecklich. Ebenso laeuft
-//! das Verkleben (M11) als Teil von Schritt 6 in der Compile-Phase: Regel
-//! 24.4 ordnet Schritt 6 compile/challenge zu, und die Zellclosure ueber
-//! dem Compile-Graphen ist die Eingabeableitung des Verklebens
-//! (`cells_closed` ist ein Messwert, keine Behauptung).
+//! Die Praegung (M06) in der ANCHOR-Phase und das Verkleben (M11) in der
+//! Compile-Phase standen bis v1.0.39 in einem scheinbaren Konflikt mit
+//! Definition 14.2 (Phasen-Modul-Bindung), deren Modulspalte beide nicht
+//! nannte. v1.0.40 hat die Spalte ergaenzt: Anchor fuehrt jetzt M05, M06,
+//! M07 ("hier wird der ThoughtBody gepraegt"), Compile fuehrt M10, M11,
+//! M23 ("M11 verklebt, soweit der Kandidatenbau es verlangt"). Die
+//! Zuordnung war richtig, die Spalte unvollstaendig - kein Konflikt mehr,
+//! der abzuwaegen waere. `cells_closed` bleibt ein Messwert, keine
+//! Behauptung.
 //!
 //! ## Verbleibende dokumentierte Luecken
 //!
@@ -57,9 +58,9 @@
 //! Praegung), und ein Verweis, der nicht aufloest, scheitert typisiert
 //! mit `UntypedInput` statt still.
 //!
-//! ## Lesende und schreibende Arme (Regel 14.7 (Nebenläufigkeitsmodell))
+//! ## Lesende und schreibende Arme (Regel 14.8 (Nebenläufigkeitsmodell))
 //!
-//! Regel 14.7 (Nebenläufigkeitsmodell) laesst Nebenlaeufigkeit "ausschliesslich fuer Operationen
+//! Regel 14.8 (Nebenläufigkeitsmodell) laesst Nebenlaeufigkeit "ausschliesslich fuer Operationen
 //! ohne gemeinsamen SCHREIBzustand" zu. Verweisaufloesung ist Lesen.
 //! Deshalb gibt es zwei Einstiege: `dispatch_readonly(phase, work,
 //! &Sigma, time)` fuer die freigegebenen Arme (aufloesen + rechnen, kein
@@ -230,7 +231,7 @@ pub enum DispatchOutcome {
     ResiduesGathered(Vec<ObjectId>),
 }
 
-/// `result` aus Algorithmus 14.4 (Tick): das aeussere Traceseg­ment (falls die
+/// `result` aus Algorithmus 14.5 (Tick): das aeussere Traceseg­ment (falls die
 /// aufgerufene Funktion nicht bereits selbst eines schreibt) plus das
 /// Ergebnis fuer `apply()`.
 pub struct DispatchResult {
@@ -258,7 +259,7 @@ fn seg(
     })
 }
 
-/// Regel 14.7 (Nebenlaeufigkeitsmodell): welche Arbeitsarten OHNE
+/// Regel 14.8 (Nebenläufigkeitsmodell): welche Arbeitsarten OHNE
 /// gemeinsamen Schreibzustand rechnen. Die fuenf schreibenden sind im
 /// Modulkopf aufgezaehlt und an ihren Match-Armen nachlesbar.
 pub fn concurrency_eligible(work: &PendingWork) -> bool {
@@ -578,7 +579,7 @@ fn assemble(state: &Sigma, time: DualTime) -> Result<crate::AssemblyRecord, PskE
 
 // ----------------------------------------------------------- Einstiege
 
-/// Die lesende Haelfte (Regel 14.7 (Nebenläufigkeitsmodell)): loest Verweise auf und rechnet,
+/// Die lesende Haelfte (Regel 14.8 (Nebenläufigkeitsmodell)): loest Verweise auf und rechnet,
 /// OHNE Sigma veraendern zu koennen - sie bekommt kein `&mut`. Gibt
 /// `UntypedInput` fuer jede nicht freigegebene Arbeitsart zurueck.
 pub fn dispatch_readonly(

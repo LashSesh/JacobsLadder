@@ -1,11 +1,11 @@
-//! Regel 14.7 (Nebenlaeufigkeitsmodell), woertlich: "Nebenlaeufigkeit ist
+//! Regel 14.8 (Nebenläufigkeitsmodell), woertlich: "Nebenlaeufigkeit ist
 //! zulaessig innerhalb einer Phase und ausschliesslich fuer Operationen
 //! ohne gemeinsamen Schreibzustand. Die Ergebnisse werden vor der
 //! Anwendung in die deterministische Ordnung der Prioritaetsregel
 //! zurueckgesortiert. Der beobachtbare Effekt ist identisch zur
 //! sequentiellen Ausfuehrung."
 //!
-//! Invariante 14.8 (Serialisierbarkeit): "Fuer jeden nebenlaeufigen Lauf
+//! Invariante 14.9 (Serialisierbarkeit): "Fuer jeden nebenlaeufigen Lauf
 //! existiert eine sequentielle Ausfuehrung mit identischem kanonischen
 //! Zustandsdigest und identischer Tracefolge."
 //!
@@ -40,10 +40,10 @@
 //! Residuum vermerkt? Nein: sie werden GAR NICHT eingereiht - diese
 //! Funktion reiht nur Elemente ein, deren Verweise am Phasenanfang
 //! aufloesen (`resolves_at_phase_start`), und laesst die uebrigen fuer
-//! den naechsten Takt stehen. Das ist Regel 14.7 (Nebenläufigkeitsmodell)s eigener Preis:
+//! den naechsten Takt stehen. Das ist Regel 14.8 (Nebenläufigkeitsmodell)s eigener Preis:
 //! Nebenlaeufigkeit ohne gemeinsamen Zustand kann keine Intra-Phase-
 //! Kette sehen. Der beobachtbare ENDZUSTAND ueber genuegend Takte bleibt
-//! identisch (Invariante 14.8 (Serialisierbarkeit) verlangt Gleichheit zu EINER sequentiellen
+//! identisch (Invariante 14.9 (Serialisierbarkeit) verlangt Gleichheit zu EINER sequentiellen
 //! Ausfuehrung - der mit derselben Einreihung).
 
 use psk_trace::RunDescriptor;
@@ -57,7 +57,7 @@ use crate::{
 /// Wie die nebenlaeufig berechneten Ergebnisse angewandt werden.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResultOrder {
-    /// Regel 14.7 (Nebenläufigkeitsmodell): zurueck in die Ordnung der Prioritaetsregel.
+    /// Regel 14.8 (Nebenläufigkeitsmodell): zurueck in die Ordnung der Prioritaetsregel.
     ByPriority,
     /// NUR fuer den Negativnachweis von T-CONC-001: in der Reihenfolge
     /// der FERTIGSTELLUNG statt der Prioritaet - also genau ohne den
@@ -97,7 +97,7 @@ fn resolves_at_phase_start(work: &PendingWork, state: &Sigma) -> bool {
     }
 }
 
-/// Algorithmus 14.4 (Tick) mit phaseninterner Nebenlaeufigkeit nach Regel 14.7 (Nebenläufigkeitsmodell).
+/// Algorithmus 14.5 (Tick) mit phaseninterner Nebenlaeufigkeit nach Regel 14.8 (Nebenläufigkeitsmodell).
 /// Keine Effektleitungen im Parameter: die nebenlaeufige Bahn laesst nur
 /// lesende Arbeit zu (siehe Modulkopf), und die Leitung spricht allein
 /// der schreibende `ExecuteRun`-Arm - ein Leitungsparameter hier waere

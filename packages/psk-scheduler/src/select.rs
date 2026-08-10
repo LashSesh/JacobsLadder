@@ -1,5 +1,5 @@
-//! M25 Scheduler: `queue = M25.select(phase, state)` (Algorithmus 14.4 (Tick),
-//! "deterministische Auswahl") und die Prioritaetsordnung (Regel 14.5 (Prioritätsordnung)).
+//! M25 Scheduler: `queue = M25.select(phase, state)` (Algorithmus 14.5 (Tick),
+//! "deterministische Auswahl") und die Prioritaetsordnung (Regel 14.6 (Prioritätsordnung)).
 //!
 //! Eine fruehere Fassung nahm "statt dessen direkt die bereits
 //! identifizierten anstehenden Elemente entgegen" und verwies die
@@ -13,7 +13,7 @@
 //!
 //! ## Ordnung: Pflichtabhaengigkeiten, dann Raenge, dann ObjectId
 //!
-//! Regel 14.5 (Prioritätsordnung) beginnt mit "Prioritaet entsteht aus Pflichtabhaengigkeiten,
+//! Regel 14.6 (Prioritätsordnung) beginnt mit "Prioritaet entsteht aus Pflichtabhaengigkeiten,
 //! nicht aus rhetorischer Dringlichkeit" und nennt DANN die sechs Raenge;
 //! "bei Gleichrang entscheidet die aufsteigende ObjectId". Ein Element,
 //! das die Eingabe eines anderen erzeugt (AnchorBind vor der Praegung,
@@ -33,14 +33,14 @@
 //! bis zum Kapselfixpunkt oder RESIDUAL kommt, ueberlebt in
 //! `Sigma.capsules` und steht im naechsten Takt unter Rang 5
 //! ("bestehende Kapseln im Ratchet") wieder an - genau der Mechanismus,
-//! den Regel 14.5 (Prioritätsordnung) fuer sie vorsieht.
+//! den Regel 14.6 (Prioritätsordnung) fuer sie vorsieht.
 
 use psk_types::objects::{GateId, GateReportDecisionKind, SortId};
 use psk_types::{Digest, ObjectId, Phase, CANONICAL_PHASES};
 
 use crate::{PendingWork, ResourceKind, Sigma};
 
-/// Die sechs Raenge aus Regel 14.5 (Prioritätsordnung), in der im Text genannten Reihenfolge.
+/// Die sechs Raenge aus Regel 14.6 (Prioritätsordnung), in der im Text genannten Reihenfolge.
 /// `Ord` sortiert nach Deklarationsreihenfolge - Rang 1 ist der kleinste
 /// Diskriminant und damit (aufsteigend sortiert) der erste.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -63,7 +63,7 @@ pub struct SchedulableItem {
     /// Ordnung, weil Elemente unterschiedlicher Raenge bereits durch `tier`
     /// entschieden sind.
     pub expires_at_tau_i: Option<u64>,
-    /// Stellung in der Pflichtabhaengigkeitskette der Phase (Regel 14.5 (Prioritätsordnung)
+    /// Stellung in der Pflichtabhaengigkeitskette der Phase (Regel 14.6 (Prioritätsordnung)
     /// Satz 1) - 0, wo keine Abhaengigkeit besteht. Ordnet VOR der
     /// ObjectId: zwei Elemente, von denen eines die Eingabe des anderen
     /// erzeugt, stehen nicht im Gleichrang.
@@ -80,7 +80,7 @@ pub struct QueuedItem {
     pub work: PendingWork,
 }
 
-/// Regel 14.5 (Prioritätsordnung) als totale Ordnung: `tier` aufsteigend, dann
+/// Regel 14.6 (Prioritätsordnung) als totale Ordnung: `tier` aufsteigend, dann
 /// `obligation_rank` (Satz 1), dann `expires_at_tau_i` aufsteigend, dann
 /// die ObjectId in ihrer Bytedarstellung (`to_string()` liefert
 /// "psk:<sorte>:<digest>" - lexikographisch auf dieser Zeichenkette ist
@@ -106,10 +106,10 @@ fn work_id(phase: Phase, tag: &str) -> ObjectId {
     )
 }
 
-/// Die Einheitskosten eines Arbeitselements (Definition 14.9 (Ressourcenklassen): Compute).
+/// Die Einheitskosten eines Arbeitselements (Definition 14.10 (Ressourcenklassen): Compute).
 /// Eine feinere Kostenzuordnung je Arbeitsart waere eine eigene, hier
 /// nicht getroffene Deklarationsentscheidung - die Belastung selbst
-/// (Algorithmus 14.4 (Tick): "budget = M25.charge(item)") laeuft real.
+/// (Algorithmus 14.5 (Tick): "budget = M25.charge(item)") laeuft real.
 const UNIT_COST: (ResourceKind, u64) = (ResourceKind::Compute, 1);
 
 fn item(phase: Phase, tag: &str, tier: PriorityTier, rank: u32, work: PendingWork) -> QueuedItem {
@@ -145,7 +145,7 @@ fn object_item(
 }
 
 /// `M25.select(phase, state)`: leitet die anstehende Arbeit der Phase aus
-/// Sigma ab und ordnet sie nach Regel 14.5 (Prioritätsordnung). Jede Bedingung liest
+/// Sigma ab und ordnet sie nach Regel 14.6 (Prioritätsordnung). Jede Bedingung liest
 /// Fortschrittsmarken des Zustands - was erledigt ist, steht nicht mehr
 /// an; ein Lauf ohne offene Arbeit liefert ueberall leere Warteschlangen
 /// (siehe `has_pending_work`).
@@ -504,7 +504,7 @@ pub fn select(phase: Phase, state: &Sigma) -> Vec<QueuedItem> {
                     && state.program.patch_plan.is_some()
                 {
                     // Ein unversoehnter Effekt IST "offene Reconciliation"
-                    // (Regel 14.5 (Prioritätsordnung), Rang 1).
+                    // (Regel 14.6 (Prioritätsordnung), Rang 1).
                     queue.push(object_item(
                         attempt.id,
                         UnknownEffectOrOpenReconciliation,
@@ -532,8 +532,7 @@ pub fn select(phase: Phase, state: &Sigma) -> Vec<QueuedItem> {
     order_queue(queue)
 }
 
-/// Ordnet eine abgeleitete Warteschlange nach Regel 14.5 (siehe
-/// `priority_order`), ohne die Nutzlast zu duplizieren.
+/// Ordnet eine abgeleitete Warteschlange nach Regel 14.6 (Prioritätsordnung), ohne die Nutzlast zu duplizieren.
 pub(crate) fn order_queue(mut queue: Vec<QueuedItem>) -> Vec<QueuedItem> {
     let schedulables: Vec<SchedulableItem> = queue.iter().map(|q| q.schedulable).collect();
     let ordered = priority_order(schedulables);
@@ -622,7 +621,7 @@ mod tests {
         assert_eq!(out[0].tier, PriorityTier::UnknownEffectOrOpenReconciliation);
     }
 
-    /// Regel 14.5 (Prioritätsordnung) Satz 1: Pflichtabhaengigkeiten ordnen VOR der ObjectId.
+    /// Regel 14.6 (Prioritätsordnung) Satz 1: Pflichtabhaengigkeiten ordnen VOR der ObjectId.
     /// Die Gegenprobe steckt im Aufbau: Rang 1 bekommt das Element mit
     /// der lexikographisch KLEINEREN ID - ohne den Rang kaeme es zuerst.
     #[test]

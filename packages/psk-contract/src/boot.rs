@@ -105,7 +105,7 @@ pub struct BootInputs {
     pub bound_at: DualTime,
     pub trace_ref: TraceRef,
     pub replay_descriptor: ReplayDescriptor,
-    /// Die deklarierten Ressourcengrenzen dieses Laufs (Vertrag 14.11:
+    /// Die deklarierten Ressourcengrenzen dieses Laufs (Vertrag 14.12 (Keine implizite Unendlichkeit):
     /// "Jede Klasse besitzt ein deklariertes Limit"). Vom Aufrufer
     /// geliefert, nicht hier erfunden - dasselbe Muster wie
     /// `trace`/`residues`, die ebenfalls von aussen kommen. Sie sind Teil
@@ -444,7 +444,7 @@ pub fn default_inputs(
 }
 
 /// Ein deklariertes, ENDLICHES Vorgabebudget fuer Aufrufer, die kein
-/// eigenes mitbringen. Vertrag 14.11 ("Keine implizite Unendlichkeit")
+/// eigenes mitbringen. Vertrag 14.12 (Keine implizite Unendlichkeit)
 /// verlangt fuer jede Klasse ein deklariertes Limit - der Wert hier ist
 /// bewusst konkret und endlich, nicht `u64::MAX`: ein Vorgabewert darf
 /// bequem sein, aber nicht die Erschoepfungssemantik aushebeln. Wer reale

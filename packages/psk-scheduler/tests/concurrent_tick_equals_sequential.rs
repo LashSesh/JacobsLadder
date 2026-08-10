@@ -1,13 +1,13 @@
 //! T-CONC-001 (`architecture/ra_tests.yaml`: `{kind: property, run:
 //! concurrent_dispatch, expect: canonical_digest_equals_sequential}`) /
-//! Regel 14.7 (Nebenlaeufigkeitsmodell) / Invariante 14.8 (Serialisierbarkeit)
+//! Regel 14.8 (Nebenläufigkeitsmodell) / Invariante 14.9 (Serialisierbarkeit)
 //! (Serialisierbarkeit).
 //!
 //! Die Saat: mehrere deponierte Records MIT gebundener Provenienz. Die
 //! Anchor-Phase leitet daraus je ein `AnchorBind` ab - freigegebene,
 //! voneinander unabhaengige Arbeit, deren ANWENDUNGSREIHENFOLGE aber
 //! zaehlt (`apply` haengt jeden Anker an `Sigma.anchors` an). Genau die
-//! Lage, die Regel 14.7 (Nebenläufigkeitsmodell)s Ruecksortierschritt ordnet: die abgeleiteten
+//! Lage, die Regel 14.8 (Nebenläufigkeitsmodell)s Ruecksortierschritt ordnet: die abgeleiteten
 //! Kennungen (Digests der Ableitungstags) sind gegen die Saatreihenfolge
 //! effektiv verwuerfelt, also unterscheidet sich die Prioritaetsordnung
 //! deterministisch von jeder anderen - und der Negativnachweis traegt
@@ -66,7 +66,7 @@ fn t_conc_001_a_concurrent_tick_yields_the_same_canonical_digest_as_the_sequenti
 fn skipping_the_reordering_step_yields_a_different_digest() {
     // Die zweite Richtung. Ohne sie koennte der Test oben auch gruen sein,
     // weil die Nebenlaeufigkeit nie greift oder die Reihenfolge ohnehin
-    // nie abweicht - dann bewiese er nichts ueber Regel 14.7 (Nebenläufigkeitsmodell)s
+    // nie abweicht - dann bewiese er nichts ueber Regel 14.8 (Nebenläufigkeitsmodell)s
     // Ruecksortierschritt.
     let expected = sequential_digest();
 
@@ -91,7 +91,7 @@ fn skipping_the_reordering_step_yields_a_different_digest() {
 
 #[test]
 fn the_concurrent_run_is_reproducible_across_repeats() {
-    // Invariante 14.8 (Serialisierbarkeit) verlangt nicht nur EINE
+    // Invariante 14.9 (Serialisierbarkeit) verlangt nicht nur EINE
     // sequentielle Entsprechung, sondern eine stabile: wiederholte
     // nebenlaeufige Laeufe muessen untereinander gleich sein, sonst
     // haenge das Ergebnis doch am Scheduling.
@@ -110,7 +110,7 @@ fn the_concurrent_run_is_reproducible_across_repeats() {
 
 #[test]
 fn the_trace_chain_is_identical_too_not_merely_the_state_digest() {
-    // Invariante 14.8 (Serialisierbarkeit) nennt beides: "identischem kanonischen
+    // Invariante 14.9 (Serialisierbarkeit) nennt beides: "identischem kanonischen
     // Zustandsdigest UND identischer Tracefolge". Der Zustandsdigest
     // allein liesse eine abweichende Anhaengereihenfolge durchgehen, wenn
     // sie sich im Zustand nicht niederschluege.
@@ -145,7 +145,7 @@ fn the_trace_chain_is_identical_too_not_merely_the_state_digest() {
 
 #[test]
 fn the_five_stateful_work_kinds_are_excluded_from_concurrency() {
-    // Regel 14.7 (Nebenläufigkeitsmodell): "ausschliesslich fuer Operationen ohne gemeinsamen
+    // Regel 14.8 (Nebenläufigkeitsmodell): "ausschliesslich fuer Operationen ohne gemeinsamen
     // Schreibzustand". Die Aufzaehlung ist hier festgenagelt, damit eine
     // spaetere Erweiterung von PendingWork nicht stillschweigend etwas
     // Zustandsbehaftetes freigibt.

@@ -3,11 +3,11 @@
 //! Regel 32.1 (Eine Phasenordnung)). Ausimplementierung folgt in der Phase, die das jeweilige
 //! Modul realisiert (Regel 32.2 (Phasenabhängigkeit der Passfolge)).
 //!
-//! WP14 (I5): `select` (Regel 14.5 (Prioritätsordnung) - Prioritaetsordnung, total und
-//! replaystabil), `budget` (Struktur 14.10 (BudgetLedger)/Vertrag 14.11 (Keine implizite Unendlichkeit) - Ressourcen- und
+//! WP14 (I5): `select` (Regel 14.6 (Prioritätsordnung) - Prioritaetsordnung, total und
+//! replaystabil), `budget` (Struktur 14.11 (BudgetLedger)/Vertrag 14.12 (Keine implizite Unendlichkeit) - Ressourcen- und
 //! Risikobudgets, HOLD statt stillem Saettigen).
 //!
-//! v1.0.19-Umsetzung: Algorithmus 14.4 (Tick) selbst, real. Seit der
+//! v1.0.19-Umsetzung: Algorithmus 14.5 (Tick) selbst, real. Seit der
 //! Taktumverdrahtung (Regel 24.4 (Der Golden Run läuft unter tick)) in
 //! der WOERTLICHEN Form des Algorithmus: `select(phase, state)` leitet
 //! die Warteschlange je Phase aus Sigma ab (die vorbefuellten

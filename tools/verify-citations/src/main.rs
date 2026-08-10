@@ -96,7 +96,7 @@ const NAMESPACES: [&str; 2] = ["QPM", "CPSK"];
 /// erreichten Stand nicht mehr. Genau wie die Testuntergrenzen wird sie
 /// von Hand gepflegt, weil eine automatisch nachgezogene Grenze keine
 /// Grenze ist.
-const UNTITLED_CEILING: usize = 883;
+const UNTITLED_CEILING: usize = 869;
 
 const KINDS: [&str; 8] = [
     "Struktur",

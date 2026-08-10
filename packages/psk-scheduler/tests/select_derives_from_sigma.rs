@@ -1,4 +1,4 @@
-//! `M25.select(phase, state)` (Algorithmus 14.4 (Tick)): die Ableitung der
+//! `M25.select(phase, state)` (Algorithmus 14.5 (Tick)): die Ableitung der
 //! Phasenarbeit aus Sigma, an den Fortschrittsmarken gemessen - was
 //! ansteht, steht im Zustand; was erledigt ist, steht nicht mehr an.
 
@@ -9,7 +9,7 @@ use psk_scheduler::{has_pending_work, select, tick, PendingWork, Profiling, Sigm
 use psk_types::objects::ProfileId;
 use psk_types::{Phase, CANONICAL_PHASES};
 
-/// Regel 14.5 (Prioritätsordnung) Satz 1 ("Prioritaet entsteht aus Pflichtabhaengigkeiten")
+/// Regel 14.6 (Prioritätsordnung) Satz 1 ("Prioritaet entsteht aus Pflichtabhaengigkeiten")
 /// an der Anchor-Phase: Versiegeln (Rang 0) vor Praegung (Rang 1) vor
 /// Klassifikation (Rang 2) - die Kette, die Regel 5.9 (Kandidat und Gedankenkörper) mit "Praegung
 /// ebendort" in EINE Phase legt.

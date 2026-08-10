@@ -1,7 +1,7 @@
-//! M25 Scheduler, Ressourcen- und Risikobudgets (Struktur 14.10,
+//! M25 Scheduler, Ressourcen- und Risikobudgets (Struktur 14.11 (BudgetLedger),
 //! BudgetLedger).
 //!
-//! BudgetLedger traegt kein `id`-Feld (Struktur 14.10 fuehrt keines) und
+//! BudgetLedger traegt kein `id`-Feld (Struktur 14.11 (BudgetLedger) fuehrt keines) und
 //! ist damit kein kanonisches Kapitel-7-Objekt - es lebt nur als
 //! Laufzeitzustand, nicht als inhaltsadressiertes Objekt. Es bleibt deshalb
 //! hier ein reiner Rust-Typ, ohne Registrierung in object_schemas.yaml.
@@ -14,19 +14,19 @@
 //! ist BudgetLedger dort ein eigenes, ausdruecklich als Zusatz markiertes
 //! Feld (`Sigma::budget`), keine Unterposition von `Ft` (Feldregister).
 //!
-//! Vertrag 14.11 (Keine implizite Unendlichkeit): "Jede Klasse besitzt ein
+//! Vertrag 14.12 (Keine implizite Unendlichkeit): "Jede Klasse besitzt ein
 //! deklariertes Limit; Erschoepfung erzeugt HOLD und ein ResidueRecord des
 //! Typs budget." `policy_on_exhaustion: HOLD # niemals silent_drop` -
 //! `charge` wendet die Belastung deshalb NICHT an, wenn sie das Limit
 //! ueberschreiten wuerde (kein Teilverbrauch, kein stilles Sattigen);
 //! der Aufrufer erhaelt `Exhausted` und MUSS mit HOLD + ResidueRecord(budget)
-//! reagieren (Algorithmus 14.4: "if budget.exhausted: M19.residue(item,
+//! reagieren (Algorithmus 14.5 (Tick): "if budget.exhausted: M19.residue(item,
 //! kind: budget); continue").
 
 use psk_types::objects::Scaled;
 use psk_types::RunId;
 
-/// Eine der sieben ganzzahligen Ressourcenklassen aus Definition 14.9.
+/// Eine der sieben ganzzahligen Ressourcenklassen aus Definition 14.10 (Ressourcenklassen).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize)]
 pub struct ResourceClass {
     pub limit: u64,
@@ -34,7 +34,7 @@ pub struct ResourceClass {
 }
 
 /// Die Risikoklasse: einzige nichtganzzahlige Klasse, deshalb `Scaled`
-/// statt `u64` (Struktur 14.10, Feld `risk`).
+/// statt `u64` (Struktur 14.11 (BudgetLedger), Feld `risk`).
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct RiskClass {
     pub limit: Scaled,
@@ -44,7 +44,7 @@ pub struct RiskClass {
 /// `Serialize` (nicht `Deserialize`): das Ledger ist Teil von Sigma und
 /// geht damit in `I_t = H(Can(Sigma_t))` ein (siehe `sigma::sigma_digest`).
 /// Ein Budgetstand entsteht ueber `open`/`charge`, nie durch Einspielen -
-/// sonst waere Vertrag 14.11 (Keine implizite Unendlichkeit) umgehbar.
+/// sonst waere Vertrag 14.12 (Keine implizite Unendlichkeit) umgehbar.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct BudgetLedger {
     pub run_id: RunId,
@@ -61,7 +61,7 @@ pub struct BudgetLedger {
 impl BudgetLedger {
     /// Eroeffnet ein Ledger mit den sieben deklarierten Limits und
     /// `used: 0` in jeder Klasse - "jede Klasse besitzt ein deklariertes
-    /// Limit" (Vertrag 14.11); ein Ledger ohne Limit ist mit diesem
+    /// Limit" (Vertrag 14.12 (Keine implizite Unendlichkeit)); ein Ledger ohne Limit ist mit diesem
     /// Konstruktor nicht baubar.
     #[allow(clippy::too_many_arguments)]
     pub fn open(
@@ -207,7 +207,7 @@ mod tests {
             charge(&mut l, ResourceKind::Compute, 150),
             ChargeOutcome::Exhausted(ResourceKind::Compute)
         );
-        // Vertrag 14.11: kein stilles Saettigen - used bleibt bei 0, nicht 100.
+        // Vertrag 14.12 (Keine implizite Unendlichkeit): kein stilles Saettigen - used bleibt bei 0, nicht 100.
         assert_eq!(l.compute.used, 0);
     }
 

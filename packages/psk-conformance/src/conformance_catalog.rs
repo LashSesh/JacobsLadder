@@ -163,7 +163,7 @@
 //!   sequentiellen): real gruen getestet in `psk-scheduler/tests/
 //!   concurrent_tick_equals_sequential.rs::t_conc_001_a_concurrent_tick_
 //!   yields_the_same_canonical_digest_as_the_sequential_one`.
-//!   `tick_concurrent` (psk-scheduler::concurrent) setzt Regel 14.7 (Nebenläufigkeitsmodell)s drei
+//!   `tick_concurrent` (psk-scheduler::concurrent) setzt Regel 14.8 (Nebenläufigkeitsmodell)s drei
 //!   Saetze je einzeln um: Nebenlaeufigkeit nur INNERHALB einer Phase;
 //!   nur fuer Operationen ohne gemeinsamen Schreibzustand
 //!   (`concurrency_eligible` zaehlt die vier Ausnahmen abschliessend auf,
@@ -182,7 +182,7 @@
 //!   nicht divergieren, und nicht aus Glueck - `TraceStore::append` nimmt
 //!   `&mut self`, `Sigma` wird nie geteilt, kein Thread KANN anhaengen.
 //!   Alle Segmente entstehen in der sequentiellen Anwendungsschleife in
-//!   `select()`-Ordnung. Der Grund ist Regel 14.7 (Nebenläufigkeitsmodell)s eigener: der Trace IST
+//!   `select()`-Ordnung. Der Grund ist Regel 14.8 (Nebenläufigkeitsmodell)s eigener: der Trace IST
 //!   gemeinsamer Schreibzustand, also ist Anhaengen keine freigegebene
 //!   Operation - es braucht keine Sperre, weil es keinen Wettlauf gibt.
 //!

@@ -134,7 +134,7 @@ impl EffectAdapter for Box<dyn EffectAdapter + Send> {
 /// `&mut` in `line`: wer die Leitung bekommt, haelt sie exklusiv -
 /// dieselbe Klammer-Begruendung wie bei `prestate`/`apply` oben. Kein
 /// `Send`-Bund: `ExecuteRun` ist nicht nebenlaeufigkeitsfaehig
-/// (gemeinsamer Schreibzustand, Regel 14.7 (Nebenläufigkeitsmodell)), die Leitung wechselt also
+/// (gemeinsamer Schreibzustand, Regel 14.8 (Nebenläufigkeitsmodell)), die Leitung wechselt also
 /// nie den Thread - ein Bund ohne Nutzer waere eine Anforderung, die
 /// echte Kindprozess-Handles grundlos ausschloesse.
 pub trait EffectLines {

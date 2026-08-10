@@ -1,5 +1,5 @@
 //! M19 TraceReplayResidueStore, Takt-Teil: `open_tick`/`seal_phase`/
-//! `close_tick` aus Algorithmus 14.4 (Tick).
+//! `close_tick` aus Algorithmus 14.5 (Tick).
 //!
 //! Keines der drei war vor v1.0.19-Umsetzung real - nicht einmal als
 //! Zitat ausserhalb des Pseudocodes selbst (anders als z.B. `dispatch()`,
@@ -13,7 +13,7 @@
 //! `close_tick` sind duenne, ehrliche Wrapper um `TraceStore::append` mit
 //! festen `EventTypeId`-Werten - keine zweite, parallele Speicherform
 //! neben der bereits bestehenden, hashverketteten Segmentfolge. `t`
-//! (Algorithmus 14.4s Rueckgabewert von `open_tick`) ist hier `TickHandle`:
+//! (Algorithmus 14.5 (Tick)s Rueckgabewert von `open_tick`) ist hier `TickHandle`:
 //! traegt `tick_no` und die wanduhrfreie Taktkennung, die
 //! `seal_phase`/`close_tick` als `payload_digest` weiterreichen - siehe
 //! dessen Kommentar fuer den gemessenen Grund, warum dort NICHT der
@@ -25,7 +25,7 @@ use psk_types::{Digest, DualTime, ModuleId, Phase, PskError};
 
 use crate::{SegmentInputs, TraceStore};
 
-/// Rueckgabewert von `open_tick` (Algorithmus 14.4s `t`). Kein kanonisches
+/// Rueckgabewert von `open_tick` (Algorithmus 14.5 (Tick)s `t`). Kein kanonisches
 /// Kapitel-7-Objekt (keine ObjectId, kein Schema) - ein reiner
 /// Laufzeit-Handle fuer die Dauer eines einzelnen Takts.
 ///

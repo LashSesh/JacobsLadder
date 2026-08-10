@@ -542,7 +542,7 @@ fn check_package_cycle(regs: &Registers) -> Option<String> {
 /// psk-contract-Funde, alle drei durch eine numerierte Algorithmus-17.1-
 /// Stelle im tatsaechlichen Code belegt, keine erratene Ausnahme.
 ///
-/// v1.0.19-Umsetzung: psk-scheduler implementiert Algorithmus 14.4 (tick(),
+/// v1.0.19-Umsetzung: psk-scheduler implementiert Algorithmus 14.5 (Tick),
 /// zwoelf Phasen) und ist damit - trotz nomineller M25-Ownership - derselbe
 /// Fall wie psk-contract: ein Orchestrator, der modulueberschreitend in
 /// bereits vorhandene Funktionen anderer Module hineinruft, weil genau das
@@ -974,7 +974,7 @@ mod tests {
         // vollstaendig entfernt, nicht nur zu dev-dependencies verschoben
         // (die Tests brauchten sie ohnehin nur fuer einen Platzhalterwert,
         // jetzt per Struct-Literal statt `make_evidence`).
-        // psk-schedulers neun Kanten (v1.0.19, Algorithmus 14.4) sind ueber
+        // psk-schedulers neun Kanten (v1.0.19, Algorithmus 14.5 (Tick)) sind ueber
         // dieselbe `is_orchestrator`-Ausnahme wie psk-contract gedeckt, an
         // dispatch.rs verifiziert - siehe deren Kopfkommentar. T-PORT-001 ist
         // damit real gruen - alle Paketkanten sind portgedeckt oder
@@ -1011,10 +1011,11 @@ mod tests {
     #[test]
     fn without_the_orchestrator_exception_psk_scheduler_would_be_flagged() {
         // Zeigt, dass die v1.0.19-Ausnahme tatsaechlich traegt und nicht
-        // wirkungslos ist: psk-schedulers reale Cargo-Kanten (Algorithmus
-        // 14.4s dispatch()) sind ohne sie echte, nicht portgedeckte
-        // modulueberschreitende Kanten. Gegenprobe ueber dieselbe
-        // Pruefroutine, nur ohne die `is_orchestrator`-Vorabfilterung.
+        // wirkungslos ist: psk-schedulers reale Cargo-Kanten
+        // (Algorithmus 14.5 (Tick), sein dispatch()) sind ohne sie
+        // echte, nicht portgedeckte modulueberschreitende Kanten.
+        // Gegenprobe ueber dieselbe Pruefroutine, nur ohne die
+        // `is_orchestrator`-Vorabfilterung.
         let regs = regs_from_real_workspace();
         let scheduler_modules = regs
             .modules_of

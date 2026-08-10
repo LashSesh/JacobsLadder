@@ -1,4 +1,4 @@
-//! `tick(state, rd)` (Algorithmus 14.4 (Tick)), woertlich:
+//! `tick(state, rd)` (Algorithmus 14.5 (Tick)), woertlich:
 //! ```text
 //! function tick(state: Sigma, rd: RunDescriptor) -> Sigma:
 //!   t = M19.open_tick(state.tick_no, rd)
@@ -32,7 +32,18 @@
 //!
 //! ## Die drei verbleibenden Parameter neben (state, rd)
 //!
-//! Keiner traegt Planungsautoritaet oder Laufzustand:
+//! Regel 14.4 (Was tick außer Zustand und Laufvertrag entgegennimmt)
+//! deckt sie seit v1.0.40 ausdruecklich: eine Umsetzung DARF
+//! Zugriffsmittel entgegennehmen - "etwa gehaltene Effektleitungen, die
+//! Wanduhrquelle oder einen Profilingschalter" - sofern jedes davon
+//! (1) keine Planungsautoritaet traegt, (2) nicht Teil von Sigma ist und
+//! damit nicht in I_t eingeht, (3) am Aufrufpunkt begruendet ist. Die
+//! Regel benennt genau die drei hier stehenden und dreht die Richtung
+//! des Arguments um: "Die Wanduhr und Profilingdaten stehen ausdruecklich
+//! deshalb ausserhalb von Sigma, weil sie den kanonischen Digest nicht
+//! erreichen duerfen; sie hereinzureichen ist die FOLGE dieser Trennung,
+//! nicht ihre Verletzung." Die Punkt-fuer-Punkt-Begruendung unten IST die
+//! von Punkt 3 verlangte:
 //!
 //! - `lines` (`psk_effect::EffectLines`): die ANGESCHLOSSENEN Leitungen
 //!   der Effektgrenze - die Anwesenheit der Aussenwelt, kein Wert. Sie
@@ -85,7 +96,7 @@ pub(crate) fn budget_residue(
     Ok(())
 }
 
-/// Algorithmus 14.4 (Tick). Siehe Modulkopf fuer die Parameterlage.
+/// Algorithmus 14.5 (Tick). Siehe Modulkopf fuer die Parameterlage.
 pub fn tick(
     state: &mut Sigma,
     rd: &RunDescriptor,

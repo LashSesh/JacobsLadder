@@ -55,7 +55,7 @@ impl Phase {
 }
 
 /// Definition 14.1, als feste Reihenfolge. `tick()` iteriert genau darueber
-/// ("for phase in CANONICAL_PHASES: // feste Reihenfolge", Algorithmus 14.4).
+/// ("for phase in CANONICAL_PHASES: // feste Reihenfolge", Algorithmus 14.5 (Tick)).
 pub const CANONICAL_PHASES: [Phase; 12] = [
     Phase::Observe,
     Phase::Normalize,

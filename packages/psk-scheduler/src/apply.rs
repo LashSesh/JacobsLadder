@@ -1,10 +1,10 @@
-//! `apply(state, result)` (Algorithmus 14.4 (Tick)): faltet ein `DispatchOutcome`
+//! `apply(state, result)` (Algorithmus 14.5 (Tick)): faltet ein `DispatchOutcome`
 //! in `Sigma`.
 //!
 //! Eine fruehere Fassung liess Ergebnisse ohne eigene Sigma-Position
 //! (Provenance, Projektionen, DependencyProfile, Receipts, ...) mit
 //! `Ok(())` fallen - "ihre dauerhafte Spur ist der Trace". Diese
-//! Begruendung ist durch die Rueckkehr zu Algorithmus 14.4 (Tick)s woertlicher
+//! Begruendung ist durch die Rueckkehr zu Algorithmus 14.5 (Tick)s woertlicher
 //! Form ueberholt: `select(phase, state)` leitet Folgearbeit aus dem
 //! Zustand ab, also MUSS jedes Phasenprodukt, das eine spaetere Phase
 //! braucht, in Sigma ankommen ("was nicht in Sigma steht, gehoert

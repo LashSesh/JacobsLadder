@@ -30,12 +30,12 @@
 //!   verlangt. Gehoert hier und nicht auf `RunDescriptor` - `RunDescriptor`
 //!   ist bei Laufoeffnung versiegelt (`psk_trace::open_run`), waehrend
 //!   `tick_no` sich jeden Takt aendert.
-//! - `capsules`: Regel 14.5 (Prioritätsordnung) fuehrt "bestehende Kapseln im Ratchet" als
+//! - `capsules`: Regel 14.6 (Prioritätsordnung) fuehrt "bestehende Kapseln im Ratchet" als
 //!   eigenen Rang; eine Kapsel, die in einem Takt nicht bis zum
 //!   Kapselfixpunkt oder RESIDUAL kommt, MUSS im naechsten wieder
 //!   auffindbar sein.
-//! - `budget`: `BudgetLedger` (Struktur 14.10 (BudgetLedger)) - Algorithmus 14.4 (Tick) belastet
-//!   es jeden Takt, Vertrag 14.11 (Keine implizite Unendlichkeit) verlangt Sichtbarkeit ueber Takte hinweg.
+//! - `budget`: `BudgetLedger` (Struktur 14.11 (BudgetLedger)) - Algorithmus 14.5 (Tick) belastet
+//!   es jeden Takt, Vertrag 14.12 (Keine implizite Unendlichkeit) verlangt Sichtbarkeit ueber Takte hinweg.
 //! - `program` und die Phasenproduktfelder darunter: siehe naechster
 //!   Abschnitt.
 //!
@@ -46,7 +46,7 @@
 //! dauerhafte Spur ist der Trace"), und schloss: "Ein spaeterer Fund
 //! koennte das revidieren; diese Umsetzung erfindet keine zwoelfte
 //! Position ohne Textstelle." Der Fund ist eingetreten, und er kam mit
-//! der Rueckkehr zu Algorithmus 14.4 (Tick)s woertlicher Form: `M25.select(phase,
+//! der Rueckkehr zu Algorithmus 14.5 (Tick)s woertlicher Form: `M25.select(phase,
 //! state)` kann nur aus dem Zustand ableiten, was im Zustand steht.
 //! Die Entscheidung des Auftraggebers dazu, woertlich: "PendingWork-
 //! Varianten tragen Verweise statt eingebetteter Werte, soweit die Werte
@@ -280,7 +280,7 @@ pub struct CellReportSet {
 /// `Serialize` (nicht `Deserialize`): Grundlage von `I_t =
 /// H(Can(Sigma_t))`, siehe `sigma_digest` unten. Die Gegenrichtung fehlt
 /// bewusst - ein Laufzustand entsteht ausschliesslich durch `tick()`
-/// (Algorithmus 14.4 (Tick)) und das Deponieren seiner Eingaben, nie durch
+/// (Algorithmus 14.5 (Tick)) und das Deponieren seiner Eingaben, nie durch
 /// Einspielen eines fremden Werts; Invariante 13.3 (Keine Textzustandsübergänge) verlangt fuer jeden
 /// Zustandsuebergang einen Operator und einen GateReport, was eine
 /// Deserialisierung strukturell umginge.
@@ -332,7 +332,7 @@ impl Sigma {
     /// Ein frischer Laufzustand fuer einen soeben gebundenen Lauf (Boot-
     /// Schritt, vor dem ersten Takt): `tick_no: 0`, alle Sammlungen leer.
     /// `i` (die Implementierungsbindung) und `budget` (die deklarierten
-    /// Limits, Vertrag 14.11 (Keine implizite Unendlichkeit)) MUESSEN von aussen kommen - beide entstehen
+    /// Limits, Vertrag 14.12 (Keine implizite Unendlichkeit)) MUESSEN von aussen kommen - beide entstehen
     /// aus lauf-/domaenenspezifischen Werten, die dieser Konstruktor nicht
     /// erfinden darf (`i` am Boot ueber
     /// `psk_contract::identity_binder::build_runtime_manifest`, `budget`
