@@ -2,7 +2,7 @@
 //! ABGELEITETEM statt beanspruchtem Deckungsvektor.
 //!
 //! Tabelle 23.2: C4 ("Reference-validated") verlangt FC0-FC6 und FC8,
-//! `reference_validated`, mindestens R2 (Vertrag 22.4) und - seit Regel
+//! `reference_validated`, mindestens R2 (Vertrag 22.4 (Replayklasse des Referenzrelease)) und - seit Regel
 //! 7.50 - dass `scope` jede plattformgebundene Verpflichtungsaufloesung
 //! nennt, von der die beanspruchte Klasse abhaengt. Fuer C4 ist das
 //! OBL-010 (`blocking_from: C4`, `resolution_platform: windows`).
@@ -10,13 +10,13 @@
 //! Die Eingaben kommen so weit wie moeglich aus einem ECHTEN Lauf:
 //! `trace_head`, `replay_manifest_digest` und die Replayklasse stammen
 //! aus `run_golden_run_with_certificate`, die vier Identitaeten aus
-//! dessen realem `boot_report`. OBL-010s beide fuer Regel 7.50
+//! dessen realem `boot_report`. OBL-010s beide fuer Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat)
 //! massgeblichen Felder werden aus `architecture/obligations.yaml`
 //! GELESEN, nicht einprogrammiert - sonst prueft e der Test seine eigene
 //! Annahme statt des Registers.
 //!
 //! `feature_coverage` ist im Werk als "abgeleiteter Deckungsvektor"
-//! spezifiziert (Struktur 7.49). Der Versuch beansprucht ihn deshalb
+//! spezifiziert (Struktur 7.49 (MachineCertificate)). Der Versuch beansprucht ihn deshalb
 //! nicht mehr, sondern misst ihn an den Artefakten dieses Laufs
 //! (`collect_feature_evidence`) und leitet ihn daraus ab
 //! (`derive_feature_coverage`). Die Klasse folgt aus dem Vektor - sie
@@ -91,7 +91,7 @@ fn obl_010_from_register() -> ObligationPlatformBinding {
 /// Deckungsvektor" spezifiziert, und solange er beansprucht statt
 /// abgeleitet wird, ist die Klasse selbst beansprucht. Diese Funktion
 /// bleibt nur fuer die drei Gegenproben weiter unten stehen, deren
-/// Gegenstand Regel 7.50 ist: sie muessen den C4-Zweig erreichen, um
+/// Gegenstand Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat) ist: sie muessen den C4-Zweig erreichen, um
 /// zeigen zu koennen, dass die Plattformregel dort ueberhaupt feuert. Mit
 /// einem abgeleiteten Vektor, der C4 nicht traegt, wuerden sie zu leeren
 /// Gruenlaeufen - sie wuerden dann aus dem falschen Grund bestehen.
@@ -156,7 +156,7 @@ fn attempt_to_issue_a_c4_certificate_and_report_the_full_contents() {
     )
     .expect("die Berichte muessen sich aggregieren lassen");
 
-    println!("=== Aggregierte Berichte (Struktur 7.49) ===");
+    println!("=== Aggregierte Berichte (Struktur 7.49 (MachineCertificate)) ===");
     for r in [
         &reports.gate_report,
         &reports.residue_report,
@@ -335,7 +335,7 @@ fn attempt_to_issue_a_c4_certificate_and_report_the_full_contents() {
     );
 
     // Die EXECUTABLE-Frage, hier erst vollstaendig beantwortbar: der
-    // Zweitlauf fuellt den Replayschenkel von Close720 (Definition 22.1).
+    // Zweitlauf fuellt den Replayschenkel von Close720 (Definition 22.1 (Replayklassen)).
     // Antwort des Referenzlaufs: NEIN - und zwar nicht mehr an der
     // Topologie (alle 18 Zellen schliessen seit v1.0.34 real), sondern
     // am blockierenden Residuum des offenen Korpuswiderspruchs.
@@ -366,12 +366,12 @@ fn attempt_to_issue_a_c4_certificate_and_report_the_full_contents() {
     println!("\n(Versuch abgeschlossen - Ausgang oben.)");
 }
 
-/// Gegenprobe zu Regel 7.50 - ohne sie bliebe unbewiesen, dass die Regel
+/// Gegenprobe zu Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat) - ohne sie bliebe unbewiesen, dass die Regel
 /// im obigen Erfolgsfall ueberhaupt gefeuert hat statt bloss nicht
 /// gestoert zu haben.
 ///
 /// Dieselben Eingaben, EIN Unterschied: `scope` verschweigt die
-/// Plattformbindung. Regel 7.50 verlangt dann Verweigerung - "sonst
+/// Plattformbindung. Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat) verlangt dann Verweigerung - "sonst
 /// behauptete das Zertifikat mehr, als geprueft wurde".
 #[test]
 fn the_same_c4_claim_is_refused_when_scope_hides_the_platform_binding() {
@@ -411,11 +411,11 @@ fn the_same_c4_claim_is_refused_when_scope_hides_the_platform_binding() {
     assert_eq!(
         outcome.err(),
         Some(psk_types::PskError::ReleaseGateBlocked),
-        "Regel 7.50: ohne die Plattformbindung im scope MUSS die Ausstellung scheitern"
+        "Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat): ohne die Plattformbindung im scope MUSS die Ausstellung scheitern"
     );
 }
 
-/// Und die zweite Haelfte von Regel 7.50: auf einer Plattform OHNE
+/// Und die zweite Haelfte von Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat): auf einer Plattform OHNE
 /// deklarierte Aufloesung "gilt die Verpflichtung als offen und die davon
 /// abhaengige Konformanzklasse als nicht erreicht" - auch dann, wenn der
 /// scope die Bindung brav nennt.
@@ -454,7 +454,7 @@ fn the_same_c4_claim_is_refused_on_a_foreign_platform() {
     assert_eq!(
         outcome.err(),
         Some(psk_types::PskError::ReleaseGateBlocked),
-        "Regel 7.50: ohne deklarierte Aufloesung auf dieser Plattform ist C4 nicht erreicht"
+        "Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat): ohne deklarierte Aufloesung auf dieser Plattform ist C4 nicht erreicht"
     );
 }
 

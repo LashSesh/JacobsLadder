@@ -49,8 +49,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use psk_certify::{
-    check_minimum_replay_class, compute_conformance_class, issue_certificate, AdditionalAcceptance,
-    CertificateInputs,
+    check_minimum_replay_class, issue_certificate, AdditionalAcceptance, CertificateInputs,
 };
 use psk_closure::GlueOutcome;
 use psk_effect::{EffectAdapter, EffectLines, IssueInputs, ProcessEffectAdapter};
@@ -755,69 +754,80 @@ impl psk_effect::ExclusiveLine for HeldChild {
 /// `run_golden_run_with_certificate`, wo er aus einem echten Vergleich
 /// zweier Laeufe folgt (Definition 22.1 (Replayklassen): keine Eigenschaft eines
 /// einzelnen Laufs).
+/// Schritt 13, Zertifikatsteil. **Jedes Feld kommt vom Aufrufer, keines
+/// entsteht hier** - Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat):
+/// "Kein Feld eines MachineCertificate DARF einen Wert tragen, der nicht
+/// aus einem Artefakt des zertifizierten Laufes stammt."
+///
+/// Bis v1.0.40 standen hier SIEBEN Konstanten der Form
+/// `Digest::sha256(b"golden-run-...")`: I_C, I_A, I_M und die vier
+/// Berichtsdigests. Die I_t-Konstante daneben war v1.0.38 geheilt worden,
+/// und genau das war die Falle - "ein geheiltes Feld neben sechs
+/// konstanten sieht von aussen aus wie ein geheiltes Zertifikat" (Regel
+/// 7.50). Die Nachbarn wurden nicht geprueft.
+///
+/// Diese Funktion nimmt deshalb keine Bequemlichkeitsvorgabe mehr
+/// entgegen: sie kann kein Feld erfinden, weil sie keines mehr kennt.
+/// `AdditionalAcceptance` ebenso - `conformance_class` IST ein
+/// Zertifikatsfeld, also unterliegen seine Eingaben derselben Pflicht.
+#[allow(clippy::too_many_arguments)]
 fn issue_golden_run_certificate(
-    reconciliation: &ReconciliationReport,
+    identity: &psk_types::objects::IdentityBinding,
+    i_t: Digest,
+    features: Vec<FeatureCoverageId>,
+    acceptance: AdditionalAcceptance,
     replay_class: MachineCertificateReplayClassKind,
+    reports: &crate::AggregatedReports,
     trace_head: Digest,
     replay_manifest_digest: Digest,
-    // Der reale Laufzustandsdigest (Regel 6.10 (Vier Identitäten)). Als Parameter, nicht
-    // hier gebildet: wer das Zertifikat ausstellt, kennt den Zustand
-    // nicht - er bekommt ihn.
-    i_t: Digest,
 ) -> Result<MachineCertificate, PskError> {
-    let acceptance = AdditionalAcceptance {
-        artifact_conformant: true,
-        kernel_executable: true,
-        replay_valid: matches!(
-            replay_class,
-            MachineCertificateReplayClassKind::R2 | MachineCertificateReplayClassKind::R3
-        ),
-        sandbox_effect_safe: reconciliation.verdict
-            == psk_types::objects::ReconciliationReportVerdictKind::Closed,
-        reference_validated: true,
-        externally_reproduced: false,
-    };
-    let features: Vec<FeatureCoverageId> = vec![FeatureCoverageId::Fc0, FeatureCoverageId::Fc1];
-    let class = compute_conformance_class(&features, acceptance);
-    let _ = class; // im Zertifikat selbst getragen (compute_conformance_class laeuft dort intern erneut)
     check_minimum_replay_class(replay_class)?;
     issue_certificate(CertificateInputs {
-        i_c: Digest::sha256(b"golden-run-i-c"),
-        i_a: Digest::sha256(b"golden-run-i-a"),
-        i_m: Digest::sha256(b"golden-run-i-m"),
-        // I_t = H(Can(Sigma_t)), Regel 6.10 (Vier Identitäten). Hier stand bis v1.0.38
-        // `Digest::sha256(b"golden-run-i-t")` - eine KONSTANTE an der
-        // Stelle einer der vier Systemidentitaeten, fuenfte Instanz der
-        // Erfindungsklasse und die erste im ausgestellten Artefakt. Ein
-        // Zertifikat mit konstantem I_t bezeugt keinen Zustand.
-        //
-        // Seit der Taktumverdrahtung (Regel 24.4 (Der Golden Run laeuft
-        // unter tick)) ist der Wert genau das, was das Zertifikat meint:
-        // "Sigma_t ist der Zustand nach den Takten" - der Aufrufer
-        // reicht `GoldenRunReport.i_t`, den Digest des Laufzustands NACH
-        // der Taktschleife, herein. Der fruehere ehrliche Zwischenstand
-        // (Boot-Sigma, Zustand VOR den Schritten) ist damit Geschichte.
+        // Punkt 1: "die Werte der IdentityBinding desselben Bootes, nicht
+        // neu gebildete oder eingesetzte".
+        i_c: identity.I_C,
+        i_a: identity.I_A,
+        i_m: identity.I_M,
+        // Punkt 2: "I_t ist H(Can(Sigma_t)) nach den Takten".
         i_t,
+        // Punkt 4: "feature_coverage ist abgeleitet, nicht beansprucht" -
+        // vom Aufrufer aus `derive_feature_coverage` ueber der realen
+        // Evidenz.
         features,
         acceptance,
         replay_class,
-        gate_report_digest: Digest::sha256(b"golden-run-gate-report"),
+        // Punkt 3: "die vier Berichtsdigests sind Digests der
+        // tatsaechlich aggregierten Berichte". `aggregate_reports` war
+        // gebaut und wurde von hier nie gerufen.
+        gate_report_digest: reports.gate_report.digest,
+        // Punkt 5: "trace_head ist der Kopf der Kette dieses Laufes".
         trace_head,
         replay_manifest_digest,
-        residue_report_digest: Digest::sha256(b"golden-run-residue-report"),
-        capability_audit_digest: Digest::sha256(b"golden-run-capability-audit"),
-        negative_test_report_digest: Digest::sha256(b"golden-run-negative-tests"),
+        residue_report_digest: reports.residue_report.digest,
+        capability_audit_digest: reports.capability_audit.digest,
+        negative_test_report_digest: reports.negative_test_report.digest,
         scope: ScopeExpr("golden-run".into()),
         issued_at: run_time(),
+        // BEFUND, gemeldet und nicht ueberspielt: Struktur 7.49 (MachineCertificate) fuehrt
+        // `signature: Signature` OHNE Fragezeichen - anders als
+        // `Msg.signature` und `EvidenceObject.signature`, die beide
+        // `Signature?` sind. Das Feld ist also pflichtig, und ein leerer
+        // Vektor ist kein Verfahren. OBL-005 (Security Reduction) macht
+        // Signaturverfahren und Schluesselhaltung domaenenabhaengig und
+        // ist `blocking_from: C4`; dieser Lauf beansprucht C0. Vertrag
+        // 7.52 (Selbstgueltigkeit) verlangt die Signatur fuer
+        // SELBSTGUELTIGKEIT, nicht fuer die Ausstellung. Lesart:
+        // ausstellbar, aber nicht selbstgueltig - und das gehoert
+        // erklaert, nicht stillschweigend getragen. Die Entscheidung
+        // liegt beim Auftraggeber; bis dahin bleibt der Wert leer UND
+        // ist durch einen Test als erklaerter Nullstand festgehalten.
         signature: psk_types::Signature(vec![]),
-        // Regel 7.50 (PSK-RA v1.0.17): `features` oben (nur Fc0/Fc1) haelt
-        // diesen Lauf absichtlich unterhalb jeder Klasse, die OBL-010
-        // (blocking_from: C4) ueberhaupt betrifft - siehe `is_relevant` in
+        // Regel 7.51 (Plattformgebundene Verpflichtungsaufloesung im
+        // Zertifikat): der abgeleitete Vektor haelt diesen Lauf
+        // unterhalb jeder Klasse, die OBL-010 (blocking_from: C4)
+        // betrifft - siehe `is_relevant` in
         // `check_platform_bound_obligations`. Ein leerer Vektor ist hier
-        // deshalb kein uebersehener Fall, sondern der ehrliche Stand: diese
-        // Funktion beansprucht nie eine plattformgebundene Klasse. Ein
-        // kuenftiger Aufrufer, der tatsaechlich C4 beansprucht, MUSS
-        // `architecture/obligations.yaml` real laden und hier eintragen.
+        // deshalb kein uebersehener Fall, sondern der ehrliche Stand.
         current_platform: std::env::consts::OS.to_string(),
         platform_bound_obligations: vec![],
     })
@@ -1441,16 +1451,13 @@ pub fn run_golden_run_with_certificate(
         }
     };
 
-    let certificate = issue_golden_run_certificate(
-        &first.reconciliation,
-        replay_class,
-        first.trace_head,
-        replay_manifest_digest,
-        // Der Zustand NACH den Takten (Regel 24.4 (Der Golden Run läuft unter tick)) - nicht mehr das
-        // Boot-Sigma.
-        first.i_t,
-    )?;
-
+    // Der Selbstkompilationsvorschlag steht JETZT vor dem Zertifikat, und
+    // das ist keine Umsortierung aus Bequemlichkeit: sein GateReport ist
+    // FC7s Beleg, und Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat)
+    // verlangt `feature_coverage` als abgeleiteten Wert. Solange das
+    // Zertifikat zuerst entstand, konnte der Vektor nicht abgeleitet
+    // werden - er wurde behauptet. Das Zertifikat ist das LETZTE Artefakt
+    // des Laufes; es weist aus, was der Lauf hervorgebracht hat.
     let self_compile = propose_and_evaluate_self_compile(
         workspace_root,
         sandbox_root,
@@ -1458,6 +1465,78 @@ pub fn run_golden_run_with_certificate(
         &second,
         replay_manifest_digest,
         &run_descriptor.canon.0,
+    )?;
+
+    // Punkt 4: abgeleitet, nicht beansprucht. `derive_feature_coverage`
+    // war gebaut und wurde vom Zertifikatspfad nie gerufen - dieselbe
+    // Klasse wie `aggregate_reports` unten.
+    let evidence = crate::collect_feature_evidence_from_parts(
+        crate::CoverageParts {
+            first: &first,
+            second: &second,
+            replay_check: &check,
+            self_compile_gate: &self_compile.gate_report,
+        },
+        None,
+    );
+    let features = psk_certify::derive_feature_coverage(&evidence).covered;
+
+    // Punkt 3: die vier Berichte wirklich aggregieren. Die Gatberichte
+    // sind die des Laufes, die Residuen seine, das Manifest seines.
+    let reports = crate::aggregate_reports(
+        &[&first.boot_gate, &first.patch_gate],
+        &first.residues,
+        &first.boot_report.runtime_manifest,
+        &fs::read_to_string(
+            workspace_root.join("packages/psk-conformance/src/conformance_catalog.rs"),
+        )
+        .map_err(|_| PskError::UntypedInput)?,
+    )?;
+
+    // `conformance_class` IST ein Zertifikatsfeld, also unterliegen auch
+    // seine Eingaben Regel 7.50. Jede der sechs Annahmen kommt aus einem
+    // Laufartefakt oder ist ehrlich false mit benanntem Grund.
+    let acceptance = AdditionalAcceptance {
+        // C0: "Bundle, Lock, Schemas". Boot hat beide Digests
+        // nachgerechnet und deckungsgleich gefunden - das IST die
+        // Bundle-/Lockpruefung, nicht eine Behauptung darueber.
+        artifact_conformant: first.boot_gate.decision
+            == psk_types::objects::GateReportDecisionKind::Pass
+            && first.boot_report.constitution_check.matches()
+            && first.boot_report.architecture_check.matches(),
+        // C1: "Minimaler Kern laeuft und erzeugt valide Artefakte" - das
+        // ist genau die EXECUTABLE-Frage, die der Lauf selbst beantwortet.
+        // Hier stand `true`, WAEHREND derselbe Lauf `Some(false)` mass:
+        // eine Unwahrheit, die bisher folgenlos blieb, weil FC2 fehlt und
+        // C1 ohnehin unerreichbar war. Folgenlos ist nicht wahr.
+        kernel_executable: first.executable.executable_reachable().unwrap_or(false),
+        replay_valid: matches!(
+            replay_class,
+            MachineCertificateReplayClassKind::R2 | MachineCertificateReplayClassKind::R3
+        ),
+        sandbox_effect_safe: first.reconciliation.verdict
+            == psk_types::objects::ReconciliationReportVerdictKind::Closed,
+        // C4: "Reale Referenzdomaene besteht Baselines und Negativtests".
+        // Dieser Lauf fuehrt KEINE Baselines aus (das tut
+        // `run_baseline_comparison`, ein eigener Einstieg). Hier stand
+        // `true` - eine Behauptung ueber einen Vergleich, der nicht
+        // stattfand.
+        reference_validated: false,
+        // C5: keine unabhaengige Instanz. Ehrlich false, war es schon.
+        externally_reproduced: false,
+    };
+
+    let certificate = issue_golden_run_certificate(
+        &first.boot_report.identity,
+        // Der Zustand NACH den Takten (Regel 24.4 (Der Golden Run läuft
+        // unter tick)) - nicht das Boot-Sigma.
+        first.i_t,
+        features,
+        acceptance,
+        replay_class,
+        &reports,
+        first.trace_head,
+        replay_manifest_digest,
     )?;
 
     Ok(GoldenRunCertification {
@@ -1781,7 +1860,22 @@ mod tests {
             result.certificate.replay_class,
             MachineCertificateReplayClassKind::R3
         );
-        assert_eq!(result.certificate.I_C, Digest::sha256(b"golden-run-i-c"));
+        // Hier stand bis v1.0.40:
+        //   assert_eq!(result.certificate.I_C, Digest::sha256(b"golden-run-i-c"));
+        // Ein Test, der die KONSTANTE festnagelte - er hat die Erfindung
+        // nicht verhindert, sondern bewacht. Jetzt die Ableitung (Regel
+        // 7.50 (Jedes Zertifikatsfeld ist abgeleitet), Punkt 1); die
+        // feldweise Pflicht selbst liegt in
+        // tests/every_certificate_field_is_derived.rs.
+        assert_eq!(
+            result.certificate.I_C, result.first.boot_report.identity.I_C,
+            "I_C MUSS aus der IdentityBinding desselben Bootes kommen"
+        );
+        assert_ne!(
+            result.certificate.I_C,
+            Digest::sha256(b"golden-run-i-c"),
+            "die Konstante darf nicht zurueckkehren"
+        );
 
         // PROPOSE_REVISION + G-SELF-COMPILE: der Vorschlag ist echt (vier
         // von sechs CRA-Eingaben vorhanden, zwei benannt fehlend), und

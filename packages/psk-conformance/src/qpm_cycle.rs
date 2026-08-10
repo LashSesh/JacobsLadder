@@ -29,30 +29,26 @@
 //!
 //! ## Zwei Vorgaben aus QPM v1.0.7
 //!
-//! Der Auftraggeber hat zwei Regeln des Zweitwerks woertlich uebermittelt,
-//! die seit der letzten QPM-Runde neu sind:
+//! - **QPM Regel 2.9 (Keine Ablesung auf halber Rückkehr)**: jede
+//!   Beobachtung MUSS an ein Siegel gebunden sein; der Traceverweis
+//!   zeigt auf ein Phasensiegel oder eine Zyklusgrenze, nicht auf eine
+//!   beliebige Stelle der Kette. Umgesetzt in `RollState.seal_ref` - es
+//!   gibt keinen Konstruktor, der einen Rollzustand OHNE Siegelbezug
+//!   herstellt, und `observe_cycle` liest ausschliesslich an Segmenten
+//!   der beiden Siegelarten ab.
+//! - **QPM Regel 2.10 (Die Abtastrate bestimmt die aufzeichnende
+//!   Seite)**: tastet das Instrument weniger Grenzen ab, als der Lauf
+//!   versiegelt, MUSS die Differenz als registrierte Samplingluecke
+//!   erscheinen - GETRENNT vom Massenzensus gefuehrt, denn eine
+//!   ausgelassene Grenze erzeugt keine Masse, sondern eine Luecke im
+//!   Beobachtungspfad. Umgesetzt als eigenes Feld `sampling_gaps`, das
+//!   den Zensus aus `qpm_run` nicht beruehrt.
 //!
-//! - **"Keine Ablesung auf halber Rueckkehr"**: jede Beobachtung MUSS an
-//!   ein Siegel gebunden sein; der Traceverweis zeigt auf ein
-//!   Phasensiegel oder eine Zyklusgrenze, nicht auf eine beliebige
-//!   Stelle der Kette. Umgesetzt in `RollState.seal_ref` - es gibt
-//!   keinen Konstruktor, der einen Rollzustand OHNE Siegelbezug
-//!   herstellt, und `derive_roll_states` liest ausschliesslich an
-//!   Segmenten der beiden Siegelarten ab.
-//! - **"Die Abtastrate bestimmt die aufzeichnende Seite"**: tastet das
-//!   Instrument weniger Grenzen ab, als der Lauf versiegelt, MUSS die
-//!   Differenz als registrierte Samplingluecke erscheinen - GETRENNT vom
-//!   Massenzensus gefuehrt, denn eine ausgelassene Grenze erzeugt keine
-//!   Masse, sondern eine Luecke im Beobachtungspfad. Umgesetzt als
-//!   eigenes Feld `sampling_gaps`, das den Zensus aus `qpm_run` nicht
-//!   beruehrt.
-//!
-//! **Offengelegte Luecke:** QPM v1.0.7 liegt nicht im Repository; im
-//! Wurzelverzeichnis steht v1.0.6. Die beiden Regeln sind hier deshalb
-//! ueber ihre uebermittelten TITEL zitiert, nicht ueber Nummern - eine
-//! Nummer, die kein platziertes Werk traegt, koennte Stufe elf nicht
-//! aufloesen, und ein Zitat, das nicht aufloest, ist schlimmer als ein
-//! benannter Titel. Sobald das Werk vorliegt, sind beide zu numerieren.
+//! Beide waren bei ihrem Bau nur ueber ihre Titel zitiert, weil QPM
+//! v1.0.7 noch nicht vorlag - ein Zitat, das nicht aufloest, ist
+//! schlimmer als ein benannter Titel. Mit der Platzierung des Werkes
+//! sind sie numeriert; QPM Vertrag 2.11 (Switch-Witness) hat dabei von
+//! 2.9 nach 2.11 verschoben.
 //!
 //! ## Was diese Stufe NICHT beansprucht
 //!
@@ -75,8 +71,8 @@ use crate::GoldenRunReport;
 /// der Schritt, in dem theta-Dach gefuehrt wird.
 pub const TWELFTHS_PER_TURN: u64 = 12;
 
-/// Woran die Ablesung haengt (Regel "Keine Ablesung auf halber
-/// Rueckkehr"). Ein dritter Fall - "irgendwo in der Kette" - existiert
+/// Woran die Ablesung haengt (QPM Regel 2.9 (Keine Ablesung auf halber
+/// Rückkehr)). Ein dritter Fall - "irgendwo in der Kette" - existiert
 /// bewusst nicht: er waere genau die Ablesung im offenen Umlauf.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum BoundaryKind {
@@ -116,7 +112,7 @@ pub struct RollState {
     pub residue_count: usize,
     /// l_k: siehe Modulkopf - QPM-7 ist nicht gebaut.
     pub leak: LeakStatus,
-    /// Regel "Keine Ablesung auf halber Rueckkehr": das Siegel selbst.
+    /// QPM Regel 2.9 (Keine Ablesung auf halber Rückkehr): das Siegel selbst.
     pub seal_ref: Digest,
     /// Ob zwischen dem vorigen Siegel und diesem ein Arbeitssegment
     /// liegt. QPM Invariante 2.4 (Keine stille Millisekunde) ist in BEIDEN
@@ -142,8 +138,8 @@ pub enum LeakStatus {
 }
 
 /// Eine Grenze, die der Lauf versiegelt hat, die das Instrument aber
-/// nicht abgetastet hat (Regel "Die Abtastrate bestimmt die
-/// aufzeichnende Seite"). Getrennt vom Massenzensus gefuehrt.
+/// nicht abgetastet hat (QPM Regel 2.10 (Die Abtastrate bestimmt die
+/// aufzeichnende Seite)). Getrennt vom Massenzensus gefuehrt.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct SamplingGap {
     pub seq: u64,
@@ -174,8 +170,8 @@ pub struct QpmCycleReport {
     pub seals_in_run: usize,
     /// Wie viele davon das Instrument abgetastet hat.
     pub boundaries_sampled: usize,
-    /// Die Differenz, registriert (Regel "Die Abtastrate bestimmt die
-    /// aufzeichnende Seite").
+    /// Die Differenz, registriert (QPM Regel 2.10 (Die Abtastrate
+    /// bestimmt die aufzeichnende Seite)).
     pub sampling_gaps: Vec<SamplingGap>,
     /// Phasen mit Arbeit zwischen zwei Siegeln.
     pub occupied_boundaries: usize,

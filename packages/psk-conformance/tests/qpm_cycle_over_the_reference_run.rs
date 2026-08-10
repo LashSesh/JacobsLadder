@@ -116,7 +116,7 @@ fn the_lift_advances_monotonically_while_the_visible_phase_returns() {
     }
 }
 
-/// Regel "Keine Ablesung auf halber Rueckkehr" (QPM v1.0.7): jede
+/// QPM Regel 2.9 (Keine Ablesung auf halber Rückkehr): jede
 /// Beobachtung haengt an einem Siegel. Geprueft wird beides - dass jeder
 /// Rollzustand einen Siegelbezug traegt UND dass dieser Bezug auf ein
 /// echtes Segment des Laufs zeigt (ein erfundener Digest bestuende den
@@ -146,7 +146,7 @@ fn every_reading_hangs_on_a_real_seal() {
     }
 }
 
-/// Regel "Die Abtastrate bestimmt die aufzeichnende Seite" (QPM v1.0.7):
+/// QPM Regel 2.10 (Die Abtastrate bestimmt die aufzeichnende Seite):
 /// tastet das Instrument jede Grenze ab, entsteht keine Luecke. Der
 /// Negativnachweis daneben ist der eigentliche Test - eine gedrosselte
 /// Rate MUSS die Differenz registrieren, und zwar GETRENNT vom

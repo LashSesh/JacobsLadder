@@ -21,7 +21,9 @@ pub use corpus::{
 };
 
 mod feature_evidence;
-pub use feature_evidence::collect_feature_evidence;
+pub use feature_evidence::{
+    collect_feature_evidence, collect_feature_evidence_from_parts, CoverageParts,
+};
 
 mod qpm_profile;
 pub use qpm_profile::{load_qpm_profile, QpmProfile};

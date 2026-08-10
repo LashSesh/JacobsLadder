@@ -46,7 +46,7 @@ fn identity_pair(stored: Option<&str>, computed: Digest) -> Option<(Digest, Dige
     // Ein unversiegeltes Bundle liefert kein Paar - das ist "kein
     // Artefakt", nicht "Abweichung". Ein gesetzter, aber unparsbarer Wert
     // ist dagegen sehr wohl eine Abweichung und wird als solche
-    // weitergereicht (ein Digest, der nicht Definition 6.4 entspricht, ist
+    // weitergereicht (ein Digest, der nicht Definition 6.4 (Digest) entspricht, ist
     // kein Treffer).
     let stored = stored?;
     match Digest::from_hex(stored) {
@@ -68,7 +68,7 @@ fn count_nonempty_lineages(fields: &[psk_types::objects::FieldIdentity]) -> usiz
 /// Sammelt die Messwerte eines einzelnen Laufs ein.
 fn measure_run(run: &GoldenRunReport, evidence: &mut FeatureEvidence) {
     // ---- FC1: die lokale Seam-Closure. `section` ist `Some` nur bei
-    // eindeutiger globaler Sektion (Invariante 11.14) - genau die
+    // eindeutiger globaler Sektion (Invariante 11.14 (Eindeutigkeit der Verklebung)) - genau die
     // Bedingung, die FC1 verlangt.
     if run.glue.section.is_some() {
         evidence.local_seam_section = run.glue.section;
@@ -82,7 +82,7 @@ fn measure_run(run: &GoldenRunReport, evidence: &mut FeatureEvidence) {
     // Sperre wird aus der ARTEFAKTMENGE gemessen, nicht aus dem Bericht
     // allein. Der Bericht traegt das Subjekt nicht, und check_promotion
     // liefert fuer die UNKNOWN-Klausel denselben Fehler wie fuer
-    // Invariante 5.10 - aus dem Bericht allein ist also "dass gesperrt
+    // Invariante 5.10 (Keine implizite Promotion) - aus dem Bericht allein ist also "dass gesperrt
     // wurde" erkennbar, aber nicht "warum". Erst das Paar aus (a) einem
     // Subjekt, dessen Klassifikation UNKNOWN ist, und (b) einem Bericht
     // mit verdict != UNKNOWN und fact_promotion == NONE belegt die
@@ -93,7 +93,7 @@ fn measure_run(run: &GoldenRunReport, evidence: &mut FeatureEvidence) {
     // Seit die zwei Erfindungen des Laufs entfernt sind (Phantom-Plugin,
     // hartkodiertes Subjektpaar), entsteht dieses Artefaktpaar im
     // Referenzlauf natuerlich: kein Klassifikationsplugin existiert, also
-    // ist die Klassifikation UNKNOWN (Vertrag 27.2 Pflicht 3), also
+    // ist die Klassifikation UNKNOWN (Vertrag 27.2 (Domänengelieferte opake Eingaben) Pflicht 3), also
     // faellt die von CLOSED beabsichtigte Promotion auf NONE.
     let subject_unknown = run.reality.reality_status == RealityStatus::Unknown;
     let report_shows_barred = run.reconciliation.verdict
@@ -166,10 +166,29 @@ fn measure_run(run: &GoldenRunReport, evidence: &mut FeatureEvidence) {
 
 /// Misst den Deckungsvektor an dem, was zwei Golden Runs und der Boot
 /// tatsaechlich hervorgebracht haben.
-pub fn collect_feature_evidence(
-    certification: &GoldenRunCertification,
+/// Die Teile eines Zertifizierungslaufs, aus denen der Deckungsvektor
+/// folgt - OHNE das Zertifikat selbst.
+///
+/// Warum diese Form: Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat)
+/// verlangt `feature_coverage` als ABGELEITETEN Wert, also muss die
+/// Ableitung VOR der Ausstellung laufen. `GoldenRunCertification` enthaelt
+/// aber das Zertifikat - die alte Signatur war zirkulaer und konnte
+/// deshalb nur nach der Ausstellung aufgerufen werden, was genau der
+/// Grund war, aus dem der Vektor stattdessen behauptet wurde. Die Teile
+/// aufzuzaehlen loest den Zirkel auf, ohne die Ableitung zu aendern.
+pub struct CoverageParts<'a> {
+    pub first: &'a GoldenRunReport,
+    pub second: &'a GoldenRunReport,
+    pub replay_check: &'a psk_trace::ReplayCheck,
+    pub self_compile_gate: &'a psk_types::objects::GateReport,
+}
+
+/// Wie `collect_feature_evidence`, aber ohne das Zertifikat als Eingabe.
+pub fn collect_feature_evidence_from_parts(
+    parts: CoverageParts<'_>,
     baseline: Option<&BaselineComparison>,
 ) -> FeatureEvidence {
+    let certification = &parts;
     let boot = &certification.first.boot_report;
     let mut evidence = FeatureEvidence {
         // ---- FC0: I_C und I_A, deklariert gegen nachgerechnet.
@@ -197,7 +216,7 @@ pub fn collect_feature_evidence(
         }),
 
         // FC2, erste Haelfte: seit v1.0.24 bringt der Lauf einen echten
-        // IRBundle-Kandidaten hervor (Definition 14.2, Compile). Der
+        // IRBundle-Kandidaten hervor (Definition 14.2 (Phasen-Modul-Bindung), Compile). Der
         // Round-Trip wird an DIESEM Artefakt gemessen, nicht an einem
         // Fixture - T-IR-001 belegt den Codec, dieser Messpunkt belegt das
         // System.
@@ -205,8 +224,8 @@ pub fn collect_feature_evidence(
         ..Default::default()
     };
 
-    measure_run(&certification.first, &mut evidence);
-    measure_run(&certification.second, &mut evidence);
+    measure_run(certification.first, &mut evidence);
+    measure_run(certification.second, &mut evidence);
 
     // ---- FC7: seit dem CRA-Bau wird G-SELF-COMPILE real ausgewertet -
     // ueber einen echten RevisionProposal aus den Laufresiduen und
@@ -223,6 +242,24 @@ pub fn collect_feature_evidence(
     evidence.baseline_comparison_passed = baseline.map(|b| b.kern_passes());
 
     evidence
+}
+
+/// Die alte Form, jetzt eine Weiterleitung: nach der Ausstellung ist das
+/// Zertifikat vorhanden, und Aufrufer, die es ohnehin haben, sollen
+/// nicht umbauen muessen.
+pub fn collect_feature_evidence(
+    certification: &GoldenRunCertification,
+    baseline: Option<&BaselineComparison>,
+) -> FeatureEvidence {
+    collect_feature_evidence_from_parts(
+        CoverageParts {
+            first: &certification.first,
+            second: &certification.second,
+            replay_check: &certification.replay_check,
+            self_compile_gate: &certification.self_compile_gate,
+        },
+        baseline,
+    )
 }
 
 #[cfg(test)]
