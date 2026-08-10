@@ -11,7 +11,7 @@
 //!                                    severity: blocking}
 //! ```
 //!
-//! Vertrag 7.31 (Kein halluziniertes Gluing) und Invariante 11.14
+//! Vertrag 7.3 (Identitätsclosure)1 (Kein halluziniertes Gluing) und Invariante 11.14 (Eindeutigkeit der Verklebung)
 //! (Eindeutigkeit der Verklebung): "Der Compiler DARF NICHT zwischen
 //! mehreren globalen Sektionen waehlen; Mehrdeutigkeit ist ein Defekt und
 //! erzeugt PSK-E011." Deshalb gibt `unique_global_section` keinen "besten"
@@ -20,7 +20,7 @@
 //! Die Gate-Entscheidung zweiter Ordnung (`g2 = M14.second_order_gate`)
 //! gehoert NICHT hierher: M14 entsteht erst mit WP11 (Phase I6), und der
 //! Weg dorthin fuehrt ueber M11 -> P18 -> M12 -> P19 -> M13 -> P20 -> M14
-//! (Algorithmus 11.19, v1.0.5). `glue` liefert deshalb einen Bericht, der
+//! (Algorithmus 11.19 (Normativer Compilerlauf), v1.0.5). `glue` liefert deshalb einen Bericht, der
 //! die lokale Vorbedingung feststellt, und nie eine Gate-Entscheidung.
 
 use std::collections::BTreeSet;
@@ -36,8 +36,8 @@ use psk_types::{Digest, ObjectId, PskError};
 /// Der Ueberlappungsbereich zweier Kapseln: die gemeinsamen Zellen und die
 /// dort geltenden Restriktionen.
 ///
-/// `overlap(a,b)` und `compare_restrictions(a,b)` sind in Algorithmus 11.13
-/// benannt, aber nicht ausgeschrieben - Struktur 7.23 (CandidateCapsule)
+/// `overlap(a,b)` und `compare_restrictions(a,b)` sind in Algorithmus 11.13 (Verklebung)
+/// benannt, aber nicht ausgeschrieben - Struktur 7.2 (IdentityBinding)3 (CandidateCapsule)
 /// fuehrt weder Zellen noch Restriktionen als Felder. Die Zuordnung
 /// Kapsel -> (Zellen, Restriktionsdigest) ist damit eine Angabe von aussen,
 /// nicht aus der Kapsel ableitbar; sie wird hier als `CapsuleRestriction`
@@ -91,12 +91,12 @@ pub fn overlap(a: &CapsuleRestriction, b: &CapsuleRestriction) -> Vec<M13Address
 }
 
 /// `compare_restrictions(a, b)`: prueft `s_a|U = s_b|U` auf dem
-/// Ueberlappungsbereich U und erzeugt den SeamReport (Struktur 7.30).
+/// Ueberlappungsbereich U und erzeugt den SeamReport (Struktur 7.30 (SeamReport / ObstructionRecord)).
 ///
 /// `tolerance_class` ist hier immer `exact`: eine `declared_equivalence`
 /// setzt eine deklarierte Aequivalenzrelation voraus, die es ohne
 /// DomainProfile nicht gibt. Eine hier angenommene Toleranz waere genau
-/// das halluzinierte Gluing, das Vertrag 7.31 verbietet.
+/// das halluzinierte Gluing, das Vertrag 7.31 (Kein halluziniertes Gluing) verbietet.
 pub fn compare_restrictions(
     a: &CapsuleRestriction,
     b: &CapsuleRestriction,
@@ -150,7 +150,7 @@ fn restriction_digest_over(
 /// 11.13, woertlich).
 ///
 /// `residue_ref` verweist auf das Residuum, das M19 dazu fuehrt. M19 ist
-/// WP04 (Phase I5) und existiert noch nicht; das Feld ist in Struktur 7.30
+/// WP04 (Phase I5) und existiert noch nicht; das Feld ist in Struktur 7.30 (SeamReport / ObstructionRecord)
 /// nicht optional. Der Aufrufer reicht die Referenz herein - erfunden wird
 /// sie hier nicht.
 pub fn obstruction_for(
@@ -183,7 +183,7 @@ pub fn obstruction_for(
 }
 
 /// Ergebnis des Seamdurchlaufs ueber alle Kapselpaare.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct SeamScan {
     /// Alle Nahtberichte, in Paarreihenfolge.
     pub seams: Vec<SeamReport>,
@@ -260,22 +260,24 @@ pub fn unique_global_section(restrictions: &[CapsuleRestriction]) -> Result<Dige
 /// `global` ist ausdruecklich NICHT dasselbe wie "Gate bestanden": es sagt
 /// nur, dass die lokalen Vorbedingungen erfuellt sind. Das Gate zweiter
 /// Ordnung entscheidet M14 (WP11), erreicht ueber P18/P19/P20.
-#[derive(Debug, Clone, PartialEq)]
+// `Serialize`: das Verklebungsergebnis liegt seit der Taktumverdrahtung
+// als Phasenprodukt im Laufzustand Sigma und geht damit in I_t ein.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct GlueOutcome {
     pub seams: SeamScan,
     /// Some(section) nur, wenn alle Nahtberichte kompatibel sind UND die
     /// globale Sektion eindeutig ist.
     pub section: Option<Digest>,
     /// Die Begruendung, wenn keine Sektion entstand - fuer den
-    /// HOLD-Grund, den Regel 32.2 Punkt 2 verlangt ("HOLD mit benannter
+    /// HOLD-Grund, den Regel 32.2 (Phasenabhängigkeit der Passfolge) Punkt 2 verlangt ("HOLD mit benannter
     /// Ursache").
     pub hold_reason: Option<&'static str>,
 }
 
-/// M11, Pass C9: der lokale Teil von Algorithmus 11.13.
+/// M11, Pass C9: der lokale Teil von Algorithmus 11.13 (Verklebung).
 ///
 /// `cells_closed` ist das Ergebnis von `M22.close_all_18(graph)`, das laut
-/// Algorithmus 11.19 vor C9 laeuft und dessen Modul (M22) seit WP03
+/// Algorithmus 11.19 (Normativer Compilerlauf) vor C9 laeuft und dessen Modul (M22) seit WP03
 /// existiert. Es wird hier nur gelesen, nicht neu berechnet.
 pub fn glue(
     restrictions: &[CapsuleRestriction],
@@ -307,7 +309,7 @@ pub fn glue(
         Err(_) => Ok(GlueOutcome {
             seams,
             section: None,
-            hold_reason: Some("mehrdeutige globale Sektion (Invariante 11.14, PSK-E011)"),
+            hold_reason: Some("mehrdeutige globale Sektion (Invariante 11.14 (Eindeutigkeit der Verklebung), PSK-E011)"),
         }),
     }
 }
@@ -362,7 +364,7 @@ mod tests {
 
     fn cell(s: &str) -> M13Address {
         // Ueber den echten Parser, damit die Testadressen der Grammatik aus
-        // Definition 9.12 genuegen und nicht nur Zeichenketten sind.
+        // Definition 9.12 (M13Address) genuegen und nicht nur Zeichenketten sind.
         let parsed = parse_m13_address(s).expect("Testadresse muss wohlgeformt sein");
         M13Address(format_m13_address(&parsed))
     }
@@ -404,7 +406,7 @@ mod tests {
 
     #[test]
     fn incompatible_seam_yields_a_blocking_seam_obstruction() {
-        // Algorithmus 11.13 woertlich: kind:seam, severity: blocking.
+        // Algorithmus 11.13 (Verklebung) woertlich: kind:seam, severity: blocking.
         let a = restriction("a", &[("m13:0/c0", b"a")]);
         let b = restriction("b", &[("m13:0/c0", b"b")]);
         let seam = compare_restrictions(&a, &b).unwrap().unwrap();
@@ -418,7 +420,7 @@ mod tests {
 
     #[test]
     fn tolerance_class_is_never_silently_declared_equivalent() {
-        // Vertrag 7.31 (Kein halluziniertes Gluing): ohne deklarierte
+        // Vertrag 7.3 (Identitätsclosure)1 (Kein halluziniertes Gluing): ohne deklarierte
         // Aequivalenz gilt exakt.
         let a = restriction("a", &[("m13:0/c0", b"x")]);
         let b = restriction("b", &[("m13:0/c0", b"x")]);
@@ -464,7 +466,7 @@ mod tests {
 
     #[test]
     fn glue_holds_with_a_named_cause_on_incompatible_seam() {
-        // Regel 32.2 Punkt 2: HOLD MUSS eine benannte Ursache tragen.
+        // Regel 32.2 (Phasenabhängigkeit der Passfolge) Punkt 2: HOLD MUSS eine benannte Ursache tragen.
         let rs = vec![
             restriction("a", &[("m13:0/c0", b"x")]),
             restriction("b", &[("m13:0/c0", b"y")]),
@@ -484,7 +486,7 @@ mod tests {
 
     #[test]
     fn ambiguous_global_section_is_a_defect_not_a_choice() {
-        // Invariante 11.14: der Compiler DARF NICHT waehlen.
+        // Invariante 11.14 (Eindeutigkeit der Verklebung): der Compiler DARF NICHT waehlen.
         let rs = vec![
             restriction("a", &[("m13:0/c0", b"eins")]),
             restriction("b", &[("m13:0/c0", b"zwei")]),
@@ -510,7 +512,7 @@ mod tests {
 
     #[test]
     fn local_gates_alone_never_commit() {
-        // Invariante 11.15.
+        // Invariante 11.15 (Kein Bypass durch Einzelpass).
         assert_eq!(
             check_no_single_pass_bypass(true, true, true, true, true, false),
             Err(PskError::NonclosingM13Seam)

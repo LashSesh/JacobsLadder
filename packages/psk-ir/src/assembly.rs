@@ -1,7 +1,7 @@
-//! M23: den IRBundle-Kandidaten zusammenbauen (Definition 14.2, Compile:
+//! M23: den IRBundle-Kandidaten zusammenbauen (Definition 14.2 (Phasen-Modul-Bindung), Compile:
 //! "IRBundle als Kandidat vorhanden").
 //!
-//! ## Regel 10.9 ist der Kern dieser Datei
+//! ## Regel 10.9 (Herkunft der Kantenbedingungen) ist der Kern dieser Datei
 //!
 //! "preconditions und postconditions sind vom Typ PredicateExpr und damit
 //! domaenengeliefert. Der Kern DARF NICHT sie berechnen, aus
@@ -13,7 +13,7 @@
 //! Deshalb NIMMT diese Datei die Bedingungen entgegen
 //! (`EdgeConditionDeclarations`) und liest sie nirgends selbst ein. Wer
 //! das Domaenenprofil laedt, ist die Domaene - hier kommt es bereits
-//! typisiert an. Vertrag 27.2: "im Kern nur typisiert weitergereicht."
+//! typisiert an. Vertrag 27.2 (Domänengelieferte opake Eingaben): "im Kern nur typisiert weitergereicht."
 //!
 //! "Fehlt fuer eine Relationssorte eine Deklaration, so entsteht keine
 //! Kante dieser Sorte: der Zusammenbau MUSS sie auslassen und ein
@@ -22,7 +22,7 @@
 //! `RelationSortId::ALL`, also erschoepfend ueber alle 23, nicht nur ueber
 //! die, an die jemand gedacht hat.
 //!
-//! ## Regel 10.8: eine Objektreferenz ist keine IR-Kante
+//! ## Regel 10.8 (Objektreferenz ist keine IR-Kante): eine Objektreferenz ist keine IR-Kante
 //!
 //! Beim Bau dieser Datei fiel auf, dass drei Objektschemata Pflicht-
 //! Referenzfelder fuehren, deren Sortenpaar die Portmatrix nicht kennt:
@@ -62,7 +62,7 @@
 //! `psk_topology::close_all_18` real; der Golden Run misst die sieben
 //! Bedingungen einzeln in `ExecutableCheck`). Zum Zeitpunkt des
 //! Zusammenbaus sind sie unausgewertet, nicht erfuellt - der Kandidat
-//! traegt HOLD, Definition 11.17: "HOLD bezeichnet unvollstaendige, aber
+//! traegt HOLD, Definition 11.17 (Emissionsklassen): "HOLD bezeichnet unvollstaendige, aber
 //! nicht verworfene Kandidaten."
 
 use std::collections::BTreeMap;
@@ -76,27 +76,31 @@ use psk_types::{Digest, DualTime, ModuleId, ObjectId, PskError, TraceRef};
 
 /// Die Vor- und Nachbedingungen einer Relationssorte, wie die Domaene sie
 /// deklariert. Reiner Transporttyp - der Kern fuellt ihn nie selbst.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct EdgeConditions {
     pub preconditions: Vec<PredicateExpr>,
     pub postconditions: Vec<PredicateExpr>,
 }
 
-/// Das, was Regel 10.9 "das DomainProfile deklariert je RelationSortId"
+/// Das, was Regel 10.9 (Herkunft der Kantenbedingungen) "das DomainProfile deklariert je RelationSortId"
 /// nennt - im Kern nur als Abbildung, ohne Wissen darueber, woher sie kam.
-#[derive(Debug, Clone, Default)]
+///
+/// `Serialize`: die Deklarationen werden seit der Taktumverdrahtung als
+/// Werte im Laufzustand Sigma deponiert (der Zusammenbau ist Compile-
+/// Phasenarbeit und liest sie von dort) und gehen damit in I_t ein.
+#[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct EdgeConditionDeclarations {
     by_relation: BTreeMap<RelationSortId, EdgeConditions>,
 }
 
-/// Ein PredicateExpr, das stets wahr ist - Regel 10.9 nennt das
+/// Ein PredicateExpr, das stets wahr ist - Regel 10.9 (Herkunft der Kantenbedingungen) nennt das
 /// ausdruecklich einen Konformitaetsdefekt, nicht bloss schlechten Stil.
 ///
 /// Die Liste ist bewusst klein und woertlich: sie faengt genau das Muster,
 /// das das T-IR-001-Fixture verwendet (`PredicateExpr("true")`), und
 /// behauptet nicht, Tautologien allgemein erkennen zu koennen. Was sie
 /// nicht faengt, faengt sie nicht - ein Praedikatenprueferwaere der Kern,
-/// der die Bedingungen bewertet, und genau das verbietet Regel 10.9.
+/// der die Bedingungen bewertet, und genau das verbietet Regel 10.9 (Herkunft der Kantenbedingungen).
 fn is_trivially_true(p: &PredicateExpr) -> bool {
     let normalized = p.0.trim().to_ascii_lowercase();
     matches!(
@@ -107,7 +111,7 @@ fn is_trivially_true(p: &PredicateExpr) -> bool {
 
 impl EdgeConditionDeclarations {
     /// Nimmt eine Deklaration entgegen und weist die beiden Formen zurueck,
-    /// die Regel 10.9 verbietet: leere Bedingungen (Invariante 10.7,
+    /// die Regel 10.9 (Herkunft der Kantenbedingungen) verbietet: leere Bedingungen (Invariante 10.7 (Kantenvollständigkeit),
     /// "implizite Erlaubnis existiert nicht") und stets wahre Praedikate.
     pub fn declare(
         &mut self,
@@ -162,18 +166,21 @@ pub struct EdgeCandidate {
 }
 
 /// Warum eine Kante nicht entstand.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// `Serialize`: die Auslassungen eines Zusammenbaus liegen seit der
+/// Taktumverdrahtung als Phasenprodukt im Laufzustand Sigma.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum EdgeOmission {
-    /// Regel 10.9: keine Deklaration im Domaenenprofil.
+    /// Regel 10.9 (Herkunft der Kantenbedingungen): keine Deklaration im Domaenenprofil.
     Undeclared(RelationSortId),
-    /// Regel 10.6: das Sortenpaar steht nicht in der Portmatrix.
+    /// Regel 10.6 (Sorten-Port-Matrix): das Sortenpaar steht nicht in der Portmatrix.
     NotInPortMatrix {
         relation: RelationSortId,
         source: SortId,
         target: SortId,
     },
     /// Ein Endpunkt wurde nicht als Knoten gebaut (z.B. weil seine Sorte
-    /// zellgebunden ist und keine Traegerzelle feststeht, Regel 9.14
+    /// zellgebunden ist und keine Traegerzelle feststeht, Regel 9.14 (Platzierungsregel)
     /// Punkt 4).
     EndpointMissing {
         relation: RelationSortId,
@@ -186,7 +193,7 @@ pub enum EdgeOmission {
 #[derive(Debug, Clone)]
 pub struct AssemblyOutcome {
     pub bundle: IRBundle,
-    /// Regel 10.9s ResidueRecord(scope) je nicht gebauter Relationssorte.
+    /// Regel 10.9 (Herkunft der Kantenbedingungen)s ResidueRecord(scope) je nicht gebauter Relationssorte.
     pub residues: Vec<ResidueRecord>,
     /// Jede einzelne Auslassung mit Grund - fuer den Bericht, damit ein
     /// duenner Graph seinen Grund mitbringt statt nur seine Duenne.
@@ -251,9 +258,9 @@ fn scope_residue(
     Ok(ResidueRecord { id, ..draft })
 }
 
-/// Baut den IRBundle-Kandidaten (Definition 10.2, OBJ-IRB).
+/// Baut den IRBundle-Kandidaten (Definition 10.2 (IR-Bündel), OBJ-IRB).
 pub fn assemble_ir_bundle(inputs: AssemblyInputs<'_>) -> Result<AssemblyOutcome, PskError> {
-    // ObjectId traegt kein Ord (Definition 6.6 gibt ihm keine Ordnung);
+    // ObjectId traegt kein Ord (Definition 6.6 (Objekt-ID) gibt ihm keine Ordnung);
     // die kanonische Zeichenkette ist der Schluessel.
     let sort_of: BTreeMap<String, SortId> = inputs
         .nodes
@@ -279,7 +286,7 @@ pub fn assemble_ir_bundle(inputs: AssemblyInputs<'_>) -> Result<AssemblyOutcome,
             continue;
         }
 
-        // 2. Regel 10.6: das Sortentripel MUSS in der Portmatrix stehen.
+        // 2. Regel 10.6 (Sorten-Port-Matrix): das Sortentripel MUSS in der Portmatrix stehen.
         let (s, t) = (
             sort_of[&candidate.source.to_string()],
             sort_of[&candidate.target.to_string()],
@@ -297,7 +304,7 @@ pub fn assemble_ir_bundle(inputs: AssemblyInputs<'_>) -> Result<AssemblyOutcome,
             continue;
         }
 
-        // 3. Regel 10.9: ohne Deklaration keine Kante.
+        // 3. Regel 10.9 (Herkunft der Kantenbedingungen): ohne Deklaration keine Kante.
         let Some(conditions) = inputs.declarations.get(candidate.relation) else {
             omissions.push(EdgeOmission::Undeclared(candidate.relation));
             continue;
@@ -328,7 +335,7 @@ pub fn assemble_ir_bundle(inputs: AssemblyInputs<'_>) -> Result<AssemblyOutcome,
         });
     }
 
-    // Regel 10.9: je undeklarierter Relationssorte ein ResidueRecord(scope).
+    // Regel 10.9 (Herkunft der Kantenbedingungen): je undeklarierter Relationssorte ein ResidueRecord(scope).
     let mut residues = Vec::new();
     for relation in inputs.declarations.undeclared() {
         residues.push(scope_residue(
@@ -336,7 +343,7 @@ pub fn assemble_ir_bundle(inputs: AssemblyInputs<'_>) -> Result<AssemblyOutcome,
             &inputs.scope,
             &inputs.opened_at,
             format!(
-                "Regel 10.9: das Domaenenprofil deklariert fuer die Relationssorte {} keine Vor- \
+                "Regel 10.9 (Herkunft der Kantenbedingungen): das Domaenenprofil deklariert fuer die Relationssorte {} keine Vor- \
                  und Nachbedingungen; es entsteht keine Kante dieser Sorte",
                 relation.id()
             ),
@@ -358,7 +365,7 @@ pub fn assemble_ir_bundle(inputs: AssemblyInputs<'_>) -> Result<AssemblyOutcome,
         residues: inputs.residues,
         gate_reports: inputs.gate_reports,
         trace_ref: inputs.trace_ref,
-        // C10-Ausgaben (Vertrag 11.16: jeder Effektvertrag MUSS vor der
+        // C10-Ausgaben (Vertrag 11.16 (C10): jeder Effektvertrag MUSS vor der
         // Emission an einen bestandenen GateReport gebunden werden). Die
         // Verify-Phase liegt NACH Compile; ein Kandidat, der sie schon
         // truege, behauptete Pruefungen, die nicht stattfanden.
@@ -368,7 +375,7 @@ pub fn assemble_ir_bundle(inputs: AssemblyInputs<'_>) -> Result<AssemblyOutcome,
         digest: Digest::sha256(b""), // Platzhalter, unten ersetzt
     };
 
-    // Vertrag 11.18: "Der Pass schreibt ... den vollstaendigen
+    // Vertrag 11.18 (C11): "Der Pass schreibt ... den vollstaendigen
     // IRBundle-Digest." Ueber ir_encode, also kanonisch und mit derselben
     // Sortierung, die der Round-Trip prueft.
     let digest = crate::ir_encode(&bundle).map(|bytes| Digest::sha256(&bytes))?;
@@ -393,7 +400,7 @@ mod tests {
 
     #[test]
     fn a_trivially_true_predicate_is_refused() {
-        // Regel 10.9 nennt das einen Konformitaetsdefekt. Der Kern kann
+        // Regel 10.9 (Herkunft der Kantenbedingungen) nennt das einen Konformitaetsdefekt. Der Kern kann
         // Praedikate nicht bewerten - aber DIESE eine Form muss er
         // zurueckweisen, sonst ist die Regel nicht durchgesetzt.
         let mut d = EdgeConditionDeclarations::default();
@@ -472,7 +479,7 @@ mod tests {
 
     #[test]
     fn an_empty_condition_list_is_refused() {
-        // Invariante 10.7: "Eine Kante ohne Bedingungen ist nicht
+        // Invariante 10.7 (Kantenvollständigkeit): "Eine Kante ohne Bedingungen ist nicht
         // zulaessig; implizite Erlaubnis existiert nicht."
         let mut d = EdgeConditionDeclarations::default();
         assert!(d

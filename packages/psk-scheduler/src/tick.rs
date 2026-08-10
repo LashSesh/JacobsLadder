@@ -1,4 +1,4 @@
-//! `tick(state, rd)` (Algorithmus 14.4), woertlich:
+//! `tick(state, rd)` (Algorithmus 14.4 (Tick)), woertlich:
 //! ```text
 //! function tick(state: Sigma, rd: RunDescriptor) -> Sigma:
 //!   t = M19.open_tick(state.tick_no, rd)
@@ -16,39 +16,46 @@
 //!   return state
 //! ```
 //!
+//! Die Warteschlange entsteht JE PHASE aus `(phase, state)`, innerhalb
+//! der Schleife, nach dem Zustandsupdate der Vorphase - wie der
+//! Algorithmus es schreibt. Eine fruehere Fassung nahm statt dessen
+//! vollstaendig vorbefuellte Warteschlangen als Parameter entgegen; diese
+//! Entscheidung ist vom Auftraggeber ausdruecklich zurueckgenommen ("Die
+//! heutige Form - vollstaendig vorbefuellte Warteschlangen - ist die
+//! Abweichung, nicht der Algorithmus"). Siehe `select.rs`.
+//!
 //! Diese Umsetzung nimmt `state: &mut Sigma` statt `Sigma` per Wert
-//! zurueckzugeben (derselbe, an mehreren Stellen bereits begruendete Stil,
-//! siehe `dispatch.rs`/`apply.rs`) und `queues: BTreeMap<Phase,
-//! Vec<QueuedItem>>` statt `M25.select(phase, state)` autonom anstehende
-//! Elemente aus `state` zu entdecken - siehe `dispatch.rs`s Modulkopf fuer
-//! die Begruendung ("Phase-Dispatchlogik" ist hier eine vom Aufrufer
-//! bereits zusammengestellte Warteschlange, `select()` selbst wird
-//! trotzdem echt aufgerufen, nicht umgangen). `M19.residue`: realisiert
-//! als `ResidueLedger::open` (kein neuer Name - so vom Aufrufer der
+//! zurueckzugeben (derselbe, an mehreren Stellen begruendete Stil, siehe
+//! `dispatch.rs`/`apply.rs`). `M19.residue`: realisiert als
+//! `ResidueLedger::open` (kein neuer Name - so vom Aufrufer der
 //! Umsetzung ausdruecklich verlangt).
+//!
+//! ## Die drei verbleibenden Parameter neben (state, rd)
+//!
+//! Keiner traegt Planungsautoritaet oder Laufzustand:
+//!
+//! - `lines` (`psk_effect::EffectLines`): die ANGESCHLOSSENEN Leitungen
+//!   der Effektgrenze - die Anwesenheit der Aussenwelt, kein Wert. Sie
+//!   lassen sich weder kanonisieren noch digesten und KOENNEN deshalb
+//!   kein Sigma-Feld sein (siehe Traitkommentar); das Spawnen gehoert
+//!   M26 (`proc.control`), nicht M25 (`clock.read`, module_map.yaml).
+//! - `time`: reale Zeitfortschreibung je Takt ist Sache des Aufrufers
+//!   (mehrere `tick()`-Aufrufe mit fortschreitendem `time`) - M25 liest
+//!   keine Uhr in die Entscheidung hinein, das waere Nichtdeterminismus
+//!   im Scheduler.
+//! - `profiling` (T-OBSV-001, I-ARCH-015): KEIN Feld von Sigma -
+//!   Messwerte duerfen den kanonischen Zustand nicht erreichen, auch
+//!   nicht ueber I_t. `record_phase` ist bei ausgeschaltetem Profiling
+//!   ein No-op, wird aber unveraendert aufgerufen (siehe `profiling.rs`).
 
-use std::collections::BTreeMap;
-
+use psk_effect::EffectLines;
 use psk_trace::{ResidueInputs, RunDescriptor};
 use psk_types::objects::{
     ObligationExpr, ResidueRecordSeverityKind, ResidueRecordTypeKind, ScopeExpr,
 };
 use psk_types::{DualTime, ModuleId, Phase, PskError, CANONICAL_PHASES};
 
-use crate::{
-    apply, charge, dispatch, select, ChargeOutcome, PendingWork, Profiling, ResourceKind,
-    SchedulableItem, Sigma,
-};
-
-/// Ein fuer eine Phase anstehendes Element: Planungsmetadaten
-/// (`schedulable`, geht in `select()` ein), Budgetkosten (`cost`, geht in
-/// `charge()` ein) und die vollstaendigen Eingaben fuer `dispatch()`
-/// (`work`).
-pub struct QueuedItem {
-    pub schedulable: SchedulableItem,
-    pub cost: (ResourceKind, u64),
-    pub work: PendingWork,
-}
+use crate::{apply, charge, dispatch, select, ChargeOutcome, Profiling, QueuedItem, Sigma};
 
 pub(crate) fn budget_residue(
     state: &mut Sigma,
@@ -62,11 +69,9 @@ pub(crate) fn budget_residue(
         origin_object: item.schedulable.id,
         scope: ScopeExpr(format!("{}/{}", phase.label(), item.schedulable.id)),
         // NonBlocking: ein erschoepftes Budget haelt nur DIESES Element an
-        // (Regel 14.5 reiht es implizit fuer einen spaeteren Takt wieder
-        // ein, ueber denselben SchedulableItem/ObjectId) - nicht den
-        // gesamten Takt oder Lauf. Eine Einordnung als Blocking waere hier
-        // eine Ratchet-Argument-artige Verschaerfung ohne Textstelle, die
-        // das ausdruecklich verlangt.
+        // (`select` leitet es im naechsten Takt aus demselben Zustand
+        // wieder ab) - nicht den gesamten Takt oder Lauf. Eine Einordnung
+        // als Blocking waere eine Verschaerfung ohne Textstelle.
         severity: ResidueRecordSeverityKind::NonBlocking,
         open_obligation: ObligationExpr(format!(
             "Budget erschoepft ({:?}) fuer {} in Phase {}",
@@ -80,57 +85,30 @@ pub(crate) fn budget_residue(
     Ok(())
 }
 
-/// Ordnet `queue` gemaess `select()`s realer Sortierung, ohne die
-/// nicht-`Clone`-Nutzlast (`PendingWork::ExecuteRun.adapter` ist
-/// `Box<dyn EffectAdapter>`) zu duplizieren: `SchedulableItem` ist `Copy`,
-/// wird also fuer die Sortierung selbst extrahiert, `queue` danach anhand
-/// der sortierten Reihenfolge per `remove` umsortiert.
-pub(crate) fn ordered_by_select(mut queue: Vec<QueuedItem>) -> Vec<QueuedItem> {
-    let schedulables: Vec<SchedulableItem> = queue.iter().map(|q| q.schedulable).collect();
-    let ordered = select(schedulables);
-    let mut result = Vec::with_capacity(queue.len());
-    for target in ordered {
-        let pos = queue
-            .iter()
-            .position(|q| q.schedulable.id == target.id)
-            .expect("select() darf keine Elemente verlieren oder erfinden");
-        result.push(queue.remove(pos));
-    }
-    result
-}
-
-/// Algorithmus 14.4. `time` wird fuer jedes in diesem Takt geschriebene
-/// Traceseg­ment unveraendert weitergereicht - reale Zeitfortschreibung je
-/// Ereignis ist Sache des Aufrufers (mehrere `tick()`-Aufrufe mit
-/// fortschreitendem `time`), nicht dieser Funktion.
-///
-/// `profiling` (T-OBSV-001, I-ARCH-015) ist ein eigener Parameter und
-/// KEIN Feld von `Sigma`: Messwerte duerfen den kanonischen Zustand nicht
-/// erreichen, auch nicht ueber einen kuenftigen Zustandsdigest. Es gibt
-/// nur diesen einen Codepfad - `record_phase` ist bei ausgeschaltetem
-/// Profiling ein No-op, wird aber unverae ndert aufgerufen (siehe
-/// `profiling.rs`s Modulkopf fuer beide Begruendungen).
+/// Algorithmus 14.4 (Tick). Siehe Modulkopf fuer die Parameterlage.
 pub fn tick(
     state: &mut Sigma,
     rd: &RunDescriptor,
-    mut queues: BTreeMap<Phase, Vec<QueuedItem>>,
+    lines: &mut dyn EffectLines,
     time: DualTime,
     profiling: &mut Profiling,
 ) -> Result<(), PskError> {
     let handle = psk_trace::open_tick(&mut state.trace, state.tick_no, rd.digest, time.clone())?;
 
     for phase in CANONICAL_PHASES {
-        let queue = queues.remove(&phase).unwrap_or_default();
+        // Die Zeile des Algorithmus: deterministische Auswahl aus dem
+        // AKTUELLEN Zustand - die Vorphase ist bereits angewandt.
+        let queue = select(phase, state);
         let mut dispatched = 0u64;
         let mut budget_skipped = 0u64;
-        for item in ordered_by_select(queue) {
+        for item in queue {
             let (kind, amount) = item.cost;
             if !matches!(charge(&mut state.budget, kind, amount), ChargeOutcome::Ok) {
                 budget_residue(state, phase, &item, time.clone())?;
                 budget_skipped += 1;
                 continue;
             }
-            let result = dispatch(phase, item.work, state, time.clone())?;
+            let result = dispatch(phase, item.work, state, lines, time.clone())?;
             for segment in result.trace_segments {
                 state.trace.append(segment)?;
             }

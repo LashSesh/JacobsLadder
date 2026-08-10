@@ -12,7 +12,7 @@
 //! `psk_gate::authorization` fuer die vollstaendige Begruendung
 //! (T-SEC-001/R-RA-009, CapabilityMatrix-Denial token.issue fuer M16).
 //!
-//! `idempotency_key: string` (Struktur 7.33) - Sie: "ueber die
+//! `idempotency_key: string` (Struktur 7.33 (EffectToken)) - Sie: "ueber die
 //! Idempotenzschluessel [run_id, port_id, seq] aus dem Portvertrag."
 //! `psk.port-registry/1.0` (Kapitel 4) fuehrt `idempotency_key: [run_id,
 //! port_id, seq]` als SchluesselTUPEL fuer die Nachrichtenzustellung -
@@ -29,9 +29,14 @@ use psk_types::{Digest, ObjectId, PortId, PskError, RunId};
 /// Eingaben fuer `issue`. `id`, `issuer_digest`, `nonce` und
 /// `idempotency_key` fehlen: `id`/`issuer_digest` folgen aus dem Inhalt,
 /// `nonce` wird vom Aufrufer als bereits gezogener Zufallswert uebergeben
-/// (M15 selbst zieht keinen Zufall - Invariante 11.3, Passdeterminismus:
+/// (M15 selbst zieht keinen Zufall - Invariante 11.3 (Passdeterminismus), Passdeterminismus:
 /// Zufall MUSS aus dem RunDescriptor/seed abgeleitet sein, nicht hier neu
 /// gewuerfelt), `idempotency_key` wird aus `run_id`/`port_id`/`seq` gebaut.
+///
+/// `Clone`/`Serialize`: der deklarierte Patchplan eines Laufs liegt seit
+/// der Taktumverdrahtung als Wert im Laufzustand Sigma (die Execute-
+/// Phase liest ihn von dort) und geht damit in I_t ein.
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct IssueInputs {
     pub effect_class: EffectClassId,
     pub plan_digest: Digest,
@@ -79,7 +84,7 @@ pub fn issue(auth: &GateAuthorization, inputs: IssueInputs) -> Result<EffectToke
     let draft = EffectToken {
         schema: "psk.effect-token/1.0".to_string(),
         id: ObjectId::new(psk_types::objects::SortId::Capability, Digest::sha256(b"")), // Platzhalter
-        subject: psk_types::ModuleId::EffectBoundary, // "ausschliesslich M16" (Struktur 7.33)
+        subject: psk_types::ModuleId::EffectBoundary, // "ausschliesslich M16" (Struktur 7.33 (EffectToken))
         effect_class: inputs.effect_class,
         plan_digest: inputs.plan_digest,
         scope: inputs.scope,

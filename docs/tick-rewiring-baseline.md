@@ -79,3 +79,31 @@ Verdikt UNKNOWN (QPM-OBL-002). Witnessrang 1 bei 6 Sichten.
 Nach der Umverdrahtung sind ALLE Zeilen dieser Datei erneut zu messen.
 Erwartet: genau eine Änderung (I_t), begründet zwei weitere
 (trace_head, IR-Digest) — jede andere Abweichung ist ein Befund.
+
+## Nachher gemessen (Taktumverdrahtung, Regel 24.4)
+
+Verfeinerte Vorhersage aus der v1.0.39-Runde: I_t MUSS sich ändern;
+trace_head und IR-Digest DÜRFEN, einzeln begründet; alles übrige MUSS
+gleich bleiben, einschließlich C0/[FC0, FC1] und R3; tick_no MUSS von 0
+auf die Taktzahl steigen.
+
+**Alle Zahlen gleich:** IR-Knoten 20, Kanten 16, Zellen 18 (8 vakuum,
+alle geschlossen), emission_class HOLD; Laufresiduen 1 (blockierend),
+scope-Residuen 16, Obstruktionen 1, Widersprüche 2 (1 offen);
+Feldidentitäten 6, Projektionen 6, Quotientenklassen 1, Ratchetrunden 2,
+Kapselfixpunkt true; Zertifikat C0, [FC0, FC1], R3; EXECUTABLE
+Some(false) mit demselben einen Blocker; QPM 13/6/0/1, Verdikt UNKNOWN.
+
+**tick_no: 0 → 3, in beiden Läufen** — der positive Nachweis. Takt 1
+trägt die Schritte 2–10 (Beobachtung bis Effekt), Takt 2 die
+Kapselauflösung, den Receipt-Ingress und die Reconciliation, Takt 3 den
+finalen Zusammenbau und die Zellclosure darüber.
+
+| ID | vorher | nachher | Einordnung |
+|---|---|---|---|
+| I_C | `676e8cb4…` | `676e8cb4…` | gleich |
+| I_A | `cbd39b31…` | `cbd39b31…` | gleich — `architecture/` unangetastet |
+| I_t | `c32b940f…` | `c8617bf3…` | MUSS: jetzt H(Can(Σ)) NACH den Takten |
+| trace_head | `ea79333a…` | `a5d80d27…` | DARF: der Trace trägt Taktsegmente (tick.opened, dispatch.\*, phase.sealed.\*, tick.closed) statt der Geradeaus-Marken |
+| IR-Digest | `5b64567a…` | `e5377e37…` | DARF: die Knotenumschläge tragen die Taktposition (trace_ref) und die Spätobjekte die fortgeschriebene logische Zeit |
+| I_M | `2155f5ca…` | `7de994b1…` | **Befund, gemeldet:** I_M = H(Cargo.lock ‖ I_C ‖ I_A), und Cargo.lock trägt die angeordneten neuen Kanten (psk-scheduler→psk-ir/psk-topology, psk-conformance→psk-scheduler). Nicht angepasst — die Implementierungsidentität folgt der geänderten Implementierung; ob die Begründung trägt, entscheidet der Auftraggeber |

@@ -1,4 +1,4 @@
-//! Golden Run Harness (Definition 24.2 (Golden Run), Regel 24.3).
+//! Golden Run Harness (Definition 24.2 (Golden Run), Regel 24.3 (Golden-Run-Ablauf)).
 //!
 //! Regel 24.3 (Golden-Run-Ablauf), woertlich, die 13 Schritte:
 //! 1. Bundle verifizieren, Bootgate schliessen.
@@ -40,38 +40,36 @@
 //! gate_registry.yaml) folgen demselben Muster wie `psk_certify::
 //! evaluate_release_gate` fuer G-RELEASE (siehe psk-gate/evaluate.rs
 //! Modulkopf: `seam_compatible` ist ein von aussen bestimmtes Urteil, kein
-//! interner `M11.seam_report`-Aufruf, da SeamReport (Struktur 7.30) M13-
+//! interner `M11.seam_report`-Aufruf, da SeamReport (Struktur 7.30 (SeamReport / ObstructionRecord)) M13-
 //! zellenfoermig ist und G-BOOT keinen M13-Zellbezug hat) - beides wird
 //! jetzt innerhalb von `psk_contract::boot` selbst gesetzt, siehe dort.
 
+use std::collections::BTreeMap;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-use psk_adversarial::{capsulate, check_support, ratchet, CapsuleInputs, SupportPaths};
-use psk_anchor::{bind_provenance, no_declared_uncertainty, seal_anchor, AnchorInputs};
 use psk_certify::{
     check_minimum_replay_class, compute_conformance_class, issue_certificate, AdditionalAcceptance,
     CertificateInputs,
 };
-use psk_closure::{glue, CapsuleRestriction, GlueOutcome};
-use psk_dependency::{dependency_quotient, QuotientInputs, RankMethod};
-use psk_effect::{issue as issue_token, IssueInputs, TokenLedger};
-use psk_fields::{register_field, route_lens, LensOutcome, ProjectionInputs};
+use psk_closure::GlueOutcome;
+use psk_effect::{EffectAdapter, EffectLines, IssueInputs, ProcessEffectAdapter};
 use psk_gate::{authorize, evaluate_gate, ConditionOutcome, GateAuthorization, GateInputs};
-use psk_reconciliation::{reconcile, DiffOutcome, ReconcileInputs};
-use psk_thought::{ClassificationInputs, RealityEvidence, ThoughtInputs};
-use psk_trace::{ResidueLedger, SegmentInputs, TraceStore};
+use psk_scheduler::{
+    has_pending_work, sigma_digest, tick, AssemblyDeclarations, CapsuleSpec, FieldFamilyEntry,
+    GlueSpec, PatchGateSpec, PendingRecord, Profiling, ReceiptDeposit, ReconcileSpec, Sigma,
+};
+use psk_trace::{ResidueLedger, TraceStore};
 use psk_types::objects::{
     AnchorSnapshot, ArchetypeId, BoundarySpec, BudgetSpec, CapabilityId, Claim,
     ClaimDirectionalityKind, ClaimExpr, ConsequenceRef, ContextRef, DependencyProfile,
-    DependencyProfileConsensusScopeKind, DomainExpr, EffectAttempt, EffectClassId, EffectToken,
-    EffectTokenRollbackKind, EventTypeId, ExternalReceipt, FeatureCoverageId, FieldIdentity,
-    FieldProjection, GateId, IRNodeId, Lineage, M13Address, MachineCertificate,
-    MachineCertificateReplayClassKind, ModelRef, ObligationExpr, Observation, OpId, PredicateExpr,
-    ProfileId, QuestionSpec, RealityClassification, RealityStatus, ReasonCode, ReceiptSpec,
-    ReconciliationReport, ReplayDescriptor, RollbackSpec, ScopeExpr, ScopeSpec, SortId, SourceRef,
-    ThoughtBody, TickId, TimeWindow, TrajectoryRef, UncertaintyBlock, UncertaintyModelId, Validity,
-    WitnessPolicy,
+    DependencyProfileConsensusScopeKind, DomainExpr, EffectAttempt, EffectClassId,
+    EffectTokenRollbackKind, ExternalReceipt, FeatureCoverageId, FieldIdentity, FieldProjection,
+    GateId, IRNodeId, Lineage, M13Address, MachineCertificate, MachineCertificateReplayClassKind,
+    ModelRef, ObligationExpr, Observation, OpId, PredicateExpr, ProfileId, QuestionSpec,
+    RealityClassification, ReasonCode, ReceiptSpec, ReconciliationReport, ReplayDescriptor,
+    RollbackSpec, ScopeExpr, ScopeSpec, SemVer, SortId, SourceRef, ThoughtBody, TimeWindow,
+    TrajectoryRef, UncertaintyBlock, UncertaintyModelId, Validity, WitnessPolicy,
 };
 use psk_types::{
     ClockRef, Digest, DualTime, MessageType, ModuleId, Msg, ObjectId, PortId, PskError, RunId,
@@ -92,13 +90,25 @@ const GOLDEN_RUN_PATCH_TARGET: &str = "golden-run-patch.txt";
 
 /// Deterministische Laufzeit (Definition 24.2 (Golden Run): "erwartetem kanonischen
 /// Zustandsdigest" - Replaystabilitaet verlangt eine feste, nicht eine
-/// systemuhrabhaengige Zeit).
+/// systemuhrabhaengige Zeit). Basiszeit der Deponate und des Zertifikats.
 fn run_time() -> DualTime {
     DualTime {
         tau_i: 1_000_000,
         tau_e: "2026-08-05T00:00:00.000000000Z".into(),
         clock_ref: ClockRef("golden-run".into()),
         uncertainty_ns: 0,
+    }
+}
+
+/// Die Zeit eines Takts: tau_i schreitet je Takt deterministisch fort
+/// ("reale Zeitfortschreibung je Ereignis ist Sache des Aufrufers",
+/// tick.rs) - logische Zeit, die steht, waehrend tick_no steigt, waere
+/// eine Uhr, die luegt. tau_e bleibt fest: die Wanduhr ist volatil und
+/// geht in keinen Digest ein (Invariante 6.14 (Replayneutralität der Wanduhr)).
+fn tick_time(tick_no: u64) -> DualTime {
+    DualTime {
+        tau_i: 1_000_000 + tick_no,
+        ..run_time()
     }
 }
 
@@ -157,7 +167,7 @@ pub struct GoldenRunReport {
     /// Was der Integrator daraus gemacht hat - je offenem Widerspruch
     /// eine Obstruktion der Art `order`.
     pub obstructions: Vec<psk_types::objects::ObstructionRecord>,
-    /// Die sechs Feldidentitaeten des Laufs (Regel 32.7) - herausgegeben,
+    /// Die sechs Feldidentitaeten des Laufs (Regel 32.7 (Feldfamilie der Referenzdomäne)) - herausgegeben,
     /// weil sie Lin_lambda tragen: FC4s Lineage-Beleg zaehlt NICHTLEERE
     /// Lineages an realen Laufobjekten, und ein Objekt, das der Bericht
     /// nicht enthaelt, kann nichts belegen. Dieselbe Ueberlegung, aus der
@@ -166,7 +176,7 @@ pub struct GoldenRunReport {
     /// Der IRBundle-Kandidat dieses Laufs (Definition 14.2 (Phasen-Modul-Bindung), Compile).
     /// `emission_class` ist HOLD - siehe psk_ir::assembly.
     pub ir_bundle: psk_types::objects::IRBundle,
-    /// Regel 10.9: je Relationssorte ohne Deklaration im Domaenenprofil
+    /// Regel 10.9 (Herkunft der Kantenbedingungen): je Relationssorte ohne Deklaration im Domaenenprofil
     /// ein ResidueRecord(scope).
     ///
     /// BEWUSST getrennt von `residues`: jene sind Gate-Residuen
@@ -180,11 +190,11 @@ pub struct GoldenRunReport {
     /// Jede nicht gebaute Kante mit Grund.
     pub ir_omissions: Vec<psk_ir::EdgeOmission>,
     /// Die Residuensaetze selbst, nicht nur ihre Anzahl - Eingabe des
-    /// `residue_report_digest`, das Struktur 7.49 (MachineCertificate) als einen der vier
+    /// `residue_report_digest`, das Struktur 7.4 (AnchorSnapshot)9 (MachineCertificate) als einen der vier
     /// Berichtsdigests verlangt. Ein Bericht ueber eine Zahl waere keiner.
     pub residues: Vec<psk_types::objects::ResidueRecord>,
     /// Vertrag 9.7 (Zellclosure) ueber dem finalen Graphen: alle 18 Zellberichte
-    /// (Regel 9.9 verlangt, die Vakuumschliessungen AUSZUWEISEN - die
+    /// (Regel 9.9 (Leere Zelle schließt vakuum, aber nicht stillschweigend) verlangt, die Vakuumschliessungen AUSZUWEISEN - die
     /// Zahl steht in den occupancy-Feldern, `vacuum_closed_count`
     /// leitet sie ab).
     pub cell_reports: Vec<psk_topology::CellReport>,
@@ -194,13 +204,22 @@ pub struct GoldenRunReport {
     /// Eigenschaft eines VERGLEICHS zweier Laeufe; erst die
     /// Zertifizierung fuellt sie.
     pub executable: ExecutableCheck,
+    /// Wie viele Takte der Lauf brauchte (Regel 24.4 (Der Golden Run
+    /// laeuft unter tick)): `Sigma.tick_no` nach der Schleife. Der
+    /// positive Nachweis, dass die Schritte 2-13 als Phasenarbeit
+    /// liefen - 0 hiesse: der Lauf hat den Taktzyklus nie betreten.
+    pub ticks: u64,
+    /// I_t = H(Can(Sigma_t)) NACH den Takten (Regel 6.10 (Vier Identitäten), Vier
+    /// Identitaeten; Regel 24.4 (Der Golden Run läuft unter tick): "Sigma_t ist der Zustand nach den
+    /// Takten"). Abgeleitet, nie behauptet.
+    pub i_t: Digest,
 }
 
 /// pass_registry.yaml, `executable_requires`: [fully_typed,
 /// anchor_bound_or_declared_unanchored, all_18_cells_closed, close720,
 /// unique_global_section, all_blocking_gates_pass, no_blocking_residue].
 /// Jedes Feld ist abgeleitet, keines behauptet; die Herkunft steht am
-/// Feld. Regel 9.21: die beiden trivial wahren Close720-Schenkel sind
+/// Feld. Regel 9.21 (Triviale Route ist eine Route): die beiden trivial wahren Close720-Schenkel sind
 /// als trivial AUSGEWIESEN und gelten nicht als Beleg fuer
 /// Transportkorrektheit.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -212,12 +231,12 @@ pub struct ExecutableCheck {
     pub anchor_bound_or_declared_unanchored: bool,
     /// psk_topology::all_18_closed ueber den 18 Zellberichten.
     pub all_18_cells_closed: bool,
-    /// Regel 9.9: wie viele der geschlossenen Zellen vakuum schlossen.
+    /// Regel 9.9 (Leere Zelle schließt vakuum, aber nicht stillschweigend): wie viele der geschlossenen Zellen vakuum schlossen.
     pub cells_vacuum_closed: usize,
     /// Close720-Schenkel 1: Phi^2(x) ==can x. Bei max_depth = 0 gilt
     /// Phi = I aus T_ii = I (Regel 9.21 (Triviale Route ist eine Route)) - TRIVIAL, ausgewiesen.
     pub close720_phi_squared_trivially: bool,
-    /// Close720-Schenkel 2: Hol(Phi^2) = I - ebenso trivial (Regel 9.21).
+    /// Close720-Schenkel 2: Hol(Phi^2) = I - ebenso trivial (Regel 9.21 (Triviale Route ist eine Route)).
     pub close720_holonomy_trivially: bool,
     /// Close720-Schenkel 3: Replay(Phi^2) ==can x. Braucht den
     /// Zweitlauf (Definition 22.1 (Replayklassen)); None heisst "in diesem Artefakt
@@ -280,25 +299,6 @@ pub struct GoldenRunCertification {
     /// Baseline-Laeufe stellt), brauchen diese Zahl statt der Gesamtzeit -
     /// sonst waere der Vergleich 2 Kern-Laeufe gegen 1 Baseline-Lauf.
     pub first_run_wall_clock: std::time::Duration,
-}
-
-fn record(
-    trace: &mut TraceStore,
-    event_type: &str,
-    module: ModuleId,
-    object_refs: Vec<ObjectId>,
-    payload_digest: Digest,
-) -> Result<TraceRef, PskError> {
-    let seg = trace.append(SegmentInputs {
-        event_type: EventTypeId(event_type.into()),
-        module,
-        port_id: None,
-        object_refs,
-        payload_digest,
-        time: run_time(),
-        attestation: None,
-    })?;
-    Ok(TraceRef(seg.segment_digest))
 }
 
 /// Schritt 1. Siehe Modulkopf - ruft jetzt den vollstaendigen, realen
@@ -374,442 +374,6 @@ fn stage_corpus(corpus_root: &Path, sandbox_root: &Path) -> Result<Digest, PskEr
     Ok(Digest::sha256(&material))
 }
 
-fn seal_workspace_anchor(
-    sandbox_root: &Path,
-    trace_ref: TraceRef,
-    corpus_digest: Digest,
-) -> Result<AnchorSnapshot, PskError> {
-    let config = observer_local_fs::ObserverConfig::new(sandbox_root);
-    let record =
-        observer_local_fs::observe(&config, run_time()).map_err(|_| PskError::MissingAnchor)?;
-    let provenance = bind_provenance(
-        &record,
-        psk_types::objects::AdapterId("observer-local-fs".into()),
-        Digest::sha256(b"golden-run-observer"),
-        "filesystem-read".into(),
-    );
-    seal_anchor(AnchorInputs {
-        observations: vec![Observation(format!(
-            "{} Dateien unter {} beobachtet",
-            record.file_hashes.len(),
-            sandbox_root.display()
-        ))],
-        provenance,
-        uncertainty: no_declared_uncertainty(UncertaintyModelId("none-declared".into())),
-        context: ContextRef("golden-run".into()),
-        time: run_time(),
-        validity: Validity {
-            // Regel "Ein Frischepraedikat muss verletzbar sein": es
-            // benennt die Beobachtung, unter der es faellt - die
-            // Veraenderung genau dieses Verzeichnisses. Frueher stand
-            // hier "always", womit der von Vertrag Ankerfrische
-            // vorgeschriebene Ausgang strukturell unerreichbar war.
-            freshness_predicate: PredicateExpr(crate::directory_freshness_predicate(corpus_digest)),
-            expires_at_tau_i: u64::MAX,
-        },
-        boundary: ScopeExpr(sandbox_root.display().to_string()),
-    })
-    .map(|mut a| {
-        let _ = trace_ref; // trace_ref wird oberhalb bereits fuer den Aufrufkontext gefuehrt
-        a.schema = a.schema.clone();
-        a
-    })
-}
-
-/// Schritt 3: Auftrag in ThoughtBody kompilieren.
-fn compile_thought(anchor: &AnchorSnapshot, trace_ref: TraceRef) -> Result<ThoughtBody, PskError> {
-    psk_thought::compile_thought(ThoughtInputs {
-        anchor_refs: vec![anchor.id],
-        unanchored: false,
-        claim: Claim {
-            text: "Golden-Run-Demonstrationspatch in der Sandbox schreiben".into(),
-            formal: ClaimExpr("write(sandbox, patch.txt)".into()),
-            directionality: ClaimDirectionalityKind::Internal,
-        },
-        models: vec![ModelRef("reference-domain".into())],
-        trajectories: vec![TrajectoryRef("direct-write".into())],
-        uncertainty: UncertaintyBlock("none-declared".into()),
-        consequences: vec![ConsequenceRef("sandbox-file-write".into())],
-        lineage: Lineage("golden-run".into()),
-        trace_ref,
-    })
-}
-
-/// Schritt 4: Realitaetstypen bestimmen.
-fn classify_thought_reality(
-    thought: &ThoughtBody,
-    anchor: &AnchorSnapshot,
-    trace_ref: TraceRef,
-) -> Result<RealityClassification, PskError> {
-    // Vertrag 27.2 Pflicht 3: "Ein fehlendes oder nicht anwendbares
-    // Plug-in erzeugt UNKNOWN beziehungsweise ein Residuum. Ein
-    // Default-Zweig auf einen positiven Status ist ein
-    // Konformitaetsdefekt."
-    //
-    // Es existiert KEIN Klassifikationsplugin in diesem Workspace. Die
-    // fruehere Fassung nannte hier ein MethodPlugin
-    // ("reference-domain-fs-classifier"), das nirgends sonst vorkam, und
-    // setzte in dessen Namen einen positiven Evidenzvektor von Hand -
-    // woertlich der Konformitaetsdefekt, den Pflicht 3 beschreibt. Der
-    // treue Zustand ist "nichts festgestellt": der Default von
-    // RealityEvidence, ohne method_ref, ohne Grundlage. classify()
-    // erzwingt selbst, dass daraus nur UNKNOWN werden kann - und
-    // UNKNOWN mit leerem evidence_refs IST die Materialisierung
-    // "fehlender Witness" aus Vertrag 7.13 (Unknown als wirksamer Status), kein fehlender Wert.
-    psk_thought::classify(
-        thought,
-        ClassificationInputs {
-            anchor_ref: anchor.id,
-            evidence: RealityEvidence::default(),
-            evidence_refs: vec![],
-            method_ref: None,
-            residue_refs: vec![],
-            trace_ref,
-            classified_at: run_time(),
-        },
-    )
-}
-
-/// Schritt 5: Statische Feldfamilie - alle sechs Archetypen registrieren
-/// und je einmal projizieren (Regel 32.7 (Feldfamilie der Referenzdomäne)).
-fn run_static_field_family(
-    anchor: &AnchorSnapshot,
-    reality_status: RealityStatus,
-) -> Result<(Vec<FieldIdentity>, Vec<FieldProjection>), PskError> {
-    // Die Identitaeten werden mit herausgegeben, nicht mehr verworfen:
-    // Lin_lambda sitzt auf FieldIdentity, und `projects` (S-FLD -> S-PRJ)
-    // braucht sie als Quellknoten.
-    let mut fields = Vec::new();
-    let mut projections = Vec::new();
-    for (i, archetype) in ArchetypeId::ALL.into_iter().enumerate() {
-        let field = register_field(
-            archetype,
-            psk_fields::FieldRegistrationInputs {
-                domain: DomainExpr("sandbox-files".into()),
-                lens: psk_types::objects::LensSpec("identity".into()),
-                operators: vec![OpId::Project],
-                questions: vec![QuestionSpec(format!("archetype-{i}-question"))],
-                witness_rules: WitnessPolicy("default".into()),
-                boundaries: BoundarySpec("sandbox".into()),
-                gates: vec![],
-                time_window: TimeWindow("golden-run-window".into()),
-                lineage: Lineage("golden-run".into()),
-                // Vorwaertsreferenz: der DependencyProfile wird erst in
-                // Schritt 6 aus genau diesen sechs Projektionen berechnet;
-                // die Registrierung selbst braucht nur eine syntaktisch
-                // gueltige Kennung (register_field/check_activation_requirements
-                // sind getrennte Pruefungen, siehe psk-fields::registry).
-                dependency_profile_ref: ObjectId::new(
-                    SortId::Dependency,
-                    Digest::sha256(b"golden-run-dependency-profile"),
-                ),
-                budget: BudgetSpec("unbounded-demo".into()),
-                rollback: RollbackSpec("re-run".into()),
-                // I-FIELD-001: eine Systemidentitaet, die von jeder
-                // real erzeugbaren Feld-ID verschieden ist.
-                system_identity: Digest::sha256(b"system-identity-not-a-field"),
-            },
-        )?;
-        projections.push(project_field(&field, anchor, reality_status, i)?);
-        fields.push(field);
-    }
-    Ok((fields, projections))
-}
-
-fn project_field(
-    field: &FieldIdentity,
-    anchor: &AnchorSnapshot,
-    reality_status: RealityStatus,
-    i: usize,
-) -> Result<FieldProjection, PskError> {
-    let node = IRNodeId(format!("golden-run-node-{i}"));
-    let outcome = route_lens(
-        field,
-        ProjectionInputs {
-            source_refs: vec![anchor.id],
-            candidates: vec![node.clone()],
-            resolved: vec![node],
-            distinctions: vec![],
-            source_provenance: vec![SourceRef("sandbox-observation".into())],
-            reality_view: reality_status,
-            scope: ScopeSpec("sandbox".into()),
-            tick: TickId("t0".into()),
-            opened_at: run_time(),
-        },
-    )?;
-    match outcome {
-        LensOutcome::Projected(projection) => Ok(projection),
-        LensOutcome::NotApplicable(_residue) => Err(PskError::FieldProjectionUndefined),
-    }
-}
-
-/// Compile (Definition 14.2 (Phasen-Modul-Bindung)): den IRBundle-Kandidaten aus den realen
-/// Objekten dieses Laufs bauen.
-///
-/// Knoten entstehen nur fuer Sorten, die `psk_topology::place` ohne eine
-/// Traegerzelle platzieren kann (Regel 9.14 (Platzierungsregel) Punkte 1-3). Die
-/// zellgebundenen Sorten S-GAT/S-TRC/S-WIT/S-RES (Punkt 4) bleiben aussen
-/// vor - siehe den Kopfkommentar von `ir_assembly`.
-///
-/// Kanten entstehen nur, wo ein reales Objektfeld die Verknuepfung
-/// festhaelt. `observed_by` (S-EFF -> S-RCP) ist deshalb NICHT dabei:
-/// ExternalReceipt traegt per Struktur 7.35 keine Referenz auf den
-/// Versuch - der Beobachter ist unabhaengig und sieht ihn nie. Eine Kante
-/// dort waere eine Verknuepfung, die kein Objekt bezeugt.
-/// Zusammenbau plus die Sondierungsvermerke des Laufs, der platziert hat
-/// (Struktur 9.10 (CellReport): "wird hier vermerkt, nicht verworfen").
-type AssembledGraph = (psk_ir::AssemblyOutcome, Vec<(ObjectId, Vec<u8>)>);
-
-/// Die Objekte, die erst NACH dem Effekt existieren (Schritte 9-12).
-/// Pass C9 laeuft vor C10 - der Compile-Graph, den die Zellclosure vor
-/// dem Patch-Gate prueft, kann sie noch nicht enthalten; der finale
-/// Graph des Berichts traegt sie. Zwei Aufrufe derselben Funktion, ein
-/// Unterschied: dieses Buendel.
-struct LateObjects<'a> {
-    token_obj: &'a EffectToken,
-    attempt: &'a EffectAttempt,
-    receipt: &'a ExternalReceipt,
-    reconciliation: &'a ReconciliationReport,
-}
-
-#[allow(clippy::too_many_arguments)]
-fn assemble_run_ir_bundle(
-    workspace_root: &std::path::Path,
-    anchor: &AnchorSnapshot,
-    thought: &ThoughtBody,
-    reality: &RealityClassification,
-    field_identities: &[FieldIdentity],
-    field_projections: &[FieldProjection],
-    dependency_profile: &DependencyProfile,
-    late: Option<&LateObjects<'_>>,
-    boot_report: &psk_contract::BootReport,
-    trace_head: Digest,
-    opened_residues: &[psk_types::objects::ResidueRecord],
-) -> Result<AssembledGraph, PskError> {
-    use crate::ir_assembly::{build_node, edge, NodeEnvelope};
-    use psk_types::objects::{RelationSortId, SortId};
-
-    let trace_ref = TraceRef(trace_head);
-    // QPM Regel 3.9 baut auf diesem Rueckverweis auf: der Ledger fuehrt
-    // `origin_object` vorwaerts, der Knoten fuehrt ihn zurueck. Ohne
-    // ihn koennte die Massenklasse Residuum nie von null verschieden
-    // werden - eine Verdrahtungsluecke, keine Domaeneneigenschaft.
-    let by_origin = crate::ir_assembly::residues_by_origin(opened_residues);
-    let env = NodeEnvelope {
-        // Der einzige reale ContextRef des Laufs - er sitzt auf dem Anker,
-        // und in genau diesem Kontext sind alle uebrigen Objekte entstanden.
-        context: anchor.context.clone(),
-        // Dieselbe Lineage, die der Lauf an ThoughtBody und FieldIdentity
-        // bereits deklariert (nicht hier erfunden).
-        lineage: Lineage("golden-run".into()),
-        reality_status: reality.reality_status,
-        facticity: thought.facticity,
-        anchor_ref: anchor.id,
-        trace_ref,
-        residue_refs: Vec::new(),
-    };
-    // Je Knoten die Residuen, die IHN als Ursprung fuehren.
-    let env_for = |id: ObjectId| NodeEnvelope {
-        residue_refs: by_origin.get(&id).cloned().unwrap_or_default(),
-        context: env.context.clone(),
-        lineage: env.lineage.clone(),
-        reality_status: env.reality_status,
-        facticity: env.facticity,
-        anchor_ref: env.anchor_ref,
-        trace_ref: env.trace_ref,
-    };
-
-    let mut probes: Vec<(ObjectId, Vec<u8>)> = Vec::new();
-    let mut nodes = Vec::new();
-    nodes.push(build_node(
-        anchor,
-        anchor.id,
-        SortId::Anchor,
-        &env_for(anchor.id),
-        &mut probes,
-    )?);
-    nodes.push(build_node(
-        thought,
-        thought.id,
-        SortId::Context,
-        &env_for(thought.id),
-        &mut probes,
-    )?);
-    nodes.push(build_node(
-        reality,
-        reality.id,
-        SortId::Horizon,
-        &env_for(reality.id),
-        &mut probes,
-    )?);
-    for f in field_identities {
-        nodes.push(build_node(
-            f,
-            f.id,
-            SortId::FieldIdentity,
-            &env_for(f.id),
-            &mut probes,
-        )?);
-    }
-    for p in field_projections {
-        nodes.push(build_node(
-            p,
-            p.id,
-            SortId::Projection,
-            &env_for(p.id),
-            &mut probes,
-        )?);
-    }
-    nodes.push(build_node(
-        dependency_profile,
-        dependency_profile.id,
-        SortId::Dependency,
-        &env_for(dependency_profile.id),
-        &mut probes,
-    )?);
-    if let Some(l) = late {
-        nodes.push(build_node(
-            l.token_obj,
-            l.token_obj.id,
-            SortId::Capability,
-            &env_for(l.token_obj.id),
-            &mut probes,
-        )?);
-        nodes.push(build_node(
-            l.attempt,
-            l.attempt.id,
-            SortId::Effect,
-            &env_for(l.attempt.id),
-            &mut probes,
-        )?);
-        nodes.push(build_node(
-            l.receipt,
-            l.receipt.id,
-            SortId::Receipt,
-            &env_for(l.receipt.id),
-            &mut probes,
-        )?);
-        nodes.push(build_node(
-            l.reconciliation,
-            l.reconciliation.id,
-            SortId::Reconciliation,
-            &env_for(l.reconciliation.id),
-            &mut probes,
-        )?);
-    }
-
-    let mut candidates = Vec::new();
-    // grounds: ThoughtBody.anchor_refs enthaelt anchor.id.
-    if thought.anchor_refs.contains(&anchor.id) {
-        candidates.push(edge(
-            anchor.id,
-            thought.id,
-            RelationSortId::Grounds,
-            "ThoughtBody.anchor_refs",
-            trace_ref,
-        ));
-    }
-    // defines: RealityClassification.anchor_ref == anchor.id.
-    if reality.anchor_ref == anchor.id {
-        candidates.push(edge(
-            anchor.id,
-            reality.id,
-            RelationSortId::Defines,
-            "RealityClassification.anchor_ref",
-            trace_ref,
-        ));
-    }
-    // projects: FieldProjection.field_ref == field.id.
-    for p in field_projections {
-        if let Some(f) = field_identities.iter().find(|f| f.id == p.field_ref) {
-            candidates.push(edge(
-                f.id,
-                p.id,
-                RelationSortId::Projects,
-                "FieldProjection.field_ref",
-                trace_ref,
-            ));
-        }
-    }
-    // shares_source: die Projektion steht in einer Quotientenklasse.
-    for p in field_projections {
-        if dependency_profile
-            .quotient_classes
-            .iter()
-            .any(|class| class.contains(&p.id))
-        {
-            candidates.push(edge(
-                p.id,
-                dependency_profile.id,
-                RelationSortId::SharesSource,
-                "DependencyProfile.quotient_classes",
-                trace_ref,
-            ));
-        }
-    }
-    if let Some(l) = late {
-        // authorizes: EffectToken.gate_report_ref. Deklariert und belegt -
-        // aber der GateReport traegt keinen Knoten (zellgebunden), also
-        // entsteht keine Kante, sondern EndpointMissing. Der Kandidat wird
-        // trotzdem vorgelegt, damit die Luecke im Bericht erscheint statt
-        // stillschweigend zu fehlen.
-        candidates.push(edge(
-            l.token_obj.gate_report_ref,
-            l.token_obj.id,
-            RelationSortId::Authorizes,
-            "EffectToken.gate_report_ref",
-            trace_ref,
-        ));
-        // permits: EffectAttempt.token_ref == token.id.
-        if l.attempt.token_ref == l.token_obj.id {
-            candidates.push(edge(
-                l.token_obj.id,
-                l.attempt.id,
-                RelationSortId::Permits,
-                "EffectAttempt.token_ref",
-                trace_ref,
-            ));
-        }
-        // feeds: ReconciliationReport.receipt_refs enthaelt receipt.id.
-        if l.reconciliation.receipt_refs.contains(&l.receipt.id) {
-            candidates.push(edge(
-                l.receipt.id,
-                l.reconciliation.id,
-                RelationSortId::Feeds,
-                "ReconciliationReport.receipt_refs",
-                trace_ref,
-            ));
-        }
-    }
-
-    let outcome = psk_ir::assemble_ir_bundle(psk_ir::AssemblyInputs {
-        version: psk_types::objects::SemVer("1.0.0".into()),
-        constitution_id: boot_report.identity.I_C,
-        nodes,
-        edge_candidates: candidates,
-        declarations: &crate::ir_assembly::load_reference_domain_profile(workspace_root)?,
-        port_matrix: &crate::ir_assembly::load_port_matrix(workspace_root)?,
-        anchor_refs: vec![anchor.id],
-        field_projections: field_projections.iter().map(|p| p.id).collect(),
-        dependencies: dependency_profile.id,
-        // Kein EvidenceObject im Referenzlauf (siehe ir_assembly).
-        witnesses: Vec::new(),
-        // IRBundle.residues (R) ist das Aufloesungsuniversum der
-        // Residuenverweise. Seit die Knoten `residue_refs` tragen, MUSS
-        // es sie enthalten - Vertrag 9.7 (Zellclosure)s Bedingung "offene Differenzen
-        // explizit residualisiert" prueft genau diese Aufloesung, und
-        // ein Verweis ins Leere ist ein defekter Graph. Die Zellclosure
-        // hat das sofort gemeldet, als der Rueckverweis entstand und R
-        // noch leer war.
-        residues: opened_residues.iter().map(|r| r.id).collect(),
-        gate_reports: Vec::new(),
-        trace_ref,
-        opened_at: run_time(),
-        scope: ScopeExpr("jacobs-ladder-reference".into()),
-    })?;
-    Ok((outcome, probes))
-}
-
 /// Die sieben Bedingungen aus `executable_requires`, einzeln abgeleitet.
 /// Jede Zeile nennt ihre Quelle; nichts hier ist gesetzt, damit ein
 /// bestimmter Ausgang eintritt.
@@ -832,7 +396,7 @@ fn derive_executable_check(
     let anchor_bound = bundle.graph.nodes.iter().all(|n| !n.anchor_refs.is_empty());
     let all_18 = psk_topology::all_18_closed(cell_reports);
     let vacuum = psk_topology::vacuum_closed_count(cell_reports);
-    // Regel 9.21: bei max_depth = 0 folgt Phi = I aus T_ii = I - beide
+    // Regel 9.21 (Triviale Route ist eine Route): bei max_depth = 0 folgt Phi = I aus T_ii = I - beide
     // Schenkel gelten TRIVIAL und sind hier als solche ausgewiesen
     // (die Felder heissen so). Der ClosureMode der Zellberichte traegt
     // dieselbe Auskunft je Zelle.
@@ -898,259 +462,6 @@ fn derive_executable_check(
         no_blocking_residue: no_blocking,
         blockers,
     }
-}
-
-/// Vertrag 9.7 (Zellclosure) ueber dem konkreten Graphen: Kontext aus Buendel (W, R, T)
-/// und versiegelten Registern bauen, alle 18 Zellen schliessen.
-fn stage_closure(
-    workspace_root: &std::path::Path,
-    bundle: &psk_types::objects::IRBundle,
-    probes: &[(ObjectId, Vec<u8>)],
-    max_depth: u32,
-) -> Result<Vec<psk_topology::CellReport>, PskError> {
-    let port_matrix = crate::ir_assembly::load_port_matrix(workspace_root)?;
-    let norms = crate::ir_assembly::load_closure_norms(workspace_root)?;
-    let ctx = psk_topology::ClosureContext {
-        witnesses: &bundle.witnesses,
-        residues: &bundle.residues,
-        bundle_trace: &bundle.trace_ref,
-        port_matrix: &port_matrix,
-        sort_owner: &norms.sort_owner,
-        module_layer: &norms.module_layer,
-        shared_pass_carriers: &norms.shared_pass_carriers,
-        probes,
-        max_depth,
-    };
-    psk_topology::close_all_18(&bundle.graph, &ctx)
-}
-
-/// Schritt 6: Abhaengigkeiten quotieren und die sechs Projektionen
-/// verkleben. Alle sechs Restriktionen teilen bewusst dieselbe Zelle und
-/// denselben Digest - der Golden Run demonstriert einen widerspruchsfreien
-/// Lauf, keine Seam-Konfliktaufloesung (die ist WP-eigenstaendig getestet,
-/// siehe psk-closure::seam Testsuite).
-fn quotient_projections(projections: &[FieldProjection]) -> Result<DependencyProfile, PskError> {
-    dependency_quotient(QuotientInputs {
-        projections,
-        method: RankMethod::QuotientClassCount,
-        consensus_scope: DependencyProfileConsensusScopeKind::Local,
-    })
-}
-
-/// `cells_closed` kommt vom Aufrufer aus dem realen `close_all_18` ueber
-/// dem Compile-Graphen. Bis v1.0.34 stand hier ein hartkodiertes `true` -
-/// eine Behauptung an genau der Stelle, an der seam.rs ausdruecklich "das
-/// Ergebnis von M22.close_all_18(graph)" verlangt, waehrend close_all_18
-/// ein Stub war. Dasselbe Muster wie das Phantom-Plugin; jetzt abgeleitet.
-fn glue_projections(
-    projections: &[FieldProjection],
-    cells_closed: bool,
-) -> Result<GlueOutcome, PskError> {
-    let shared_cell = M13Address("center".into());
-    let shared_digest = Digest::sha256(b"golden-run-shared-restriction");
-    let restrictions: Vec<CapsuleRestriction> = projections
-        .iter()
-        .map(|p| CapsuleRestriction {
-            capsule: p.id,
-            cells: vec![shared_cell.clone()],
-            restriction_digests: vec![shared_digest],
-        })
-        .collect();
-    glue(&restrictions, cells_closed)
-}
-
-/// Schritt 8 (Patchplan/Gate): G-EFFECT ist order 2 (gate_registry.yaml) -
-/// dasselbe Muster wie G-BOOT/G-RELEASE (siehe Modulkopf).
-/// Schritt 7b - Challenge (Definition 14.2 (Phasen-Modul-Bindung): "Alle Kapseln im
-/// Kapselfixpunkt oder RESIDUAL"; Algorithmus 11.19 (Normativer Compilerlauf): `capsules =
-/// C7_adversarial_canonicalize(profile.quotient_classes)`).
-///
-/// JE Quotientenklasse eine Kapsel - der Lauf hat genau eine Klasse
-/// (alle sechs Projektionen teilen die eine Ankerquelle), also eine
-/// Kapsel. Jede Eingabe unten traegt ihre Herkunft als Kommentar; nichts
-/// hier ist gewaehlt, damit ein bestimmter Ausgang eintritt.
-///
-/// Gemessener Ausgang (Vorab-Sonde, im Test unten festgehalten):
-/// KAPSELFIXPUNKT in Runde 1, nicht Budget-RESIDUAL - im Lauf existiert
-/// kein Widerlegungserzeuger (der Falsifikator ist ein Label ohne
-/// Verhalten), also ueberlebt der eine Kandidat und
-/// `allowed_next(ratchet(c)) == allowed_next(c)` (Definition 22.2 (Kapselfixpunkt)).
-struct ChallengeOutcome {
-    capsule: psk_types::objects::CandidateCapsule,
-    reached_fixpoint: bool,
-    adversarially_closed: bool,
-    ratchet_rounds: u32,
-}
-
-/// Ob ein Gegenmodell diesen Nachfolgekandidaten widerlegt. Der
-/// Falsifikator benennt in jedem Gegenmodell das Artefakt, ueber dem der
-/// Widerspruch steht; ein Kandidat, der genau dieses Artefakt aendern
-/// will, faellt darunter.
-fn refutes(
-    countermodel: &psk_types::objects::CapsuleId,
-    candidate: &psk_types::objects::CapsuleId,
-) -> bool {
-    countermodel
-        .0
-        .strip_prefix("countermodel:")
-        .and_then(|rest| rest.split(':').next())
-        .map(|artifact| candidate.0.contains(artifact) || artifact == GOLDEN_RUN_PATCH_TARGET)
-        .unwrap_or(false)
-}
-
-fn run_challenge(
-    profile: &DependencyProfile,
-    projections: &[FieldProjection],
-    thought: &ThoughtBody,
-    manifest: &psk_types::objects::RuntimeManifest,
-    plan_digest: Digest,
-    trace_ref: TraceRef,
-    countermodels: &[psk_types::objects::CapsuleId],
-) -> Result<ChallengeOutcome, PskError> {
-    // Die eine Quotientenklasse als Projektionsmenge aufloesen - ueber die
-    // IDs des realen Profils, nicht ueber "alle Projektionen".
-    let class_ids = profile
-        .quotient_classes
-        .first()
-        .ok_or(PskError::CorrelatedWitnessOvercount)?;
-    let class: Vec<FieldProjection> = projections
-        .iter()
-        .filter(|p| class_ids.contains(&p.id))
-        .cloned()
-        .collect();
-
-    let capsule = capsulate(
-        &class,
-        CapsuleInputs {
-            // Die behauptete Rolle IST der formale Claim des Gedankens -
-            // ein Laufwert, kein Etikett.
-            surface: psk_types::objects::SurfaceDescriptor(thought.claim.formal.0.clone()),
-            replay: ReplayDescriptor("golden-run/1".into()),
-            boundary: psk_types::objects::ScopeExpr("jacobs-ladder-reference".into()),
-            trace_ref,
-            // Keine gekoppelten Kapseln in diesem Lauf.
-            coupling: vec![],
-            // Der eine Aenderungsvorschlag, ueber seinen realen Plandigest
-            // benannt - die groesste Nachfolgemenge, die diese Kapsel je
-            // haben wird (Invariante 12.6 (Monotone Kontraktion)).
-            allowed_next: vec![psk_types::objects::CapsuleId(plan_digest.to_string())],
-        },
-    )?;
-
-    // Ratchet-Schritt. `survivors` = die Nachfolgemenge OHNE die vom
-    // Falsifikator widerlegten Kandidaten. Die Instruktionsmenge fuehrt
-    // Gegenmodelle als Vorbedingung der CHALLENGE-Instruktion; bis zum
-    // Korpusbau gab es dafuer keinen Erzeuger, weshalb das Ratchet nichts
-    // zu verkleinern hatte.
-    // Das Budget kommt aus der EINEN deklarierten Quelle (siehe
-    // GOLDEN_RUN_RATCHET_MAX_ROUNDS: derselbe Wert steht im
-    // RunDescriptor, Regel 12.7 (Selektionsdruck) / v1.0.26).
-    let survivors: Vec<psk_types::objects::CapsuleId> = capsule
-        .allowed_next
-        .iter()
-        .filter(|c| !countermodels.iter().any(|cm| refutes(cm, c)))
-        .cloned()
-        .collect();
-    // Ratchet bis zum Kapselfixpunkt oder bis das Budget faellt - die
-    // Abschlussbedingung der Challenge-Phase lautet "alle Kapseln im
-    // Kapselfixpunkt ODER RESIDUAL", und beides ist ein ZUSTAND NACH
-    // beliebig vielen Runden, nicht nach einer.
-    //
-    // Die einrundige Fassung war nur solange richtig, wie nichts zu
-    // verkleinern war: ohne Gegenmodelle blieb allowed_next gleich und
-    // der Fixpunkt stand sofort. Sobald der Falsifikator etwas beitraegt,
-    // kontrahiert Runde 1 - und eine kontrahierende Runde ist per
-    // Definition kein Fixpunkt.
-    let mut before = capsule.clone();
-    let mut after = ratchet(&before, &survivors, 1, GOLDEN_RUN_RATCHET_MAX_ROUNDS)?;
-    let mut rounds = 1u32;
-    while !psk_adversarial::is_capsule_resolved(&before, &after)
-        && rounds < GOLDEN_RUN_RATCHET_MAX_ROUNDS
-    {
-        rounds += 1;
-        before = after.clone();
-        after = ratchet(&before, &survivors, rounds, GOLDEN_RUN_RATCHET_MAX_ROUNDS)?;
-    }
-
-    // Invariante "Nichttrivialitaet des Ueberlebens": "Ein Kandidat, der
-    // nur unter Ausblendung eines Gegenmodells schliesst, ist nicht
-    // adversarial geschlossen." Der Waechter war gebaut und wurde nie
-    // aufgerufen - dieselbe Klasse wie ein deklarierter, nie
-    // geschriebener Zaehler.
-    //
-    // `closes_without` ist die Menge OHNE Gegenmodelle (dort schliesst
-    // der Kandidat immer), `closes_with` die Menge MIT ihnen. Weichen sie
-    // ab, feuert PSK-E003 statt still durchzugehen.
-    let closes_without = !capsule.allowed_next.is_empty();
-    let closes_with = !after.allowed_next.is_empty();
-    let adversarially_closed =
-        psk_adversarial::check_adversarial_closure(closes_without, closes_with).is_ok();
-    if !psk_adversarial::is_capsule_resolved(&before, &after) {
-        // Nach Budgeterschoepfung MUSS `ratchet` selbst auf RESIDUAL
-        // gesetzt haben; kommt es hier trotzdem an, stimmt die
-        // Terminierung nicht.
-        return Err(PskError::MorphogenesisViolation);
-    }
-    let reached_fixpoint = psk_adversarial::is_capsule_fixpoint(&before, &after);
-
-    // Pass C8, Definition 11.11 (Perkolationssupport): fuenf Pfade, "innerhalb des geltenden
-    // Horizonts DEFINIERT" - definiert, nicht bestanden. Zwei Werte sind
-    // aus realen Objekten BERECHNET, drei sind deklariert und benennen
-    // ihre maschinenlesbare Quelle. Keiner ist gesetzt, damit die Kapsel
-    // einen bestimmten Weg nimmt - der Witness-Pfad auf false, damit sie
-    // RESIDUAL wird und ein Residuenfluss entsteht, waere dieselbe
-    // Erfindung wie das entfernte Phantom-Plugin, nur mit umgekehrtem
-    // Vorzeichen.
-    let paths = SupportPaths {
-        // architecture/gate_registry.yaml fuehrt G-EFFECT; die
-        // capability_matrix routet fs.write.sandbox dorthin.
-        gate: true,
-        // BERECHNET: der unabhaengige Beobachterpfad ist im
-        // RuntimeManifest dieses Laufs deklariert (Boot-Schritt 17).
-        witness: manifest
-            .adapter_versions
-            .keys()
-            .any(|a| a.0 == "observer-local-fs"),
-        // Der deklarierte ReplayDescriptor dieses Laufs (derselbe, den
-        // die Gatberichte tragen).
-        replay: true,
-        // BudgetSpec der Feldfamilie plus das deklarierte Rundenbudget
-        // (Regel 12.7 (Selektionsdruck)) - beide Ressourcenerklaerungen existieren.
-        resource: true,
-        // BERECHNET: keine Kopplung vorhanden, also keine unaufgeloeste.
-        coupling: capsule.coupling.is_empty(),
-    };
-    // Ein nicht adversarial geschlossener Kandidat ist nicht gestuetzt -
-    // egal wie die fuenf Pfade stehen. Der Waechter oben hat PSK-E003
-    // festgestellt; der Fehler wird NICHT verschluckt, sondern als
-    // Residuum weitergetragen (Vertrag Passmonotonie: ein Pass "DARF sie
-    // schliessen, typisieren, quarantinieren, exzidieren oder als
-    // Residuum weitertragen" - nur nicht still loeschen). Ein harter
-    // Abbruch waere hier falsch: er brachte den Lauf um alle uebrigen
-    // Artefakte und damit um die Sichtbarkeit des Befunds.
-    let supported = if adversarially_closed {
-        check_support(&after, &paths)?
-    } else {
-        check_support(
-            &after,
-            &SupportPaths {
-                // Der Witnesspfad ist nicht "innerhalb des geltenden
-                // Horizonts definiert", solange ein Gegenmodell
-                // unbeantwortet steht - das ist die Feststellung des
-                // Waechters, nicht eine Setzung fuer einen gewuenschten
-                // Ausgang.
-                witness: false,
-                ..paths
-            },
-        )?
-    };
-
-    Ok(ChallengeOutcome {
-        capsule: supported,
-        reached_fixpoint,
-        adversarially_closed,
-        ratchet_rounds: rounds,
-    })
 }
 
 /// Ergebnis des getrennten Prozessbaus (Algorithmus Revisionsvorschlag:
@@ -1411,43 +722,6 @@ fn propose_and_evaluate_self_compile(
     })
 }
 
-fn evaluate_patch_gate(
-    trace_ref: TraceRef,
-    glue_outcome: &GlueOutcome,
-    trace: &mut TraceStore,
-    residues: &mut ResidueLedger,
-) -> Result<psk_types::objects::GateReport, PskError> {
-    let closure_ok = glue_outcome.hold_reason.is_none();
-    evaluate_gate(
-        GateInputs {
-            gate_id: GateId::GEffect,
-            order: 2,
-            input_digests: vec![Digest::sha256(b"golden-run-patch-plan")],
-            conditions: vec![
-                ConditionOutcome::True, // Risiko: einzelne Sandboxdatei, lokal reversibel
-                ConditionOutcome::True, // Autoritaet: Golden-Run-Adapter besitzt fs.write.sandbox
-                ConditionOutcome::True, // Ressourcen: ein Schreibvorgang, Budget nicht erschoepft
-                if closure_ok {
-                    ConditionOutcome::True
-                } else {
-                    ConditionOutcome::Undecidable(ReasonCode("closure-not-global".into()))
-                },
-            ],
-            seam_compatible: Some(closure_ok),
-            evidence_refs: vec![],
-            seam_report_refs: vec![ObjectId::new(
-                SortId::Trace,
-                Digest::sha256(b"golden-run-effect-closure"),
-            )],
-            replay_descriptor: ReplayDescriptor("golden-run/1".into()),
-            decided_at: run_time(),
-            trace_ref,
-        },
-        trace,
-        residues,
-    )
-}
-
 /// Die exklusive Leitung zum Effektkind (Regel 20.6 (Vorzustand und Versuch klammern den Effekt)).
 ///
 /// `ChildProcess::shutdown` nimmt `self` by value, `ExclusiveLine`
@@ -1470,178 +744,6 @@ impl psk_effect::ExclusiveLine for HeldChild {
             None => Ok(()),
         }
     }
-}
-
-/// Schritte 9-10: EffectToken ausstellen, Patch in der Sandbox ausfuehren.
-/// Schritte 9-10, P22/P23 (v1.0.13/P24a): EffectToken/EffectAttempt ueber
-/// eine echte, von M26 gespawnte Prozessgrenze - dasselbe Muster wie
-/// `observe_and_receipt` bei P24. Die Kernel-Buchfuehrung
-/// (Ablauf-/Einmaligkeitspruefung, `TokenLedger`) bleibt lokal: sie ist
-/// eine Kernprozess-Zustaendigkeit, kein Adapterverhalten (siehe
-/// `psk_effect::process_protocol`s Modulkopf) - nur `adapter.apply`
-/// selbst (der tatsaechliche Dateizugriff) wandert in den Effektprozess.
-fn issue_and_execute(
-    patch_gate: &psk_types::objects::GateReport,
-    sandbox_root: &Path,
-    scope_file: &str,
-    content: &str,
-    trace_ref: TraceRef,
-) -> Result<(GateAuthorization, EffectToken, EffectAttempt), PskError> {
-    let auth = authorize(patch_gate)?;
-    let token = issue_token(
-        &auth,
-        IssueInputs {
-            effect_class: EffectClassId("fs.write.sandbox".into()),
-            plan_digest: Digest::sha256(b"golden-run-patch-plan"),
-            scope: ScopeExpr(scope_file.to_string()),
-            capabilities: vec![CapabilityId("fs.write.sandbox".into())],
-            preconditions: vec![PredicateExpr(content.to_string())],
-            budget: BudgetSpec("1 Datei".into()),
-            expires_at_tau_i: run_time().tau_i + 1000,
-            run_id: RunId("golden-run".into()),
-            port_id: psk_types::PortId::P22,
-            seq: 1,
-            nonce: [7u8; 32],
-            expected_receipt: ReceiptSpec("receipt/1".into()),
-            rollback: EffectTokenRollbackKind::Rollbackspec(RollbackSpec(
-                "restore prior bytes".into(),
-            )),
-        },
-    )?;
-
-    // Ablaufpruefung und Einmalverbrauch macht `execute_effect` selbst -
-    // sie IST die Schwelle aus Invariante 20.4 (Kein Effekt ohne Token). Hier stand beides
-    // frueher noch einmal von Hand, weil der Effekt an der Schwelle
-    // vorbeilief; jetzt waere es ein zweiter Verbrauch desselben Tokens.
-    let mut ledger = TokenLedger::new();
-    ledger.register(&token);
-
-    let exe = psk_lifecycle::sibling_binary_path("effect-local-fs")?;
-    let child = psk_lifecycle::ChildProcess::spawn(
-        &exe,
-        &[sandbox_root.to_str().ok_or(PskError::UntypedInput)?],
-        Some(sandbox_root),
-    )?;
-
-    // Regel 20.6 (Vorzustand und Versuch klammern den Effekt): der
-    // Adapter HAELT die Leitung ueber beide Aufrufe. Vorher spawnte
-    // dieser Code das Kind selbst und sprach das Protokoll direkt - an
-    // der Warteschlangenform vorbei und ohne Vorzustand. Jetzt geht
-    // beides durch `execute_effect`, also durch dieselbe Schwelle, die
-    // auch die Execute-Phase benutzt (Invariante 20.4 (Kein Effekt ohne Token): kein Effekt ohne
-    // Token).
-    let mut adapter = psk_effect::ProcessEffectAdapter::new(
-        HeldChild(Some(child)),
-        psk_types::objects::AdapterId("effect-local-fs".into()),
-        RunId("golden-run".into()),
-    );
-    // Erste Klammerhaelfte, auf derselben Leitung wie der Versuch.
-    let _prestate = psk_effect::EffectAdapter::prestate(&mut adapter, &token.scope);
-    let attempt = psk_effect::execute_effect(
-        &mut ledger,
-        &token,
-        run_time().tau_i,
-        run_time(),
-        &mut adapter,
-    )?;
-    adapter.shutdown()?;
-
-    let _ = trace_ref;
-    // Der EffectToken wird mit herausgegeben, nicht mehr verworfen: er ist
-    // der einzige S-CAP-Knoten des Laufs und Zielpunkt von `authorizes`
-    // wie Quellpunkt von `permits`.
-    Ok((auth, token, attempt))
-}
-
-/// Schritt 11: unabhaengiger Beobachter liest den Dateibaum; ExternalReceipt
-/// (P24-Grenze) entsteht daraus.
-///
-/// P24a/P24b (v1.0.13): der Beobachter laeuft jetzt als echter, von M26
-/// (`psk_lifecycle::process`) gespawnter Kindprozess - nicht mehr
-/// in-process simuliert. Die Herkunftsbeglaubigung (Vertrag
-/// Herkunftsbeglaubigung an der Prozessgrenze) ist die exklusive Pipe zu
-/// genau diesem Kind (`ChildProcess::request`s privates `stdout`-Feld),
-/// nicht mehr ein Vergleich zweier hartkodierter `ProcessIdentity`-Werte -
-/// siehe `psk_anchor::ingress_p24_via_exclusive_pipe`s Modulkopf.
-fn observe_and_receipt(
-    sandbox_root: &Path,
-    trace_ref: TraceRef,
-) -> Result<ExternalReceipt, PskError> {
-    let _ = trace_ref;
-    let exe = psk_lifecycle::sibling_binary_path("observer-local-fs")?;
-    let mut child = psk_lifecycle::ChildProcess::spawn(
-        &exe,
-        &[sandbox_root.to_str().ok_or(PskError::UntypedInput)?],
-        None,
-    )?;
-
-    let request_payload = serde_json::to_vec(&psk_anchor::ObserveReceiptRequest {
-        observed_at: run_time(),
-        observer_identity: Digest::sha256(b"golden-run-observer"),
-        provenance: psk_types::objects::ProvenanceBlock("golden-run-provenance/1".into()),
-        independence_attestation: Digest::sha256(b"golden-run-independent-observer"),
-    })
-    .map_err(|_| PskError::CanonicalizationFailed)?;
-
-    let request = Msg {
-        msg_id: Ulid(1),
-        port_id: PortId::P24,
-        r#type: MessageType::Request,
-        schema_id: SchemaId(psk_anchor::SCHEMA_RECEIPT_REQUEST.to_string()),
-        producer: ModuleId::ReconciliationEngine,
-        consumer: ModuleId::ExternalRecordIngress,
-        run_id: RunId("golden-run".into()),
-        seq: 1,
-        input_digests: vec![],
-        created_at: run_time(),
-        trace_parent: TraceRef(Digest::sha256(b"golden-run-observe-request")),
-        payload_digest: Digest::sha256(&request_payload),
-        payload: request_payload,
-        signature: None,
-    };
-
-    let response = child.request(&request)?;
-    let receipt = psk_anchor::ingress_p24_via_exclusive_pipe(&response.payload);
-    child.shutdown()?;
-    receipt
-}
-
-/// Schritt 12: Reconciliation.
-fn run_reconciliation(
-    attempt: EffectAttempt,
-    receipt: ExternalReceipt,
-    token_plan_digest: Digest,
-    token_issuer_digest: Digest,
-    anchor_ref: ObjectId,
-    subject_reality_status: RealityStatus,
-    subject_facticity: psk_types::objects::FactStatus,
-) -> Result<ReconciliationReport, PskError> {
-    let mut residues = ResidueLedger::new();
-    reconcile(
-        ReconcileInputs {
-            plan_ref: ObjectId::new(SortId::Effect, Digest::sha256(b"golden-run-patch-plan")),
-            plan_digest: attempt.plan_digest,
-            attempt,
-            token_plan_digest,
-            token_issuer_digest,
-            receipts: vec![receipt],
-            anchor_ref,
-            diff: DiffOutcome::Empty,
-            finality: psk_types::objects::ReconciliationReportFinalityKind::Final,
-            witness_ref: ObjectId::new(SortId::Witness, Digest::sha256(b"golden-run-witness")),
-            opened_at: run_time(),
-            // Das Subjekt ist der klassifizierte Gedanke dieses Laufs -
-            // seine Werte kommen als Parameter aus den realen Objekten
-            // herein. Die fruehere Fassung setzte hier ein hartkodiertes
-            // Actualized/Observed-Paar, das KEIN Objekt des Laufs trug
-            // ("ein Subjekt, dessen Realitaetsstatus die Promotion nicht
-            // sperrt") - die Wache bekam ein Literal statt eines
-            // Laufwerts und konnte deshalb nie greifen.
-            subject_reality_status,
-            subject_facticity,
-        },
-        &mut residues,
-    )
 }
 
 /// Schritt 13, Zertifikatsteil. `replay_class` kommt vom Aufrufer - siehe
@@ -1684,13 +786,12 @@ fn issue_golden_run_certificate(
         // Erfindungsklasse und die erste im ausgestellten Artefakt. Ein
         // Zertifikat mit konstantem I_t bezeugt keinen Zustand.
         //
-        // Der Wert kommt jetzt aus dem realen Laufzustand, den Boot-
-        // Schritt 12 bildet. Solange die dreizehn Schritte noch nicht
-        // unter tick laufen (Regel 24.4), ist das der Zustand VOR den
-        // Schritten - richtig gerechnet, aber noch nicht der Zustand
-        // NACH den Takten, den das Zertifikat meint. Gemeldet, nicht
-        // ueberspielt: eine Konstante waere schlechter als ein
-        // ehrlicher Zwischenstand.
+        // Seit der Taktumverdrahtung (Regel 24.4 (Der Golden Run laeuft
+        // unter tick)) ist der Wert genau das, was das Zertifikat meint:
+        // "Sigma_t ist der Zustand nach den Takten" - der Aufrufer
+        // reicht `GoldenRunReport.i_t`, den Digest des Laufzustands NACH
+        // der Taktschleife, herein. Der fruehere ehrliche Zwischenstand
+        // (Boot-Sigma, Zustand VOR den Schritten) ist damit Geschichte.
         i_t,
         features,
         acceptance,
@@ -1717,22 +818,437 @@ fn issue_golden_run_certificate(
     })
 }
 
-/// Orchestriert alle 13 Schritte aus Regel 24.3 (Golden-Run-Ablauf) gegen eine echte,
-/// vom Aufrufer bereitgestellte Sandbox (kein `/tmp`-Zufallspfad hier -
-/// Determinismus/Reproduzierbarkeit ist Definition 24.2 (Golden Run)'s eigene Anforderung).
+/// Die angeschlossenen Effektleitungen des Referenzlaufs (M16-Grenze,
+/// `psk_effect::EffectLines`): genau eine Leitung, `fs.write.sandbox`,
+/// ueber einen echten, von M26 gespawnten Kindprozess. Der Spawn liegt
+/// HIER (Harnischseite) und nicht im Scheduler - `proc.control` gehoert
+/// laut module_map.yaml M26, nicht M25; der Kern nimmt typisiert
+/// entgegen, was andere besitzen.
+///
+/// Gespawnt wird bei der ersten Anfrage und gehalten bis `shutdown` -
+/// Regel 20.6 (Vorzustand und Versuch klammern den Effekt): derselbe
+/// Kindprozess bedient beide Klammerhaelften, und ein Herunterfahren
+/// dazwischen waere genau die zweite Erzeugung, die die Regel
+/// ausschliesst.
+struct GoldenRunLines {
+    sandbox: PathBuf,
+    adapter: Option<ProcessEffectAdapter<HeldChild>>,
+}
+
+impl GoldenRunLines {
+    fn new(sandbox: PathBuf) -> Self {
+        GoldenRunLines {
+            sandbox,
+            adapter: None,
+        }
+    }
+
+    fn shutdown(mut self) -> Result<(), PskError> {
+        match self.adapter.take() {
+            Some(adapter) => adapter.shutdown(),
+            None => Ok(()),
+        }
+    }
+}
+
+impl EffectLines for GoldenRunLines {
+    fn line(&mut self, class: &EffectClassId) -> Option<&mut dyn EffectAdapter> {
+        if class.0 != "fs.write.sandbox" {
+            return None;
+        }
+        if self.adapter.is_none() {
+            // Erst hier spawnen: die Leitung entsteht, wenn die
+            // Execute-Phase sie zum ersten Mal verlangt, und bleibt
+            // danach DIESELBE (Regel 20.6 (Vorzustand und Versuch klammern den Effekt)). Ein Fehlschlag ergibt keine
+            // Leitung - der Execute-Arm scheitert dann typisiert.
+            let exe = psk_lifecycle::sibling_binary_path("effect-local-fs").ok()?;
+            let arg = self.sandbox.to_str()?.to_string();
+            let child =
+                psk_lifecycle::ChildProcess::spawn(&exe, &[&arg], Some(&self.sandbox)).ok()?;
+            self.adapter = Some(ProcessEffectAdapter::new(
+                HeldChild(Some(child)),
+                psk_types::objects::AdapterId("effect-local-fs".into()),
+                RunId("golden-run".into()),
+            ));
+        }
+        self.adapter.as_mut().map(|a| a as &mut dyn EffectAdapter)
+    }
+}
+
+/// Deponiert das Laufprogramm in Sigma: die Eingaben, aus denen
+/// `select(phase, state)` die Schritte 2 bis 13 als Phasenarbeit
+/// ableitet. Deponieren ist die Grenze Welt -> Zustand (siehe sigma.rs);
+/// jeder Wert unten stand vor der Taktumverdrahtung woertlich an der
+/// jeweiligen Geradeauscode-Stelle - hier steht er EINMAL, im Zustand.
+fn deposit_program(
+    sigma: &mut Sigma,
+    workspace_root: &Path,
+    sandbox_root: &Path,
+    corpus_root: &Path,
+    corpus_digest: Digest,
+) -> Result<(), PskError> {
+    // Schritt-2-Rohstoff: die Welt (der Beobachteradapter) liest den
+    // versiegelten Baum; die Observe-Phase bindet Provenienz, die
+    // Anchor-Phase versiegelt.
+    let config = observer_local_fs::ObserverConfig::new(sandbox_root);
+    let record =
+        observer_local_fs::observe(&config, run_time()).map_err(|_| PskError::MissingAnchor)?;
+    sigma.program.records.push(PendingRecord {
+        observations: vec![Observation(format!(
+            "{} Dateien unter {} beobachtet",
+            record.file_hashes.len(),
+            sandbox_root.display()
+        ))],
+        record,
+        source_adapter: psk_types::objects::AdapterId("observer-local-fs".into()),
+        observer_identity: Digest::sha256(b"golden-run-observer"),
+        method: "filesystem-read".into(),
+        effect_adapter_identity: None,
+        uncertainty_model: UncertaintyModelId("none-declared".into()),
+        context: ContextRef("golden-run".into()),
+        validity: Validity {
+            // Regel "Ein Frischepraedikat muss verletzbar sein": es
+            // benennt die Beobachtung, unter der es faellt - die
+            // Veraenderung genau dieses Verzeichnisses.
+            freshness_predicate: PredicateExpr(crate::directory_freshness_predicate(corpus_digest)),
+            expires_at_tau_i: u64::MAX,
+        },
+        boundary: ScopeExpr(sandbox_root.display().to_string()),
+        provenance: None,
+        anchor_ref: None,
+    });
+
+    // Schritt 3: der Auftrag als Kandidat (Regel 5.9 (Kandidat und Gedankenkörper) - Vorform ohne
+    // Objektidentitaet; die Praegung geschieht in der Anchor-Phase).
+    sigma.candidates.push(psk_thought::Candidate::new(
+        Claim {
+            text: "Golden-Run-Demonstrationspatch in der Sandbox schreiben".into(),
+            formal: ClaimExpr("write(sandbox, patch.txt)".into()),
+            directionality: ClaimDirectionalityKind::Internal,
+        },
+        vec![ModelRef("reference-domain".into())],
+        vec![TrajectoryRef("direct-write".into())],
+        UncertaintyBlock("none-declared".into()),
+        vec![ConsequenceRef("sandbox-file-write".into())],
+        Lineage("golden-run".into()),
+    ));
+
+    // Schritt 5: die statische Feldfamilie (Regel 32.7 (Feldfamilie der Referenzdomäne)) - sechs
+    // Archetypen, je Registrierung plus Projektionswerte.
+    for (i, archetype) in ArchetypeId::ALL.into_iter().enumerate() {
+        sigma.program.field_family.push(FieldFamilyEntry {
+            archetype,
+            registration: psk_fields::FieldRegistrationInputs {
+                domain: DomainExpr("sandbox-files".into()),
+                lens: psk_types::objects::LensSpec("identity".into()),
+                operators: vec![OpId::Project],
+                questions: vec![QuestionSpec(format!("archetype-{i}-question"))],
+                witness_rules: WitnessPolicy("default".into()),
+                boundaries: BoundarySpec("sandbox".into()),
+                gates: vec![],
+                time_window: TimeWindow("golden-run-window".into()),
+                lineage: Lineage("golden-run".into()),
+                // Vorwaertsreferenz: der DependencyProfile wird erst in
+                // Schritt 6 aus genau diesen sechs Projektionen
+                // berechnet; die Registrierung braucht nur eine
+                // syntaktisch gueltige Kennung.
+                dependency_profile_ref: ObjectId::new(
+                    SortId::Dependency,
+                    Digest::sha256(b"golden-run-dependency-profile"),
+                ),
+                budget: BudgetSpec("unbounded-demo".into()),
+                rollback: RollbackSpec("re-run".into()),
+                // I-FIELD-001: eine Systemidentitaet, die von jeder
+                // real erzeugbaren Feld-ID verschieden ist.
+                system_identity: Digest::sha256(b"system-identity-not-a-field"),
+            },
+            node: IRNodeId(format!("golden-run-node-{i}")),
+            source_provenance: vec![SourceRef("sandbox-observation".into())],
+            scope: ScopeSpec("sandbox".into()),
+            registered: None,
+            projected: None,
+        });
+    }
+
+    // Schritt 2/3 des Referenzauftrags: die versiegelte Anforderungsmenge
+    // - die Identifikation selbst ist Challenge-Phasenarbeit (M24).
+    sigma.program.requirements = crate::load_requirements(corpus_root)?;
+    sigma.program.obstruction_cell = Some(M13Address("m13:0/c0".into()));
+
+    // Schritt 9: der eine Aenderungsvorschlag des Laufs, als
+    // vollstaendige Ausstellungseingabe. `scope` benennt zugleich das
+    // Artefakt, gegen das der Falsifikator Gegenmodelle prueft.
+    sigma.program.patch_plan = Some(IssueInputs {
+        effect_class: EffectClassId("fs.write.sandbox".into()),
+        plan_digest: Digest::sha256(b"golden-run-patch-plan"),
+        scope: ScopeExpr(GOLDEN_RUN_PATCH_TARGET.to_string()),
+        capabilities: vec![CapabilityId("fs.write.sandbox".into())],
+        preconditions: vec![PredicateExpr("hello golden run".to_string())],
+        budget: BudgetSpec("1 Datei".into()),
+        expires_at_tau_i: run_time().tau_i + 1000,
+        run_id: RunId("golden-run".into()),
+        port_id: PortId::P22,
+        seq: 1,
+        nonce: [7u8; 32],
+        expected_receipt: ReceiptSpec("receipt/1".into()),
+        rollback: EffectTokenRollbackKind::Rollbackspec(RollbackSpec("restore prior bytes".into())),
+    });
+
+    // Schritt 7b: die Kapseldeklaration. Das Rundenbudget ist derselbe
+    // Wert, der im RunDescriptor steht (Regel 12.7 (Selektionsdruck): EINE deklarierte
+    // Quelle, GOLDEN_RUN_RATCHET_MAX_ROUNDS, zwei Verbraucher).
+    sigma.program.capsule_spec = Some(CapsuleSpec {
+        replay: ReplayDescriptor("golden-run/1".into()),
+        boundary: ScopeExpr("jacobs-ladder-reference".into()),
+        // Der eine Aenderungsvorschlag, ueber seinen realen Plandigest
+        // benannt - die groesste Nachfolgemenge, die diese Kapsel je
+        // haben wird (Invariante 12.6 (Monotone Kontraktion)).
+        allowed_next: vec![psk_types::objects::CapsuleId(
+            Digest::sha256(b"golden-run-patch-plan").to_string(),
+        )],
+        max_rounds: GOLDEN_RUN_RATCHET_MAX_ROUNDS,
+        // Definition 11.11 (Perkolationssupport): gate (G-EFFECT im Register deklariert),
+        // replay (deklarierter ReplayDescriptor), resource (BudgetSpec
+        // plus Rundenbudget) - deklariert; witness/coupling werden in
+        // der Phase BERECHNET.
+        support_gate: true,
+        support_replay: true,
+        support_resource: true,
+    });
+
+    // Schritt 6b: die Verklebungsdeklaration - alle sechs Restriktionen
+    // teilen bewusst dieselbe Zelle und denselben Digest (der Golden Run
+    // demonstriert einen widerspruchsfreien Lauf, keine Seam-
+    // Konfliktaufloesung; die ist WP-eigenstaendig getestet).
+    sigma.program.glue_spec = Some(GlueSpec {
+        shared_cell: M13Address("center".into()),
+        restriction_digest: Digest::sha256(b"golden-run-shared-restriction"),
+    });
+
+    // Schritt 8: die deklarierten Gatebedingungen (Risiko: einzelne
+    // Sandboxdatei, lokal reversibel; Autoritaet: der Adapter besitzt
+    // fs.write.sandbox; Ressourcen: ein Schreibvorgang) - die Closure-
+    // Bedingung wird in der Phase aus dem Verklebungsergebnis BERECHNET.
+    sigma.program.patch_gate = Some(PatchGateSpec {
+        declared_conditions: vec![true, true, true],
+        seam_report_ref: ObjectId::new(SortId::Trace, Digest::sha256(b"golden-run-effect-closure")),
+        replay: ReplayDescriptor("golden-run/1".into()),
+    });
+
+    // Schritt 12: Aussteller- und Witnessverweis der Reconciliation.
+    sigma.program.reconcile_spec = Some(ReconcileSpec {
+        issuer_digest: Digest::sha256(b"golden-run-issuer"),
+        witness_ref: ObjectId::new(SortId::Witness, Digest::sha256(b"golden-run-witness")),
+        finality: psk_types::objects::ReconciliationReportFinalityKind::Final,
+    });
+
+    // Schritt 6/7: die geladenen Register fuer Zusammenbau und
+    // Zellclosure - gelesen von der Domaene (ir_assembly), deponiert als
+    // Werte.
+    let norms = crate::ir_assembly::load_closure_norms(workspace_root)?;
+    sigma.program.declarations = Some(AssemblyDeclarations {
+        version: SemVer("1.0.0".into()),
+        scope: ScopeExpr("jacobs-ladder-reference".into()),
+        edge_conditions: crate::ir_assembly::load_reference_domain_profile(workspace_root)?,
+        port_matrix: crate::ir_assembly::load_port_matrix(workspace_root)?,
+        sort_owner: norms.sort_owner,
+        module_layer: norms.module_layer,
+        shared_pass_carriers: norms.shared_pass_carriers,
+    });
+    sigma.program.consensus_scope = Some(DependencyProfileConsensusScopeKind::Local);
+
+    Ok(())
+}
+
+/// Zwischen den Takten: hat der Effekt stattgefunden und liegt noch kein
+/// P24-Deponat, laesst der Harnisch den UNABHAENGIGEN Beobachter den
+/// Dateibaum lesen und deponiert dessen Antwortbytes. Der Beobachter ist
+/// die Welt, nicht der Lauf - der Lauf kann nicht hinausgreifen, er
+/// empfaengt (P24-Ingress in der Observe(2)-Phase); die
+/// Herkunftsbeglaubigung ist die exklusive Pipe zu genau diesem Kind.
+fn maybe_deposit_receipt(sigma: &mut Sigma, sandbox_root: &Path) -> Result<(), PskError> {
+    let effect_done = sigma
+        .effects
+        .first()
+        .map(|a| a.outcome == psk_types::objects::EffectAttemptOutcomeKind::Completed)
+        .unwrap_or(false);
+    if !effect_done || !sigma.program.receipt_deposits.is_empty() {
+        return Ok(());
+    }
+
+    let exe = psk_lifecycle::sibling_binary_path("observer-local-fs")?;
+    let mut child = psk_lifecycle::ChildProcess::spawn(
+        &exe,
+        &[sandbox_root.to_str().ok_or(PskError::UntypedInput)?],
+        None,
+    )?;
+
+    let request_payload = serde_json::to_vec(&psk_anchor::ObserveReceiptRequest {
+        observed_at: run_time(),
+        observer_identity: Digest::sha256(b"golden-run-observer"),
+        provenance: psk_types::objects::ProvenanceBlock("golden-run-provenance/1".into()),
+        independence_attestation: Digest::sha256(b"golden-run-independent-observer"),
+    })
+    .map_err(|_| PskError::CanonicalizationFailed)?;
+
+    let request = Msg {
+        msg_id: Ulid(1),
+        port_id: PortId::P24,
+        r#type: MessageType::Request,
+        schema_id: SchemaId(psk_anchor::SCHEMA_RECEIPT_REQUEST.to_string()),
+        producer: ModuleId::ReconciliationEngine,
+        consumer: ModuleId::ExternalRecordIngress,
+        run_id: RunId("golden-run".into()),
+        seq: 1,
+        input_digests: vec![],
+        created_at: run_time(),
+        trace_parent: TraceRef(Digest::sha256(b"golden-run-observe-request")),
+        payload_digest: Digest::sha256(&request_payload),
+        payload: request_payload,
+        signature: None,
+    };
+
+    let response = child.request(&request)?;
+    child.shutdown()?;
+    sigma.program.receipt_deposits.push(ReceiptDeposit {
+        payload: response.payload,
+        ingressed: false,
+    });
+    Ok(())
+}
+
+/// Der Bericht ist eine PROJEKTION des Laufzustands: jede Zeile kommt aus
+/// Sigma oder dem Boot-Report, nichts wird hier erzeugt. Ein Objekt, das
+/// der Lauf nicht hervorgebracht hat, fehlt typisiert statt still.
+fn build_report(
+    sigma: Sigma,
+    boot_report: psk_contract::BootReport,
+    boot_gate: psk_types::objects::GateReport,
+) -> Result<GoldenRunReport, PskError> {
+    let final_index = sigma
+        .assemblies
+        .iter()
+        .rposition(|a| a.includes_late)
+        .ok_or(PskError::UntypedInput)?;
+    let final_assembly = &sigma.assemblies[final_index];
+    let cell_reports = sigma
+        .cell_reports
+        .iter()
+        .find(|s| s.assembly_index == final_index)
+        .ok_or(PskError::UntypedInput)?
+        .reports
+        .clone();
+    let glue = sigma.glue.clone().ok_or(PskError::UntypedInput)?;
+    let patch_gate = sigma
+        .gates_and_tokens
+        .reports
+        .iter()
+        .find(|r| r.gate_id == GateId::GEffect)
+        .cloned()
+        .ok_or(PskError::UntypedInput)?;
+    let executable = derive_executable_check(
+        &final_assembly.bundle,
+        &cell_reports,
+        &glue,
+        &[&boot_gate, &patch_gate],
+        &sigma.residues,
+    );
+    let challenge = sigma
+        .challenges
+        .first()
+        .cloned()
+        .ok_or(PskError::UntypedInput)?;
+    let i_t = sigma_digest(&sigma)?;
+
+    Ok(GoldenRunReport {
+        boot_gate,
+        boot_report,
+        anchor: sigma
+            .anchors
+            .first()
+            .cloned()
+            .ok_or(PskError::UntypedInput)?,
+        thought: sigma
+            .thoughts
+            .first()
+            .cloned()
+            .ok_or(PskError::UntypedInput)?,
+        reality: sigma
+            .reality_horizon
+            .first()
+            .cloned()
+            .ok_or(PskError::UntypedInput)?,
+        capsule: sigma
+            .capsules
+            .first()
+            .cloned()
+            .ok_or(PskError::UntypedInput)?,
+        capsule_reached_fixpoint: challenge.reached_fixpoint,
+        ratchet_rounds: challenge.rounds,
+        adversarially_closed: challenge.adversarially_closed,
+        contradictions: sigma.contradictions.clone().unwrap_or_default(),
+        obstructions: sigma.obstructions.clone(),
+        field_identities: sigma.fields.clone(),
+        field_projections: sigma.projections.clone(),
+        dependency_profile: sigma
+            .dependencies
+            .first()
+            .cloned()
+            .ok_or(PskError::UntypedInput)?,
+        glue,
+        validation_open_obligations: sigma.validation_obligations.clone().unwrap_or_default(),
+        // Die Autorisierung ist eine reine Ableitung aus dem PASS-Report
+        // (unfaelschbarer Capability-Typ M14->M15) - dieselbe, die die
+        // Execute-Phase beim Ausstellen ableitete.
+        token_authorization: authorize(&patch_gate)?,
+        patch_gate,
+        attempt: sigma
+            .effects
+            .first()
+            .cloned()
+            .ok_or(PskError::UntypedInput)?,
+        receipt: sigma
+            .receipts
+            .first()
+            .cloned()
+            .ok_or(PskError::UntypedInput)?,
+        reconciliation: sigma
+            .reconciliations
+            .first()
+            .cloned()
+            .ok_or(PskError::UntypedInput)?,
+        trace_head: sigma.trace.head(),
+        residues_opened: sigma.residues.all().len(),
+        residues: sigma.residues.all().to_vec(),
+        ir_bundle: final_assembly.bundle.clone(),
+        ir_scope_residues: final_assembly.scope_residues.clone(),
+        ir_omissions: final_assembly.omissions.clone(),
+        cell_reports,
+        executable,
+        ticks: sigma.tick_no,
+        i_t,
+    })
+}
+
+/// Orchestriert die 13 Schritte aus Regel 24.3 (Golden-Run-Ablauf) gegen
+/// eine echte, vom Aufrufer bereitgestellte Sandbox. Schritt 1 geschieht
+/// in boot(); die Schritte 2 bis 13 laufen als Arbeit in den
+/// Warteschlangen der zwoelf Taktphasen (Regel 24.4 (Der Golden Run
+/// laeuft unter tick)) - der Harnisch deponiert das Programm, taktet bis
+/// keine Phase mehr Arbeit ableitet, und projiziert den Bericht aus dem
+/// Laufzustand.
 pub fn run_golden_run(
     workspace_root: &Path,
     sandbox_root: &Path,
 ) -> Result<GoldenRunReport, PskError> {
     fs::create_dir_all(sandbox_root).map_err(|_| PskError::UntypedInput)?;
 
+    // Schritt 1: Bootgate (Algorithmus 17.1 (Boot), alle 21 Schritte) - vor dem
+    // ersten Takt, wie Regel 24.4 (Der Golden Run läuft unter tick) es legt. Trace und Residuen von hier
+    // wandern in Sigma: der Laufzustand traegt die Bootspur.
     let mut trace = TraceStore::new();
-    // T-RES-001/Algorithmus 18.6 (Gate-Auswertung): `evaluate_gate` selbst haengt jetzt jede
-    // Auswertung an `trace` und residualisiert jede Nicht-PASS-Entscheidung
-    // hier - eine Sammelablage fuer den gesamten Lauf, nicht pro Aufruf neu.
     let mut residues = ResidueLedger::new();
     let genesis_ref = TraceRef(trace.head());
-
     let boot_report = run_boot(
         workspace_root,
         sandbox_root,
@@ -1741,289 +1257,72 @@ pub fn run_golden_run(
         &mut residues,
     )?;
     let boot_gate = boot_report.gate_report.clone();
-    let after_boot = record(
-        &mut trace,
-        "boot.gate.evaluated",
-        ModuleId::AuthorityConsequenceGate,
-        vec![boot_gate.id],
-        Digest::sha256(b"boot"),
-    )?;
 
-    // Schritt 1 des Referenzauftrags: die versiegelte Menge von
-    // Spezifikations- und Quelltextdateien. Sie MUSS vor dem Versiegeln im
-    // beobachteten Verzeichnis liegen - sonst versiegelt der Anker ein
-    // leeres Verzeichnis, und das Frischepraedikat haette nichts, worauf
-    // es sich beziehen koennte.
+    // Weltvorbereitung: das versiegelte Korpus in das beobachtete
+    // Verzeichnis - es MUSS vor dem Versiegeln dort liegen, sonst
+    // versiegelt der Anker ein leeres Verzeichnis.
     let corpus_root = workspace_root.join("domains/jacobs-ladder-reference/corpus");
     let corpus_digest = stage_corpus(&corpus_root, sandbox_root)?;
 
-    let anchor = seal_workspace_anchor(sandbox_root, after_boot, corpus_digest)?;
-    let after_anchor = record(
-        &mut trace,
-        "anchor.sealed",
-        ModuleId::AnchorRegistry,
-        vec![anchor.id],
-        anchor.digest,
-    )?;
+    // Der Lauf, unter dem die Takte stehen (`M19.open_tick(state.tick_no,
+    // rd)`): Identitaeten aus der realen Bootbindung, das Korpus als
+    // versiegelte Eingabe, das Ratchet-Rundenbudget aus der EINEN Quelle.
+    let rd = psk_trace::open_run(psk_trace::RunInputs {
+        run_id: RunId("golden-run".into()),
+        i_c: boot_report.identity.I_C,
+        i_a: boot_report.identity.I_A,
+        i_m: boot_report.identity.I_M,
+        seed: [7u8; 32],
+        versions: BTreeMap::new(),
+        input_digests: vec![corpus_digest],
+        operators: vec![],
+        environment: psk_types::objects::EnvironmentProfile("golden-run-reference-domain".into()),
+        time_window: TimeWindow("golden-run-window".into()),
+        nondeterminism_budget: psk_types::objects::NDBudget("none-declared".into()),
+        ratchet_max_rounds: GOLDEN_RUN_RATCHET_MAX_ROUNDS,
+        canon: psk_types::objects::CanonicalizationProfile("psk.canon/1.0".into()),
+    })?;
 
-    let thought = compile_thought(&anchor, after_anchor)?;
-    let after_thought = record(
-        &mut trace,
-        "thought.compiled",
-        ModuleId::ThoughtCompiler,
-        vec![thought.id],
-        Digest::sha256(b"thought"),
-    )?;
-
-    let reality = classify_thought_reality(&thought, &anchor, after_thought)?;
-    let after_reality = record(
-        &mut trace,
-        "reality.classified",
-        ModuleId::RealityTyper,
-        vec![reality.id],
-        Digest::sha256(b"reality"),
-    )?;
-    let _ = after_reality;
-
-    let (field_identities, field_projections) =
-        run_static_field_family(&anchor, reality.reality_status)?;
-    let after_fields = record(
-        &mut trace,
-        "field-family.projected",
-        ModuleId::FieldRegistry,
-        field_projections.iter().map(|p| p.id).collect(),
-        Digest::sha256(b"fields"),
-    )?;
-    let _ = after_fields;
-
-    // Schritt 6 in Passordnung C4->C9: erst der Abhaengigkeitsquotient
-    // (er speist Knoten und shares_source-Kanten des Graphen), dann der
-    // COMPILE-Graph (ohne die Effektobjekte der Schritte 9-12, die es
-    // noch nicht gibt), dann Vertrag 9.7 (Zellclosure) ueber alle 18 Zellen, und erst
-    // daraus das Verkleben - cells_closed ist ab hier ein Messwert.
-    let dependency_profile = quotient_projections(&field_projections)?;
-    let (compile_ir, compile_probes) = assemble_run_ir_bundle(
-        workspace_root,
-        &anchor,
-        &thought,
-        &reality,
-        &field_identities,
-        &field_projections,
-        &dependency_profile,
-        None,
-        &boot_report,
-        trace.head(),
-        residues.all(),
-    )?;
-    let compile_cells = stage_closure(
-        workspace_root,
-        &compile_ir.bundle,
-        &compile_probes,
-        boot_report.runtime_manifest.max_depth,
-    )?;
-    let glue_outcome = glue_projections(
-        &field_projections,
-        psk_topology::all_18_closed(&compile_cells),
-    )?;
-    let after_glue = record(
-        &mut trace,
-        "dependency.quotiented",
-        ModuleId::DependencyAnalyzer,
-        vec![dependency_profile.id],
-        Digest::sha256(b"quotient"),
-    )?;
-
-    // Schritt 7 (offene Obligationen read-only validieren): der Golden Run
-    // eroeffnet keine Witness-Obligation, die den Patch blockiert - eine
-    // leere Liste ist hier ein echtes Resultat (nichts offen), keine
-    // uebersprungene Pruefung.
-    let validation_open_obligations: Vec<ObligationExpr> = Vec::new();
-
-    // Schritt 7b - Challenge. Der Plandigest ist derselbe, den spaeter
-    // Token und Gate binden (der eine Aenderungsvorschlag des Laufs).
-    // Schritt 2 und 3: widerspruechliche Anforderungen identifizieren und
-    // ihre Geltung bestimmen. Beides aus dem versiegelten Korpus, das
-    // oben in die Sandbox kopiert wurde.
-    let requirements = crate::load_requirements(&corpus_root)?;
-    let contradictions = crate::identify_contradictions(&requirements)?;
-    let countermodels = crate::falsifier_countermodels(&contradictions);
-
-    let challenge = run_challenge(
-        &dependency_profile,
-        &field_projections,
-        &thought,
-        &boot_report.runtime_manifest,
-        Digest::sha256(b"golden-run-patch-plan"),
-        after_glue,
-        &countermodels,
-    )?;
-    // Teil 3 - der Integrator: "verklebt ODER erzeugt eine Obstruktion".
-    // Fuer jeden Widerspruch, den die Praezedenz nicht entscheidet,
-    // entsteht ein Residuum (Typ scope, blockierend - er ist ohne
-    // Aussenrecord nicht aufloesbar) und darauf ein ObstructionRecord der
-    // Art `order`. Ein durch die Praezedenz aufgeloester Widerspruch
-    // erzeugt nichts: er ist entschieden.
-    let mut obstructions: Vec<psk_types::objects::ObstructionRecord> = Vec::new();
-    for c in contradictions.iter().filter(|c| c.is_open()) {
-        let residue_id = residues.open(psk_trace::ResidueInputs {
-            r#type: psk_types::objects::ResidueRecordTypeKind::Scope,
-            origin_module: ModuleId::ClosureGlueEngine,
-            origin_object: anchor.id,
-            scope: psk_types::objects::ScopeExpr(c.artifact.clone()),
-            severity: psk_types::objects::ResidueRecordSeverityKind::Blocking,
-            open_obligation: crate::open_obligation_for(c),
-            allowed_followups: vec![],
-            opened_at: run_time(),
-        })?;
-        obstructions.push(crate::integrator_obstruction(
-            c,
-            residue_id,
-            psk_types::objects::M13Address("m13:0/c0".into()),
-        )?);
-    }
-    // Nullbefund ueber nichtleerer Arbeitsliste: gibt es offene
-    // Widersprueche, MUSS auch eine Obstruktion entstanden sein.
-    if contradictions.iter().any(|c| c.is_open()) && obstructions.is_empty() {
-        return Err(PskError::SurfaceInvariantCollapse);
-    }
-
-    let after_challenge = record(
-        &mut trace,
-        "challenge.resolved",
-        ModuleId::AdversarialKernel,
-        vec![challenge.capsule.id],
-        Digest::sha256(b"challenge"),
-    )?;
-    let _ = after_challenge;
-
-    let patch_gate = evaluate_patch_gate(after_glue, &glue_outcome, &mut trace, &mut residues)?;
-    let after_patch_gate = record(
-        &mut trace,
-        "patch.gate.evaluated",
-        ModuleId::AuthorityConsequenceGate,
-        vec![patch_gate.id],
-        Digest::sha256(b"patch-gate"),
-    )?;
-
-    let scope_file = "golden-run-patch.txt";
-    let content = "hello golden run";
-    let (token_authorization, effect_token, attempt) = issue_and_execute(
-        &patch_gate,
-        sandbox_root,
-        scope_file,
-        content,
-        after_patch_gate,
-    )?;
-    let after_effect = record(
-        &mut trace,
-        "effect.attempted",
-        ModuleId::EffectBoundary,
-        vec![attempt.id],
-        Digest::sha256(b"effect"),
-    )?;
-
-    let receipt = observe_and_receipt(sandbox_root, after_effect)?;
-    let after_receipt = record(
-        &mut trace,
-        "receipt.ingressed",
-        ModuleId::ExternalRecordIngress,
-        vec![receipt.id],
-        Digest::sha256(b"receipt"),
-    )?;
-    let _ = after_receipt;
-
-    let reconciliation = run_reconciliation(
-        attempt.clone(),
-        receipt.clone(),
-        attempt.plan_digest,
-        Digest::sha256(b"golden-run-issuer"),
-        anchor.id,
-        // Die Werte des klassifizierten Subjekts, nicht eine Vorgabe:
-        // reality_status aus der einzigen Klassifikation des Laufs,
-        // facticity aus derselben (sie kopiert die des ThoughtBody,
-        // Regel 7.12 (Klassifikation ist ein eigenes Objekt)).
-        reality.reality_status,
-        reality.facticity,
-    )?;
-    let after_reconciliation = record(
-        &mut trace,
-        "reconciliation.decided",
-        ModuleId::ReconciliationEngine,
-        vec![reconciliation.id],
-        Digest::sha256(b"reconciliation"),
-    )?;
-    let _ = after_reconciliation;
-
-    // Compile (Definition 14.2 (Phasen-Modul-Bindung), M10+M23): "IRBundle als Kandidat
-    // vorhanden." Der Schritt steht hier und nicht direkt nach dem
-    // Abhaengigkeitsquotienten, weil die Endpunkte von `permits` und
-    // `feeds` erst jetzt existieren - ein frueherer Zusammenbau haette
-    // dieselben Kanten nur weglassen muessen.
-    let (ir, ir_probes) = assemble_run_ir_bundle(
-        workspace_root,
-        &anchor,
-        &thought,
-        &reality,
-        &field_identities,
-        &field_projections,
-        &dependency_profile,
-        Some(&LateObjects {
-            token_obj: &effect_token,
-            attempt: &attempt,
-            receipt: &receipt,
-            reconciliation: &reconciliation,
-        }),
-        &boot_report,
-        trace.head(),
-        residues.all(),
-    )?;
-    // Vertrag 9.7 (Zellclosure) ueber dem FINALEN Graphen - er traegt auch die
-    // Effektobjekte und entscheidet die EXECUTABLE-Frage.
-    let cell_reports = stage_closure(
-        workspace_root,
-        &ir.bundle,
-        &ir_probes,
-        boot_report.runtime_manifest.max_depth,
-    )?;
-    let executable = derive_executable_check(
-        &ir.bundle,
-        &cell_reports,
-        &glue_outcome,
-        &[&boot_gate, &patch_gate],
-        &residues,
+    // Sigma (Definition 13.1 (Laufzustand)): Implementierungsbindung und Budget von
+    // aussen, Bootspuren hinein, Programm deponieren.
+    let mut sigma = Sigma::new(
+        boot_report.runtime_manifest.clone(),
+        psk_contract::default_budget(RunId("golden-run".into())),
     );
+    sigma.trace = trace;
+    sigma.residues = residues;
+    sigma.gates_and_tokens.reports.push(boot_gate.clone());
+    deposit_program(
+        &mut sigma,
+        workspace_root,
+        sandbox_root,
+        &corpus_root,
+        corpus_digest,
+    )?;
 
-    Ok(GoldenRunReport {
-        boot_gate,
-        boot_report,
-        anchor,
-        thought,
-        reality,
-        capsule: challenge.capsule,
-        capsule_reached_fixpoint: challenge.reached_fixpoint,
-        ratchet_rounds: challenge.ratchet_rounds,
-        adversarially_closed: challenge.adversarially_closed,
-        contradictions,
-        obstructions,
-        field_identities,
-        field_projections,
-        dependency_profile,
-        glue: glue_outcome,
-        validation_open_obligations,
-        patch_gate,
-        token_authorization,
-        attempt,
-        receipt,
-        reconciliation,
-        trace_head: trace.head(),
-        residues_opened: residues.all().len(),
-        residues: residues.all().to_vec(),
-        ir_bundle: ir.bundle,
-        ir_scope_residues: ir.residues,
-        ir_omissions: ir.omissions,
-        cell_reports,
-        executable,
-    })
+    // Die Taktschleife: takten, solange irgendeine Phase Arbeit ableitet.
+    // Profiling aus (T-OBSV-001: der Schalter liegt ausserhalb von
+    // Sigma; `record_phase` laeuft trotzdem als No-op).
+    let mut lines = GoldenRunLines::new(sandbox_root.to_path_buf());
+    let mut profiling = Profiling::off();
+    let mut ticks_guard = 0u32;
+    while has_pending_work(&sigma) {
+        // Nichtterminieren waere ein Ableitungsfehler in select, kein
+        // Laufergebnis - die Wache macht ihn zu PSK-E016 statt zu einer
+        // Endlosschleife.
+        ticks_guard += 1;
+        if ticks_guard > 32 {
+            return Err(PskError::BudgetOrScheduleViolation);
+        }
+        let now = tick_time(sigma.tick_no);
+        tick(&mut sigma, &rd, &mut lines, now, &mut profiling)?;
+        // Zwischen den Takten: die Welt beobachtet, wenn es etwas zu
+        // beobachten gibt (Schritt-11-Rohstoff).
+        maybe_deposit_receipt(&mut sigma, sandbox_root)?;
+    }
+    lines.shutdown()?;
+
+    build_report(sigma, boot_report, boot_gate)
 }
 
 /// Fuehrt den Lauf zweimal gegen dieselbe Sandbox aus und bildet daraus
@@ -2031,7 +1330,7 @@ pub fn run_golden_run(
 /// exportieren" - beide sind genannt, keine Option). Definition 22.1 (Replayklassen)
 /// definiert die Replayklasse als Eigenschaft eines VERGLEICHS zweier
 /// Laeufe, nicht eines einzelnen - deshalb laeuft `run_golden_run` hier
-/// zweimal, bevor `issue_certificate` (Vertrag 22.4: mindestens R2 als
+/// zweimal, bevor `issue_certificate` (Vertrag 22.4 (Replayklasse des Referenzrelease): mindestens R2 als
 /// Vorbedingung) ueberhaupt aufgerufen werden kann.
 pub fn run_golden_run_with_certificate(
     workspace_root: &Path,
@@ -2141,7 +1440,9 @@ pub fn run_golden_run_with_certificate(
         replay_class,
         first.trace_head,
         replay_manifest_digest,
-        first.boot_report.identity.I_t,
+        // Der Zustand NACH den Takten (Regel 24.4 (Der Golden Run läuft unter tick)) - nicht mehr das
+        // Boot-Sigma.
+        first.i_t,
     )?;
 
     let self_compile = propose_and_evaluate_self_compile(
@@ -2261,7 +1562,7 @@ mod tests {
 
         // Die UNKNOWN-Promotionssperre greift in diesem Lauf gegen ein
         // echtes Objekt: die einzige Klassifikation ist UNKNOWN (kein
-        // Klassifikationsplugin existiert, Vertrag 27.2 Pflicht 3), also
+        // Klassifikationsplugin existiert, Vertrag 27.2 (Domänengelieferte opake Eingaben) Pflicht 3), also
         // faellt die von CLOSED beabsichtigte Promotion auf NONE.
         //
         // Das Paar (verdict != UNKNOWN, fact_promotion == NONE) ist ohne
@@ -2293,7 +1594,7 @@ mod tests {
         // existiert kein Widerlegungserzeuger, der eine Kandidat
         // ueberlebt, allowed_next bleibt gleich (Definition 22.2 (Kapselfixpunkt)). Die
         // Supportentscheidung fiel positiv (alle fuenf Pfade definiert,
-        // Definition 11.11 (Perkolationssupport)), also SUPPORTED.
+        // Definition 11.1 (Passfolge)1 (Perkolationssupport)), also SUPPORTED.
         // Schritt 2/3: beide Widerspruchsarten identifiziert, jede mit
         // bestimmter Geltung. Die Kontrollmenge des Korpus stellt sicher,
         // dass hier nicht einfach alles als widerspruechlich gilt.
@@ -2355,7 +1656,51 @@ mod tests {
 
         assert_ne!(report.trace_head, psk_trace::GENESIS_DIGEST);
 
+        // Regel 24.4 (Der Golden Run läuft unter tick): der positive Nachweis, dass die Schritte 2-13 als
+        // Phasenarbeit liefen - tick_no MUSS von 0 gestiegen sein, und
+        // I_t ist der Digest des Zustands NACH den Takten (verschieden
+        // vom Digest des leeren Boot-Zustands, weil der Zustand die
+        // Arbeit traegt).
+        assert!(report.ticks > 0, "der Lauf hat den Taktzyklus nie betreten");
+
         fs::remove_dir_all(&sandbox).ok();
+    }
+
+    /// Die Taktuhr des Laufs: tau_i schreitet je Takt fort (logische
+    /// Zeit, die steht, waehrend tick_no steigt, waere eine Uhr, die
+    /// luegt), tau_e bleibt eingefroren (Invariante 6.14 (Replayneutralität der Wanduhr): die Wanduhr
+    /// geht in keinen Digest ein - und eine deterministische Laufzeit
+    /// ist Definition 24.2 (Golden Run)s eigene Anforderung).
+    #[test]
+    fn the_tick_clock_advances_tau_i_and_freezes_the_wall_clock() {
+        let t0 = tick_time(0);
+        let t3 = tick_time(3);
+        assert_eq!(t0.tau_i + 3, t3.tau_i, "tau_i folgt der Taktzahl");
+        assert_eq!(t0.tau_e, t3.tau_e, "tau_e ist eingefroren");
+        assert_eq!(
+            t0.tau_i,
+            run_time().tau_i,
+            "Takt 0 traegt die Basiszeit - die Objekte des ersten Takts              entstehen zur selben logischen Zeit wie vor der Umverdrahtung"
+        );
+    }
+
+    /// Die Effektgrenze des Laufs ist klassengebunden: fuer eine nicht
+    /// deklarierte Effektklasse gibt es KEINE Leitung - und damit auch
+    /// keinen Kindprozess (die Klassenpruefung steht VOR dem Spawn).
+    /// Ein Execute-Element einer fremden Klasse scheitert typisiert,
+    /// statt eine beliebige Leitung zu bekommen.
+    #[test]
+    fn the_effect_line_serves_only_the_declared_class() {
+        let mut lines = GoldenRunLines::new(std::env::temp_dir());
+        assert!(
+            psk_effect::EffectLines::line(&mut lines, &EffectClassId("net.write".into())).is_none(),
+            "eine fremde Effektklasse bekommt keine Leitung"
+        );
+        assert!(
+            lines.adapter.is_none(),
+            "und es wurde auch kein Kindprozess gespawnt"
+        );
+        lines.shutdown().expect("nichts zu schliessen");
     }
 
     #[test]

@@ -1,154 +1,44 @@
 //! T-CONC-001 (`architecture/ra_tests.yaml`: `{kind: property, run:
-//! concurrent_stress, expect: canonical_digest_equals_sequential}`) und
-//! I-ARCH-009 (`concurrent_run_has_equivalent_sequential_canonical_digest`).
+//! concurrent_dispatch, expect: canonical_digest_equals_sequential}`) /
+//! Regel 14.7 (Nebenlaeufigkeitsmodell) / Invariante 14.8 (Serialisierbarkeit)
+//! (Serialisierbarkeit).
 //!
-//! Vergleichswert ist `sigma_digest` - der reale Zustandsdigest `I_t`,
-//! nicht der Tracekopf. Beides ist seit dem Bau von `sigma_digest`
-//! verschieden, und I-ARCH-009 spricht ausdruecklich vom kanonischen
-//! Zustandsdigest.
-//!
-//! Der Test belegt BEIDE Richtungen. Nur die Gleichheit zu zeigen
-//! genuegte nicht: sie waere auch gruen, wenn die Nebenlaeufigkeit gar
-//! nicht griffe oder die Anwendungsreihenfolge ohnehin nie abwiche. Der
-//! Negativfall laesst denselben Lauf ohne den Ruecksortierschritt laufen
-//! und verlangt einen ABWEICHENDEN Digest - erst zusammen zeigen sie,
-//! dass genau dieser Schritt die Gleichheit herstellt.
+//! Die Saat: mehrere deponierte Records MIT gebundener Provenienz. Die
+//! Anchor-Phase leitet daraus je ein `AnchorBind` ab - freigegebene,
+//! voneinander unabhaengige Arbeit, deren ANWENDUNGSREIHENFOLGE aber
+//! zaehlt (`apply` haengt jeden Anker an `Sigma.anchors` an). Genau die
+//! Lage, die Regel 14.7 (Nebenläufigkeitsmodell)s Ruecksortierschritt ordnet: die abgeleiteten
+//! Kennungen (Digests der Ableitungstags) sind gegen die Saatreihenfolge
+//! effektiv verwuerfelt, also unterscheidet sich die Prioritaetsordnung
+//! deterministisch von jeder anderen - und der Negativnachweis traegt
+//! jedes Mal.
 
-use std::collections::BTreeMap;
+mod common;
 
+use psk_effect::NoEffectLines;
 use psk_scheduler::{
     concurrency_eligible, sigma_digest, tick, tick_concurrent, tick_concurrent_with_order,
-    BudgetLedger, PendingWork, PriorityTier, Profiling, QueuedItem, ResourceKind, ResultOrder,
-    SchedulableItem, Sigma,
+    PendingWork, Profiling, ResultOrder, Sigma,
 };
-use psk_trace::{open_run, RunDescriptor, RunInputs};
-use psk_types::objects::{
-    CanonicalizationProfile, CapabilityMatrixRef, Claim, ClaimDirectionalityKind, ClaimExpr,
-    EnvironmentProfile, Lineage, NDBudget, ProfileId, RuntimeManifest,
-    RuntimeManifestDeterminismClassKind, Scaled, SortId, UncertaintyBlock,
-};
-use psk_types::{ClockRef, Digest, DualTime, ObjectId, Phase, RunId, TraceRef};
+use psk_types::objects::ProfileId;
+use psk_types::Digest;
 
-fn time() -> DualTime {
-    DualTime {
-        tau_i: 0,
-        tau_e: "2026-08-08T00:00:00.000000000Z".into(),
-        clock_ref: ClockRef("test".into()),
-        uncertainty_ns: 0,
+fn seeded() -> Sigma {
+    let mut sigma = Sigma::new(common::manifest(ProfileId::Reference), common::budget());
+    for seed in [b"e" as &[u8], b"a", b"d", b"b", b"c", b"f", b"g", b"h"] {
+        common::seed_bound_record(&mut sigma, seed);
     }
-}
-
-fn manifest() -> RuntimeManifest {
-    RuntimeManifest {
-        schema: "psk.runtime-manifest/1.0".into(),
-        constitution_id: Digest::sha256(b"c"),
-        architecture_id: Digest::sha256(b"a"),
-        implementation_id: Digest::sha256(b"m"),
-        profile: ProfileId::Reference,
-        capability_matrix: CapabilityMatrixRef("cap/1".into()),
-        build_digest: Digest::sha256(b"build"),
-        operator_versions: Default::default(),
-        adapter_versions: Default::default(),
-        determinism_class: RuntimeManifestDeterminismClassKind::R0,
-        max_depth: 0,
-    }
-}
-
-fn budget() -> BudgetLedger {
-    BudgetLedger::open(
-        RunId("run-0".into()),
-        10_000,
-        10_000,
-        10_000,
-        10_000,
-        10_000,
-        10_000,
-        10_000,
-        Scaled {
-            schema: "psk.scaled/1.0".into(),
-            numerator: 100,
-            scale: 2,
-        },
-    )
-}
-
-fn run_descriptor() -> RunDescriptor {
-    open_run(RunInputs {
-        run_id: RunId("run-0".into()),
-        i_c: Digest::sha256(b"ic"),
-        i_a: Digest::sha256(b"ia"),
-        i_m: Digest::sha256(b"im"),
-        seed: [7u8; 32],
-        versions: BTreeMap::new(),
-        input_digests: vec![Digest::sha256(b"input")],
-        operators: vec![],
-        environment: EnvironmentProfile("test-env".into()),
-        time_window: psk_types::objects::TimeWindow("PT1H".into()),
-        nondeterminism_budget: NDBudget("none".into()),
-        ratchet_max_rounds: 4,
-        canon: CanonicalizationProfile("psk.canon/1.0".into()),
-    })
-    .unwrap()
-}
-
-/// `tier`/`id` bestimmen die Prioritaetsordnung (Regel 14.5). Die
-/// Elemente werden hier bewusst in einer ANDEREN Reihenfolge in die
-/// Warteschlange gelegt als ihre Prioritaet - sonst waere nicht
-/// unterscheidbar, ob `select()` ueberhaupt sortiert.
-fn thought_item(seed: &[u8], tier: PriorityTier) -> QueuedItem {
-    QueuedItem {
-        schedulable: SchedulableItem {
-            id: ObjectId::new(SortId::Context, Digest::sha256(seed)),
-            tier,
-            expires_at_tau_i: None,
-        },
-        cost: (ResourceKind::Compute, 1),
-        work: PendingWork::TypeThought(psk_thought::ThoughtInputs {
-            anchor_refs: vec![ObjectId::new(SortId::Anchor, Digest::sha256(b"anchor"))],
-            unanchored: false,
-            claim: Claim {
-                text: String::from_utf8_lossy(seed).into_owned(),
-                formal: ClaimExpr(format!("formal({})", String::from_utf8_lossy(seed))),
-                directionality: ClaimDirectionalityKind::Internal,
-            },
-            models: vec![],
-            trajectories: vec![],
-            uncertainty: UncertaintyBlock("none".into()),
-            consequences: vec![],
-            lineage: Lineage("root".into()),
-            trace_ref: TraceRef(Digest::sha256(b"trace")),
-        }),
-    }
-}
-
-/// Mehrere Elemente derselben Phase, mit gemischten Raengen - genug, dass
-/// die Threads sich real ueberlappen und die Ordnung sichtbar wird.
-fn stress_queues() -> BTreeMap<Phase, Vec<QueuedItem>> {
-    let mut q = BTreeMap::new();
-    q.insert(
-        Phase::Type,
-        vec![
-            thought_item(b"e", PriorityTier::SpeculativeBranch),
-            thought_item(b"a", PriorityTier::UnknownEffectOrOpenReconciliation),
-            thought_item(b"d", PriorityTier::RatchetingCapsule),
-            thought_item(b"b", PriorityTier::ExpiringEffectToken),
-            thought_item(b"c", PriorityTier::BlockingWitnessOrResidue),
-            thought_item(b"f", PriorityTier::SpeculativeBranch),
-            thought_item(b"g", PriorityTier::SpeculativeBranch),
-            thought_item(b"h", PriorityTier::SpeculativeBranch),
-        ],
-    );
-    q
+    sigma
 }
 
 fn sequential_digest() -> Digest {
-    let mut sigma = Sigma::new(manifest(), budget());
-    let rd = run_descriptor();
+    let mut sigma = seeded();
+    let rd = common::run_descriptor();
     tick(
         &mut sigma,
         &rd,
-        stress_queues(),
-        time(),
+        &mut NoEffectLines,
+        common::time(),
         &mut Profiling::off(),
     )
     .unwrap();
@@ -161,16 +51,9 @@ fn t_conc_001_a_concurrent_tick_yields_the_same_canonical_digest_as_the_sequenti
     // expect: canonical_digest_equals_sequential.
     let expected = sequential_digest();
 
-    let mut sigma = Sigma::new(manifest(), budget());
-    let rd = run_descriptor();
-    tick_concurrent(
-        &mut sigma,
-        &rd,
-        stress_queues(),
-        time(),
-        &mut Profiling::off(),
-    )
-    .unwrap();
+    let mut sigma = seeded();
+    let rd = common::run_descriptor();
+    tick_concurrent(&mut sigma, &rd, common::time(), &mut Profiling::off()).unwrap();
 
     assert_eq!(
         sigma_digest(&sigma).unwrap(),
@@ -183,19 +66,18 @@ fn t_conc_001_a_concurrent_tick_yields_the_same_canonical_digest_as_the_sequenti
 fn skipping_the_reordering_step_yields_a_different_digest() {
     // Die zweite Richtung. Ohne sie koennte der Test oben auch gruen sein,
     // weil die Nebenlaeufigkeit nie greift oder die Reihenfolge ohnehin
-    // nie abweicht - dann bewiese er nichts ueber Regel 14.7s
+    // nie abweicht - dann bewiese er nichts ueber Regel 14.7 (Nebenläufigkeitsmodell)s
     // Ruecksortierschritt.
     let expected = sequential_digest();
 
-    let mut sigma = Sigma::new(manifest(), budget());
-    let rd = run_descriptor();
+    let mut sigma = seeded();
+    let rd = common::run_descriptor();
     tick_concurrent_with_order(
         &mut sigma,
         &rd,
-        stress_queues(),
-        time(),
+        common::time(),
         &mut Profiling::off(),
-        ResultOrder::AsQueuedForTestingOnly,
+        ResultOrder::ReversedForTestingOnly,
     )
     .unwrap();
 
@@ -215,16 +97,9 @@ fn the_concurrent_run_is_reproducible_across_repeats() {
     // haenge das Ergebnis doch am Scheduling.
     let mut digests = Vec::new();
     for _ in 0..5 {
-        let mut sigma = Sigma::new(manifest(), budget());
-        let rd = run_descriptor();
-        tick_concurrent(
-            &mut sigma,
-            &rd,
-            stress_queues(),
-            time(),
-            &mut Profiling::off(),
-        )
-        .unwrap();
+        let mut sigma = seeded();
+        let rd = common::run_descriptor();
+        tick_concurrent(&mut sigma, &rd, common::time(), &mut Profiling::off()).unwrap();
         digests.push(sigma_digest(&sigma).unwrap());
     }
     assert!(
@@ -235,29 +110,22 @@ fn the_concurrent_run_is_reproducible_across_repeats() {
 
 #[test]
 fn the_trace_chain_is_identical_too_not_merely_the_state_digest() {
-    // Invariante 14.8 nennt beides: "identischem kanonischen
+    // Invariante 14.8 (Serialisierbarkeit) nennt beides: "identischem kanonischen
     // Zustandsdigest UND identischer Tracefolge". Der Zustandsdigest
     // allein liesse eine abweichende Anhaengereihenfolge durchgehen, wenn
     // sie sich im Zustand nicht niederschluege.
-    let mut seq = Sigma::new(manifest(), budget());
-    let mut con = Sigma::new(manifest(), budget());
-    let rd = run_descriptor();
+    let mut seq = seeded();
+    let mut con = seeded();
+    let rd = common::run_descriptor();
     tick(
         &mut seq,
         &rd,
-        stress_queues(),
-        time(),
+        &mut NoEffectLines,
+        common::time(),
         &mut Profiling::off(),
     )
     .unwrap();
-    tick_concurrent(
-        &mut con,
-        &rd,
-        stress_queues(),
-        time(),
-        &mut Profiling::off(),
-    )
-    .unwrap();
+    tick_concurrent(&mut con, &rd, common::time(), &mut Profiling::off()).unwrap();
 
     let events = |s: &Sigma| -> Vec<String> {
         s.trace
@@ -276,13 +144,19 @@ fn the_trace_chain_is_identical_too_not_merely_the_state_digest() {
 }
 
 #[test]
-fn the_four_stateful_work_kinds_are_excluded_from_concurrency() {
-    // Regel 14.7: "ausschliesslich fuer Operationen ohne gemeinsamen
+fn the_five_stateful_work_kinds_are_excluded_from_concurrency() {
+    // Regel 14.7 (Nebenläufigkeitsmodell): "ausschliesslich fuer Operationen ohne gemeinsamen
     // Schreibzustand". Die Aufzaehlung ist hier festgenagelt, damit eine
     // spaetere Erweiterung von PendingWork nicht stillschweigend etwas
     // Zustandsbehaftetes freigibt.
+    assert!(!concurrency_eligible(&PendingWork::ChallengeContradictions));
+    assert!(!concurrency_eligible(&PendingWork::VerifyPatchGate));
+    assert!(!concurrency_eligible(&PendingWork::ExecuteRun {
+        token: None
+    }));
+    assert!(!concurrency_eligible(&PendingWork::Reconcile));
     assert!(!concurrency_eligible(&PendingWork::ArchiveGatherResidues));
-    assert!(concurrency_eligible(
-        &thought_item(b"x", PriorityTier::SpeculativeBranch).work
-    ));
+    // Und die Gegenprobe: lesend-rechnende Arbeit IST freigegeben.
+    assert!(concurrency_eligible(&PendingWork::Observe { record: 0 }));
+    assert!(concurrency_eligible(&PendingWork::AnchorBind { record: 0 }));
 }

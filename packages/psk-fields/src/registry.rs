@@ -1,4 +1,4 @@
-//! M08 FieldRegistry: konstruiert FieldIdentity-Objekte (Struktur 7.14,
+//! M08 FieldRegistry: konstruiert FieldIdentity-Objekte (Struktur 7.14 (FieldIdentity),
 //! OBJ-FLD) und fuehrt sie durch FSM-FIELD (Automat 13.x,
 //! `psk_types::automata::field`).
 //!
@@ -31,8 +31,13 @@ use psk_types::{Digest, ObjectId, PskError};
 /// Eingaben fuer eine FieldIdentity-Konstruktion. `id`, `lifecycle` und
 /// `marginal_gain` fehlen hier absichtlich: FSM-FIELD legt den
 /// Anfangszustand fest (PROPOSED, `field_fsm::INITIAL`), und Delta-G ist
-/// "zuletzt gemessener Wert" (Struktur 7.14) - vor der ersten Messung gibt
+/// "zuletzt gemessener Wert" (Struktur 7.14 (FieldIdentity)) - vor der ersten Messung gibt
 /// es keinen.
+///
+/// `Clone`/`Serialize`: die deklarierte Feldfamilie eines Laufs (Regel
+/// 32.7) liegt seit der Taktumverdrahtung als Wert im Laufzustand Sigma
+/// (die Project-Phase liest sie von dort) und geht damit in I_t ein.
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct FieldRegistrationInputs {
     pub domain: DomainExpr,
     pub lens: LensSpec,
@@ -59,8 +64,8 @@ pub struct FieldRegistrationInputs {
 }
 
 /// Baut das JSON-Vorbild ohne die selbstreferenzielle `id` und bildet
-/// daraus Objekt-ID (Definition 6.6, ueber pi_vol) und record_digest
-/// (Definition 6.7). Gleiches Muster wie ThoughtBody (psk-thought) und
+/// daraus Objekt-ID (Definition 6.6 (Objekt-ID), ueber pi_vol) und record_digest
+/// (Definition 6.7 (Recorddigest)). Gleiches Muster wie ThoughtBody (psk-thought) und
 /// AnchorSnapshot (psk-anchor).
 fn compute_identity(draft: &FieldIdentity) -> Result<(ObjectId, Digest), PskError> {
     let mut value = serde_json::to_value(draft).map_err(|_| PskError::CanonicalizationFailed)?;
@@ -145,7 +150,7 @@ pub fn register_field(
 ///   v1.0.8 - das Vorzeichen liegt vollstaendig im numerator, da
 ///   10^scale > 0 fuer scale >= 0 immer gilt; keine Gleitkommapruefung
 ///   mehr noetig).
-/// - `scope_declared`: Struktur 7.14 fuehrt kein Feld namens `scope` -
+/// - `scope_declared`: Struktur 7.14 (FieldIdentity) fuehrt kein Feld namens `scope` -
 ///   gelesen als `domain` (D_lambda), das einzige Feld, das den
 ///   Wirkungsbereich eines Feldes beschreibt.
 /// - `dependency_profile`: `dependency_profile_ref` ist nicht optional,
@@ -182,7 +187,7 @@ pub fn check_activation_requirements(
     }
 }
 
-/// Regel 32.7, wortgetreue Rollenbeschreibung je Archetyp - nuetzlich fuer
+/// Regel 32.7 (Feldfamilie der Referenzdomäne), wortgetreue Rollenbeschreibung je Archetyp - nuetzlich fuer
 /// Diagnose/Tooling, nicht Teil einer Struktur.
 pub const fn archetype_role(archetype: ArchetypeId) -> &'static str {
     match archetype {
@@ -223,7 +228,7 @@ fn lifecycle_to_state(l: FieldIdentityLifecycleKind) -> field_fsm::State {
 
 /// Ergebnis eines Lebenszyklusschritts. Da `lifecycle` Teil von Can() ist
 /// (volatile_fields.yaml schliesst es nicht aus), aendert jeder Uebergang
-/// die Objekt-ID (Definition 6.6) - `Allowed` traegt deshalb ein
+/// die Objekt-ID (Definition 6.6 (Objekt-ID)) - `Allowed` traegt deshalb ein
 /// vollstaendig neues Objekt, keine Mutation. Die Verkettung zum
 /// Vorgaenger ist Sache von `lineage` (Lin_lambda), nicht der ID.
 #[derive(Debug, Clone, PartialEq)]
@@ -240,7 +245,7 @@ pub enum LifecycleStep {
 /// (nach bestandenem G-MORPH/G-EXCISION, siehe `morphogenesis`-Modul)
 /// braucht. Oeffentlich fuer M20: M20 wertet das Gate selbst aus
 /// (`psk_gate::evaluate_gate`, Gate-Owner laut gate_registry.yaml), aber
-/// nur M08 (dieses Modul) konstruiert FieldIdentity-Objekte - Vertrag 3.4
+/// nur M08 (dieses Modul) konstruiert FieldIdentity-Objekte - Vertrag 3.4 (Ownership-Exklusivität)
 /// (Ownership-Exklusivitaet).
 pub fn complete_transition(
     field: &FieldIdentity,
@@ -339,7 +344,7 @@ mod tests {
 
     #[test]
     fn all_six_archetypes_are_registrable_and_distinct_ids() {
-        // Regel 32.7: "Genau sechs statische Feldidentitaeten."
+        // Regel 32.7 (Feldfamilie der Referenzdomäne): "Genau sechs statische Feldidentitaeten."
         assert_eq!(ArchetypeId::ALL.len(), 6);
         let ids: Vec<_> = ArchetypeId::ALL
             .iter()

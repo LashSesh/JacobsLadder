@@ -12,7 +12,7 @@
 //!   Sorten-Port-Matrix gegen einen konkreten Graphen". M12 (psk-witness)
 //!   und M19 (psk-trace) rechnen seit ihren Work Packages real; die
 //!   Matrixauswertung ist seit dem FC2-Bau verdrahtet (`load_port_matrix`
-//!   und Regel 10.6 in `assemble_ir_bundle`), und der konkrete Graph
+//!   und Regel 10.6 (Sorten-Port-Matrix) in `assemble_ir_bundle`), und der konkrete Graph
 //!   entsteht in jedem Golden Run. Was fehlte, waren drei normative
 //!   Entscheidungen - v1.0.34 traf sie: Regel 9.8 (Richtungskonsistenz
 //!   einer Zelle), Regel 9.9 (Leere Zelle schliesst vakuum, aber nicht
@@ -21,35 +21,35 @@
 //!   existiert seit v1.0.32; der Stubtext hier war schlicht nicht
 //!   nachgezogen (dieselbe Fehlerklasse, die den Audit-Anlass
 //!   compile_ir_bundle betraf). Der zunaechst offene Eintrittspunkt im
-//!   Feinchart ist seit v1.0.35 durch Regel 9.20 geregelt - dieselbe
+//!   Feinchart ist seit v1.0.35 durch Regel 9.20 (Eintrittszelle eines Abstiegs) geregelt - dieselbe
 //!   Platzierungsregel, keine eigene; der Erfolgszweig rechnet, siehe
 //!   `descend`.
 //! - `holonomy` nannte "Phi/Transport aus M09 - kein Register definiert
 //!   deren Berechnung". Das war eine echte Dokumentluecke (zehn
 //!   Verwendungen, keine Definition); v1.0.34 schliesst sie: Definition
 //!   9.17 (Chartwechsel) gibt T als reinen, umkehrbaren Rahmenwechsel mit
-//!   T_ii = I, Definition 9.19 gibt Phi als T_gamma der geschlossenen
-//!   Route, und Regel 9.21 leitet Phi = I bei max_depth = 0 daraus AB,
+//!   T_ii = I, Definition 9.19 (Transport und Holonomie) gibt Phi als T_gamma der geschlossenen
+//!   Route, und Regel 9.21 (Triviale Route ist eine Route) leitet Phi = I bei max_depth = 0 daraus AB,
 //!   statt es anzunehmen - mit Ausweispflicht als trivial geschlossen.
 //!
 //! ## Was der CellReport traegt
 //!
-//! Seit v1.0.35 traegt Struktur 9.10 alle Ausweispflichten selbst; die
+//! Seit v1.0.35 traegt Struktur 9.10 (CellReport) alle Ausweispflichten selbst; die
 //! beiden Befunde der v1.0.34-Bauform sind an der Quelle geschlossen:
 //!
-//! - Regel 9.21: "Der CellReport MUSS diesen Fall als trivial
+//! - Regel 9.21 (Triviale Route ist eine Route): "Der CellReport MUSS diesen Fall als trivial
 //!   geschlossen ausweisen" - der v1.0.34-Dokumentbefund (die Feldliste
 //!   konnte das nicht tragen) ist in v1.0.35 an der Quelle geschlossen:
 //!   `closure_mode` steht jetzt in der Struktur, und Regel 9.11 (Vakuum
 //!   ist kein Beleg) macht das Fuehren beider Ausweisfelder zur Pflicht.
 //! - Die Auflage aus der Abnahme des Blocker-Audits: "aufloesbar" ueber
 //!   leerer Witnessliste ist vakuum-wahr und MUSS als vakuum ausgewiesen
-//!   werden, nicht als geprueft. Seit v1.0.35 traegt Struktur 9.10 das
+//!   werden, nicht als geprueft. Seit v1.0.35 traegt Struktur 9.10 (CellReport) das
 //!   selbst: `refs_resolution: checked | vacuous_empty` und
 //!   `closure_mode: substantive | trivial | vacuous` - die v1.0.34-
 //!   Bauform dieses Moduls, jetzt registerseitig.
 //!
-//! `ProbeNote` ist seit v1.0.35 in Struktur 9.10 definiert (node,
+//! `ProbeNote` ist seit v1.0.35 in Struktur 9.10 (CellReport) definiert (node,
 //! computed_k, reached_k, probe_steps) - die fruehere Minimaldefinition
 //! dieses Moduls ist durch die registerseitige ersetzt.
 
@@ -62,12 +62,12 @@ use psk_types::{
 };
 
 /// IRGraph aus Schnittstelle 9.26 - der Graph-Teil eines IRBundle
-/// (Struktur 7.21, OBJ-IRB).
+/// (Struktur 7.21 (IRBundle), OBJ-IRB).
 pub type IRGraph = Graph;
 
-/// Struktur 9.10: `occupancy: occupied | empty` - "leer schliesst vakuum,
-/// wird aber ausgewiesen" (Regel 9.9).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Struktur 9.10 (CellReport): `occupancy: occupied | empty` - "leer schliesst vakuum,
+/// wird aber ausgewiesen" (Regel 9.9 (Leere Zelle schließt vakuum, aber nicht stillschweigend)).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum Occupancy {
     Occupied,
     Empty,
@@ -75,7 +75,7 @@ pub enum Occupancy {
 
 /// Struktur 9.10 (v1.0.35): `refs_resolution: checked | vacuous_empty` -
 /// "ueber leerer Verweisliste ist 'aufloesbar' vakuum wahr und KEIN
-/// Beleg" (Regel 9.11: Vakuum ist kein Beleg).
+/// Beleg" (Regel 9.11 (Vakuum ist kein Beleg): Vakuum ist kein Beleg).
 ///
 /// Die Struktur kennt keinen Fehlwert, und das ist konsequent: ein
 /// Verweis, der im eigenen Buendel nicht aufloest, ist kein
@@ -86,8 +86,8 @@ pub enum Occupancy {
 /// Massgeblich fuer checked/vacuous ist die WITNESSLISTE: der
 /// Traceverweis ist an jedem Knoten pflichtig und wird immer geprueft,
 /// aber seine Pruefung allein stuft nicht auf "checked" hoch - genau das
-/// waere die Mehrbehauptung, die Regel 9.11 verbietet.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// waere die Mehrbehauptung, die Regel 9.11 (Vakuum ist kein Beleg) verbietet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum RefsResolution {
     /// Mindestens ein Witnessverweis vorhanden und real aufgeloest;
     /// Traceverweise ebenfalls geprueft.
@@ -101,17 +101,17 @@ pub enum RefsResolution {
 /// vacuous`. Regel 9.21 (Triviale Route ist eine Route): bei
 /// `max_depth = 0` gilt Phi = I aus T_ii = I - hergeleitet, nicht
 /// angenommen; der Fall MUSS als trivial ausgewiesen werden und "DARF
-/// NICHT als Beleg fuer Transportkorrektheit gelten". Regel 9.11 dehnt
+/// NICHT als Beleg fuer Transportkorrektheit gelten". Regel 9.11 (Vakuum ist kein Beleg) dehnt
 /// dieselbe Pflicht auf vacuous aus.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum ClosureMode {
     /// Reale Transportauswertung ueber mehrere Charts. Kein Referenzlauf
     /// erreicht diesen Fall bisher (max_depth = 0 ueberall).
     Substantive,
-    /// Route ohne Transport (Regel 9.21): belegte Zelle bei
+    /// Route ohne Transport (Regel 9.21 (Triviale Route ist eine Route)): belegte Zelle bei
     /// max_depth = 0.
     Trivial,
-    /// Zelle ohne Knoten (Regel 9.9).
+    /// Zelle ohne Knoten (Regel 9.9 (Leere Zelle schließt vakuum, aber nicht stillschweigend)).
     Vacuous,
 }
 
@@ -121,7 +121,7 @@ pub enum ClosureMode {
 /// konfliktfrei"). Dass 0 eine BEDEUTUNG hat, heisst: vermerkt wird
 /// jede Platzierung, nicht nur der Konfliktfall - "Sondierung wird
 /// vermerkt, nicht verworfen".
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct ProbeNote {
     pub node: ObjectId,
     /// k = H(Can(node)) mod 6, vor Sondierung.
@@ -134,8 +134,10 @@ pub struct ProbeNote {
 
 /// Struktur 9.10 (CellReport), feldgetreu seit v1.0.35 - occupancy,
 /// closure_mode und refs_resolution sind die Ausweisfelder, deren
-/// Fuehrung Regel 9.11 zur Pflicht macht.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Fuehrung Regel 9.11 (Vakuum ist kein Beleg) zur Pflicht macht.
+// `Serialize`: Zellberichte liegen seit der Taktumverdrahtung als
+// Phasenprodukt im Laufzustand Sigma und gehen damit in I_t ein.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub struct CellReport {
     pub cell: CellId,
     pub occupancy: Occupancy,
@@ -149,8 +151,8 @@ pub struct CellReport {
 }
 
 impl CellReport {
-    /// Vertrag 9.7: geschlossen, wenn alle Bedingungen gelten. Eine
-    /// leere Zelle schliesst vakuum (Regel 9.9) - ihre Bedingungen sind
+    /// Vertrag 9.7 (Zellclosure): geschlossen, wenn alle Bedingungen gelten. Eine
+    /// leere Zelle schliesst vakuum (Regel 9.9 (Leere Zelle schließt vakuum, aber nicht stillschweigend)) - ihre Bedingungen sind
     /// ueber der leeren Menge wahr und stehen so in den Feldern; die
     /// Verweisaufloesung kennt keinen Fehlwert (defekte Verweise sind
     /// PSK-E011, nie ein Bericht).
@@ -161,13 +163,13 @@ impl CellReport {
             && self.differences_residualized
     }
 
-    /// Regel 9.9/9.11: vakuum geschlossen - zaehlt, wird aber beziffert.
+    /// Regel 9.9 (Leere Zelle schließt vakuum, aber nicht stillschweigend)/9.11: vakuum geschlossen - zaehlt, wird aber beziffert.
     pub fn vacuum_closed(&self) -> bool {
         self.closure_mode == ClosureMode::Vacuous && self.closed()
     }
 }
 
-/// Was Vertrag 9.7 zum Pruefen braucht und der Graph allein nicht
+/// Was Vertrag 9.7 (Zellclosure) zum Pruefen braucht und der Graph allein nicht
 /// hergibt. Der Aufrufer fuellt es aus dem IRBundle (W, R, T) und den
 /// versiegelten Registern - Kernmuster wie `EdgeContext` und
 /// `load_port_matrix`: hier kommt alles typisiert an, nichts wird selbst
@@ -182,27 +184,27 @@ pub struct ClosureContext<'a> {
     /// muessen.
     pub bundle_trace: &'a TraceRef,
     /// Die Sorten-Port-Matrix aus architecture/sort_registry.yaml
-    /// (Regel 10.6), vom Aufrufer gereicht.
+    /// (Regel 10.6 (Sorten-Port-Matrix)), vom Aufrufer gereicht.
     pub port_matrix: &'a [(SortId, SortId, RelationSortId)],
     /// Sorte -> Eignermodul (architecture/sort_registry.yaml).
     pub sort_owner: &'a BTreeMap<SortId, ModuleId>,
     /// Modul -> Schicht L0..L7 als Zahl (architecture/module_map.yaml).
     pub module_layer: &'a BTreeMap<ModuleId, u8>,
     /// Modulpaare, die laut pass_registry.yaml gemeinsame Traeger
-    /// derselben Passe sind (Regel 9.8: "gemeinsame Passtraegerschaft").
+    /// derselben Passe sind (Regel 9.8 (Richtungskonsistenz einer Zelle): "gemeinsame Passtraegerschaft").
     pub shared_pass_carriers: &'a BTreeSet<(ModuleId, ModuleId)>,
     /// Sondierungsvermerke aus der realen Platzierung des Laufs
     /// (`PlacementOutcome::probed_k` je Knoten). Die Platzierung ist eine
-    /// reine Funktion (Regel 9.14), aber die Vermerke stammen aus dem
+    /// reine Funktion (Regel 9.14 (Platzierungsregel)), aber die Vermerke stammen aus dem
     /// Lauf, der platziert hat - nicht aus einer Nachrechnung.
     pub probes: &'a [(ObjectId, Vec<u8>)],
     /// RuntimeManifest.max_depth - entscheidet den ClosureMode
-    /// (Regel 9.21).
+    /// (Regel 9.21 (Triviale Route ist eine Route)).
     pub max_depth: u32,
 }
 
 /// Definition 2.7 (Zulaessige Rueckfluesse): die fuenf benannten
-/// Rueckflusskanaele, gegen die Regel 9.8 backward-Kanten prueft.
+/// Rueckflusskanaele, gegen die Regel 9.8 (Richtungskonsistenz einer Zelle) backward-Kanten prueft.
 /// `None` als Quelle heisst "jede Schicht" (Kanal i).
 const REFLUX_CHANNELS: [(Option<ModuleId>, ModuleId); 6] = [
     // (i) Residuenrueckfluss: jede Schicht -> M19.
@@ -236,7 +238,7 @@ fn is_reflux(source: ModuleId, target: ModuleId) -> bool {
         .any(|(s, t)| *t == target && s.map(|s| s == source).unwrap_or(true))
 }
 
-/// Regel 9.8, eine Richtung: Schichtordnung (L(Ziel) >= L(Quelle)) oder
+/// Regel 9.8 (Richtungskonsistenz einer Zelle), eine Richtung: Schichtordnung (L(Ziel) >= L(Quelle)) oder
 /// gemeinsame Passtraegerschaft.
 fn forward_ok(ctx: &ClosureContext, source: ModuleId, target: ModuleId) -> bool {
     let ordered = match (ctx.module_layer.get(&source), ctx.module_layer.get(&target)) {
@@ -250,7 +252,7 @@ fn forward_ok(ctx: &ClosureContext, source: ModuleId, target: ModuleId) -> bool 
         || ctx.shared_pass_carriers.contains(&(target, source))
 }
 
-/// Vertrag 9.7 fuer EINE Zelle, ueber dem konkreten Graphen.
+/// Vertrag 9.7 (Zellclosure) fuer EINE Zelle, ueber dem konkreten Graphen.
 ///
 /// Mitglied der Zelle ist jeder Knoten, dessen `m13_address` sie als
 /// aktuelle Zelle nennt; Kanten der Zelle sind die Kanten, deren beide
@@ -272,9 +274,9 @@ pub fn close_cell(
     }
 
     if members.is_empty() {
-        // Regel 9.9: vakuum - "ueber einer leeren Menge ist nichts
+        // Regel 9.9 (Leere Zelle schließt vakuum, aber nicht stillschweigend): vakuum - "ueber einer leeren Menge ist nichts
         // unabgeschlossen". Die Felder tragen die Vakuumwahrheit,
-        // occupancy und closure_mode weisen sie aus (Regel 9.11).
+        // occupancy und closure_mode weisen sie aus (Regel 9.11 (Vakuum ist kein Beleg)).
         return Ok(CellReport {
             cell,
             occupancy: Occupancy::Empty,
@@ -289,7 +291,7 @@ pub fn close_cell(
     }
 
     // Belegte Zelle: bei max_depth = 0 ist jede geschlossene Route
-    // trivial (Regel 9.21); eine substantielle Transportauswertung gibt
+    // trivial (Regel 9.21 (Triviale Route ist eine Route)); eine substantielle Transportauswertung gibt
     // es erst mit mehreren Charts.
     let closure_mode = if ctx.max_depth == 0 {
         ClosureMode::Trivial
@@ -302,7 +304,7 @@ pub fn close_cell(
 
     // "ihre drei Knoten typisiert": jede Sorte ist ein Wert des
     // geschlossenen SortId-Enums - genau eine Primaersorte pro Knoten
-    // (Invariante 5.3) ist durch Konstruktion belegt: ein untypisierter
+    // (Invariante 5.3 (Eindeutige Primärsorte)) ist durch Konstruktion belegt: ein untypisierter
     // Knoten waere hier nicht vom Typ IRNode.
     let nodes_typed = true;
 
@@ -313,7 +315,7 @@ pub fn close_cell(
         .filter(|e| member_ids.contains(&e.source) && member_ids.contains(&e.target))
         .collect();
 
-    // "ihre drei Kanten portkompatibel": Regel 10.6 erneut ausgewertet,
+    // "ihre drei Kanten portkompatibel": Regel 10.6 (Sorten-Port-Matrix) erneut ausgewertet,
     // nicht dem Zusammenbau geglaubt.
     let edges_port_compatible =
         cell_edges
@@ -376,7 +378,7 @@ pub fn close_cell(
         .iter()
         .all(|n| n.residue_refs.iter().all(|r| ctx.residues.contains(r)));
 
-    // Struktur 9.10: JEDE Platzierung wird vermerkt ("0 heisst
+    // Struktur 9.10 (CellReport): JEDE Platzierung wird vermerkt ("0 heisst
     // konfliktfrei" gibt dem konfliktfreien Vermerk eine Bedeutung) -
     // aus der realen Sondierungsspur des Laufs, nie nachgerechnet.
     let probe_notes = ctx
@@ -404,8 +406,8 @@ pub fn close_cell(
     })
 }
 
-/// Pass C9 (ClosureAndGluing, M11+M22): Vertrag 9.7 ueber alle 18 Zellen
-/// (Definition 9.4, |Delta| = 3*6 = 18), in kanonischer Ordnung c0..c5,
+/// Pass C9 (ClosureAndGluing, M11+M22): Vertrag 9.7 (Zellclosure) ueber alle 18 Zellen
+/// (Definition 9.4 (Zellklassen), |Delta| = 3*6 = 18), in kanonischer Ordnung c0..c5,
 /// b0..b5, o0..o5.
 pub fn close_all_18(graph: &IRGraph, ctx: &ClosureContext) -> Result<Vec<CellReport>, PskError> {
     let mut reports = Vec::with_capacity(18);
@@ -418,7 +420,7 @@ pub fn close_all_18(graph: &IRGraph, ctx: &ClosureContext) -> Result<Vec<CellRep
     Ok(reports)
 }
 
-/// Regel 9.9, Zaehlpflicht: close_all_18 MUSS die Zahl der vakuum
+/// Regel 9.9 (Leere Zelle schließt vakuum, aber nicht stillschweigend), Zaehlpflicht: close_all_18 MUSS die Zahl der vakuum
 /// geschlossenen Zellen berichten - "18 geschlossen, davon N vakuum",
 /// nicht "18 geschlossen".
 pub fn vacuum_closed_count(reports: &[CellReport]) -> usize {
@@ -431,7 +433,7 @@ pub fn all_18_closed(reports: &[CellReport]) -> bool {
     reports.len() == 18 && reports.iter().all(|r| r.closed())
 }
 
-/// Skalenabstieg (Definition 9.24, Invariante 9.25, Regel 9.20).
+/// Skalenabstieg (Definition 9.24 (Skalenturm), Invariante 9.25 (Keine freie unendliche Tiefe), Regel 9.20 (Eintrittszelle eines Abstiegs)).
 ///
 /// Der v1.0.34-Dokumentbefund (Eintrittszelle normativ offen) ist in
 /// v1.0.35 an der Quelle geschlossen - Regel 9.20 (Eintrittszelle eines
@@ -445,7 +447,7 @@ pub fn all_18_closed(reports: &[CellReport]) -> bool {
 /// Damit ist der Abstieg eine Funktion des KNOTENS, nicht der Adresse:
 /// die Platzierungsregel braucht Sorte und kanonisierten Inhalt.
 /// (Schnittstelle 9.26 fuehrt weiterhin `descend(addr) -> M13Address` -
-/// diese Signatur kann Regel 9.20 nicht erfuellen; kleine
+/// diese Signatur kann Regel 9.20 (Eintrittszelle eines Abstiegs) nicht erfuellen; kleine
 /// Registerspannung, gemeldet.) Der Hash laeuft wie bei jeder
 /// Platzierung ueber den Knoten MIT leerem Adressplatzhalter
 /// (Zweiphasenmuster, siehe `build_node`-Aufrufer) - dieselbe Regel,
@@ -464,18 +466,18 @@ pub fn descend(
     let parsed = parse_m13_address(&node.m13_address.0)
         .map_err(|_: M13AddressError| PskError::NonclosingM13Seam)?;
     crate::wellformed::check_wellformed(&parsed, max_depth).map_err(|v| v.error_code())?;
-    // Abstieg geschieht an einem Knoten (Definition 9.24: "Jeder Knoten
+    // Abstieg geschieht an einem Knoten (Definition 9.24 (Skalenturm): "Jeder Knoten
     // DARF auf feinerer Skala selbst einen M13-Chart tragen") - eine
     // Adresse ohne node_id benennt keinen.
     let Some(at_node) = parsed.node else {
         return Err(PskError::NonclosingM13Seam);
     };
     if parsed.level + 1 > max_depth {
-        // Invariante 9.25 / Regel 9.13 Punkt 3: die Verweigerung.
+        // Invariante 9.25 (Keine freie unendliche Tiefe) / Regel 9.13 (Wohlgeformtheit einer M13Address) Punkt 3: die Verweigerung.
         return Err(PskError::NonclosingM13Seam);
     }
 
-    // Regel 9.20: dieselbe Platzierungsregel im Feinchart. `place`
+    // Regel 9.20 (Eintrittszelle eines Abstiegs): dieselbe Platzierungsregel im Feinchart. `place`
     // rechnet klassenrein auf dem kanonisierten Knoten mit leerem
     // Adressplatzhalter; `ctx.occupied` ist die Belegung des FEINCHARTS.
     let mut draft = node.clone();
@@ -503,23 +505,23 @@ pub fn descend(
     })
 }
 
-/// Definition 9.19: akkumulierte Rahmenaenderung entlang einer
+/// Definition 9.19 (Transport und Holonomie): akkumulierte Rahmenaenderung entlang einer
 /// Chartroute. Identitaet = leerer Rest (keine haengenden
 /// Abstiegspaare).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Transport(pub Vec<u8>);
 
 impl Transport {
-    /// Hol = I - Definition 9.17 verlangt das fuer Close720.
+    /// Hol = I - Definition 9.17 (720-Grad-Closure) verlangt das fuer Close720.
     pub fn is_identity(&self) -> bool {
         self.0.is_empty()
     }
 }
 
-/// Transport und Holonomie (Definition 9.18/9.19).
+/// Transport und Holonomie (Definition 9.18 (Chartwechsel)/9.19).
 ///
 /// T_{iota_a iota_b} ist reiner Rahmenwechsel: nur die M13Address wird
-/// umgeschrieben (Definition 9.18 Punkt 1), T_ii = I (Punkt 2), und jeder
+/// umgeschrieben (Definition 9.18 (Chartwechsel) Punkt 1), T_ii = I (Punkt 2), und jeder
 /// Wechsel ist umkehrbar (Punkt 3). Entlang der Route komponiert sich das
 /// als Stapel von Abstiegspaaren: ein Abstieg schiebt sein Paar, der
 /// zugehoerige Aufstieg nimmt es - Punkt 3 verlangt, dass es DASSELBE
@@ -529,7 +531,7 @@ impl Transport {
 ///
 /// Bei geschlossener Route (gleiches Chart am Anfang und Ende) ist der
 /// Stapel leer und Hol_gamma = I - bei max_depth = 0 gilt das aus
-/// T_ii = I (Regel 9.21), der CellReport weist den Fall als trivial aus,
+/// T_ii = I (Regel 9.21 (Triviale Route ist eine Route)), der CellReport weist den Fall als trivial aus,
 /// und als Beleg fuer Transportkorrektheit gilt er ausdruecklich nicht.
 pub fn holonomy(route: &[psk_types::objects::M13Address]) -> Result<Transport, PskError> {
     let parsed: Vec<_> = route
@@ -548,7 +550,7 @@ pub fn holonomy(route: &[psk_types::objects::M13Address]) -> Result<Transport, P
                 if a.ancestors != b.ancestors {
                     return Err(PskError::NonclosingM13Seam);
                 }
-                // T_ii = I: nichts zu wechseln (Definition 9.18 Punkt 2).
+                // T_ii = I: nichts zu wechseln (Definition 9.18 (Chartwechsel) Punkt 2).
             }
             // Abstieg um genau eine Skala: das neue Paar MUSS die Position
             // benennen, an der der Abstieg stattfand.
@@ -735,7 +737,7 @@ mod tests {
         let reports = close_all_18(&graph, &f.ctx()).unwrap();
         assert_eq!(reports.len(), 18);
         assert!(all_18_closed(&reports));
-        // Regel 9.9: vakuum zaehlt, wird aber AUSGEWIESEN.
+        // Regel 9.9 (Leere Zelle schließt vakuum, aber nicht stillschweigend): vakuum zaehlt, wird aber AUSGEWIESEN.
         assert_eq!(vacuum_closed_count(&reports), 18);
         for r in &reports {
             assert_eq!(r.occupancy, Occupancy::Empty);
@@ -802,7 +804,7 @@ mod tests {
             edges: vec![],
         };
         let r = close_cell(cell(CellKind::Bridge, 0), &g, &f.ctx()).unwrap();
-        // Regel 9.11: als vakuum ausweisen, nicht als geprueft - auch
+        // Regel 9.11 (Vakuum ist kein Beleg): als vakuum ausweisen, nicht als geprueft - auch
         // wenn die Traceverweise real geprueft wurden.
         assert_eq!(r.refs_resolution, RefsResolution::VacuousEmpty);
         assert_eq!(r.closure_mode, ClosureMode::Trivial);
@@ -866,17 +868,17 @@ mod tests {
     #[test]
     fn descend_refuses_beyond_the_declared_depth_and_without_a_node() {
         let ctx = crate::EdgeContext::default();
-        // Invariante 9.25: max_depth = 0 -> jeder Abstieg verweigert.
+        // Invariante 9.25 (Keine freie unendliche Tiefe): max_depth = 0 -> jeder Abstieg verweigert.
         let n = node(SortId::Context, "d", "m13:0/c2/i2");
         assert!(descend(&n, &ctx, 0).is_err());
-        // Definition 9.24: Abstieg geschieht an einem KNOTEN.
+        // Definition 9.24 (Skalenturm): Abstieg geschieht an einem KNOTEN.
         let cell_only = node(SortId::Context, "d2", "m13:0/c2");
         assert!(descend(&cell_only, &ctx, 5).is_err());
     }
 
     #[test]
     fn descend_places_the_fine_cell_and_extends_the_scale_path_by_one_pair() {
-        // Regel 9.20: dieselbe Platzierungsregel - Sortenklasse bestimmt
+        // Regel 9.20 (Eintrittszelle eines Abstiegs): dieselbe Platzierungsregel - Sortenklasse bestimmt
         // die Zellklasse, die Zelle wird PLATZIERT, nicht vererbt.
         let ctx = crate::EdgeContext::default();
         let n = node(SortId::Context, "descender", "m13:0/c2/i2");
@@ -913,14 +915,14 @@ mod tests {
             M13Address("m13:0/c1/i1".into()),
             M13Address("m13:0/c0/c".into()),
         ];
-        // Regel 9.21: aus T_ii = I, nicht angenommen.
+        // Regel 9.21 (Triviale Route ist eine Route): aus T_ii = I, nicht angenommen.
         assert!(holonomy(&route).unwrap().is_identity());
     }
 
     #[test]
     fn holonomy_cancels_a_descent_ascent_pair_and_keeps_an_open_descent() {
         use psk_types::objects::M13Address;
-        // Das Beispiel aus Definition 9.12: Abstieg bei c2/i2 in den
+        // Das Beispiel aus Definition 9.12 (M13Address): Abstieg bei c2/i2 in den
         // Feinchart, dort b5/o5, und zurueck an dieselbe Stelle.
         let closed = [
             M13Address("m13:0/c2/i2".into()),
@@ -955,7 +957,7 @@ mod tests {
         ];
         assert!(holonomy(&teleport).is_err());
         // Aufstieg an fremder Stelle: abgestiegen bei c2/i2, angekommen
-        // bei c3/i3 - Definition 9.18 Punkt 3 verlangt Umkehrbarkeit.
+        // bei c3/i3 - Definition 9.18 (Chartwechsel) Punkt 3 verlangt Umkehrbarkeit.
         let wrong = [
             M13Address("m13:0/c2/i2".into()),
             M13Address("m13:1.c2.i2/b5/o5".into()),

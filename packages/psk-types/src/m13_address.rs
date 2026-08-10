@@ -1,4 +1,4 @@
-//! M13Address (Definition 9.12, Kapitel 9.2): Grammatik-Parser/-Formatter auf
+//! M13Address (Definition 9.12 (M13Address), Kapitel 9.2): Grammatik-Parser/-Formatter auf
 //! der generierten Drahtform `objects::M13Address(String)`.
 //!
 //! ```text
@@ -8,7 +8,7 @@
 //! node_id: "c" | "i" k | "o" k
 //! ```
 //!
-//! Dieses Modul deckt ausschliesslich die GRAMMATIK ab. Regel 9.13
+//! Dieses Modul deckt ausschliesslich die GRAMMATIK ab. Regel 9.13 (Wohlgeformtheit einer M13Address)
 //! (Wohlgeformtheit einer M13Address) stellt drei zusaetzliche Bedingungen,
 //! die die Grammatik allein nicht traegt; zwei davon setzen das Zellregister
 //! voraus ("geprueft gegen m13_topology.yaml, nicht gegen die
@@ -26,7 +26,7 @@
 
 use crate::objects::M13Address;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum CellKind {
     Center,
     Bridge,
@@ -51,8 +51,8 @@ impl CellKind {
     }
 }
 
-/// cell_id: ("c"|"b"|"o") k, k in 0..5 (Definition 9.12).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// cell_id: ("c"|"b"|"o") k, k in 0..5 (Definition 9.12 (M13Address)).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct CellId {
     pub kind: CellKind,
     pub k: u8,
@@ -67,7 +67,7 @@ impl CellId {
     }
 }
 
-/// node_id: "c" | "i" k | "o" k (Definition 9.12).
+/// node_id: "c" | "i" k | "o" k (Definition 9.12 (M13Address)).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum M13NodeId {
     Center,
@@ -267,7 +267,7 @@ mod tests {
         // Zentrumzelle 2 und Innenknoten i2; darin Brueckenzelle 5,
         // Aussenknoten o5". Die Zellzugehoerigkeit (i2 in c2, o5 in b5)
         // pruefen nicht wir, sondern psk_topology::check_wellformed gegen
-        // das Zellregister (Regel 9.13 Punkt 2).
+        // das Zellregister (Regel 9.13 (Wohlgeformtheit einer M13Address) Punkt 2).
         let p = parse("m13:1.c2.i2/b5/o5").unwrap();
         assert_eq!(p.level, 1);
         assert_eq!(

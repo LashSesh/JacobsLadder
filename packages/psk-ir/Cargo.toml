@@ -8,6 +8,11 @@ publish = false
 [dependencies]
 psk-types = { path = "../psk-types" }
 psk-canon = { path = "../psk-canon" }
+# M22: `build_node` platziert jeden Knoten ueber psk_topology::place
+# (Regel 9.14). Die Paketkante ist durch P10 (M22<->M23, M13Chart)
+# gedeckt - verify-dependencies prueft Portdeckung richtungsunabhaengig.
+psk-topology = { path = "../psk-topology" }
+serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
 [build-dependencies]

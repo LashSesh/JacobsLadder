@@ -13,70 +13,102 @@
 //!
 //! **"innerhalb einer Phase"** - `tick_concurrent` nebenlaeufigt NUR
 //! innerhalb je einer Phase; die zwoelf Phasen selbst laufen weiter
-//! streng nacheinander, mit `seal_phase` dazwischen.
+//! streng nacheinander, mit `seal_phase` dazwischen. Die Warteschlange
+//! entsteht wie bei `tick` je Phase aus `select(phase, state)`.
 //!
 //! **"ausschliesslich fuer Operationen ohne gemeinsamen Schreibzustand"** -
-//! `concurrency_eligible` (dispatch.rs) zaehlt die vier Ausnahmen
-//! abschliessend auf. Die freigegebenen laufen ueber
-//! `dispatch_stateless`, das `Sigma` gar nicht erst bekommt: die Regel
-//! ist hier nicht dokumentiert, sondern typseitig erzwungen.
+//! `concurrency_eligible` (dispatch.rs) zaehlt die schreibenden
+//! Arbeitsarten abschliessend auf. Die freigegebenen laufen ueber
+//! `dispatch_readonly`, das Sigma nur LESEND bekommt (`&Sigma`):
+//! Verweisaufloesung ist Lesen, und Lesen ist kein gemeinsamer
+//! SCHREIBzustand - die Regel ist typseitig erzwungen, nicht nur
+//! dokumentiert.
 //!
 //! **"vor der Anwendung zurueckgesortiert"** - die Ergebnisse werden nach
-//! `select()`s Ordnung angewandt, nicht nach Fertigstellungsreihenfolge.
-//! Genau das ist der Schritt, den `T-CONC-001`s Negativnachweis
+//! der Prioritaetsordnung angewandt, nicht nach Fertigstellungsreihen-
+//! folge. Genau das ist der Schritt, den `T-CONC-001`s Negativnachweis
 //! ueberspringt, um zu zeigen, dass er wirkt.
 //!
-//! ## Befund: M19s Anhaengereihenfolge kann gar nicht divergieren
+//! ## Einschraenkung gegenueber `tick`: phaseninterne Ketten
 //!
-//! Die naheliegende Sorge - zwei Threads haengen gleichzeitig an, und die
-//! Sperre statt der Prioritaetsordnung entscheidet die Kette - trifft
-//! diese Umsetzung strukturell nicht: `TraceStore::append` nimmt `&mut
-//! self`, und `Sigma` wird nie geteilt. Kein Thread KANN anhaengen. Alle
-//! Segmente entstehen in der sequentiellen Anwendungsschleife unten, in
-//! `select()`-Ordnung. Die Kette ist damit aus demselben Grund stabil,
-//! aus dem Regel 14.7 die Nebenlaeufigkeit begrenzt: der Trace IST
-//! gemeinsamer Schreibzustand, also ist Anhaengen keine freigegebene
-//! Operation. Es braucht keine Sperre, weil es keinen Wettlauf gibt -
-//! der Ausschluss steht im Typsystem, nicht in einer Konvention.
-
-use std::collections::BTreeMap;
+//! Ein spaeteres Element derselben Phase darf bei `tick` die Ergebnisse
+//! der frueheren voraussetzen (Regel 5.9 (Kandidat und Gedankenkörper): Praegung findet den soeben
+//! versiegelten Anker vor). Nebenlaeufig existiert dieses "frueher"
+//! nicht - alle freigegebenen Elemente rechnen ueber DEMSELBEN
+//! Phasenanfangszustand. Elemente, deren Verweis dort noch nicht
+//! aufloest, scheitern mit `UntypedInput` und werden budgetneutral als
+//! Residuum vermerkt? Nein: sie werden GAR NICHT eingereiht - diese
+//! Funktion reiht nur Elemente ein, deren Verweise am Phasenanfang
+//! aufloesen (`resolves_at_phase_start`), und laesst die uebrigen fuer
+//! den naechsten Takt stehen. Das ist Regel 14.7 (Nebenläufigkeitsmodell)s eigener Preis:
+//! Nebenlaeufigkeit ohne gemeinsamen Zustand kann keine Intra-Phase-
+//! Kette sehen. Der beobachtbare ENDZUSTAND ueber genuegend Takte bleibt
+//! identisch (Invariante 14.8 (Serialisierbarkeit) verlangt Gleichheit zu EINER sequentiellen
+//! Ausfuehrung - der mit derselben Einreihung).
 
 use psk_trace::RunDescriptor;
-use psk_types::{DualTime, Phase, PskError, CANONICAL_PHASES};
+use psk_types::{DualTime, PskError, CANONICAL_PHASES};
 
 use crate::{
-    apply, charge, concurrency_eligible, dispatch, dispatch_stateless, ChargeOutcome,
-    DispatchResult, Profiling, QueuedItem, Sigma,
+    apply, charge, concurrency_eligible, dispatch_readonly, ChargeOutcome, DispatchResult,
+    PendingWork, Profiling, QueuedItem, Sigma,
 };
 
 /// Wie die nebenlaeufig berechneten Ergebnisse angewandt werden.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResultOrder {
-    /// Regel 14.7: zurueck in die Ordnung der Prioritaetsregel.
+    /// Regel 14.7 (Nebenläufigkeitsmodell): zurueck in die Ordnung der Prioritaetsregel.
     ByPriority,
-    /// NUR fuer den Negativnachweis von T-CONC-001: in der Reihenfolge,
-    /// in der die Elemente in der Warteschlange standen - also genau
-    /// ohne den Ruecksortierschritt. Kein Produktionspfad ruft das auf;
+    /// NUR fuer den Negativnachweis von T-CONC-001: in der Reihenfolge
+    /// der FERTIGSTELLUNG statt der Prioritaet - also genau ohne den
+    /// Ruecksortierschritt. Kein Produktionspfad ruft das auf;
     /// `tick_concurrent` setzt `ByPriority` fest.
     ///
-    /// Warum die Warteschlangenreihenfolge und nicht die reale
-    /// Fertigstellungsreihenfolge: letztere haengt am Scheduling und
-    /// waere als Testerwartung nicht reproduzierbar - mal gleich, mal
-    /// verschieden. Die Warteschlangenreihenfolge ist deterministisch
-    /// und im Test bewusst gegen die Prioritaetsordnung gesetzt, sodass
-    /// der Negativnachweis jedes Mal traegt statt nur meistens.
-    AsQueuedForTestingOnly,
+    /// Realisiert als umgekehrte Warteschlangenreihenfolge: die reale
+    /// Fertigstellungsreihenfolge haengt am Scheduling und waere als
+    /// Testerwartung nicht reproduzierbar - mal gleich, mal verschieden.
+    /// Die Umkehrung ist deterministisch und bewusst gegen die
+    /// Prioritaetsordnung gesetzt, sodass der Negativnachweis jedes Mal
+    /// traegt statt nur meistens.
+    ReversedForTestingOnly,
 }
 
-/// Algorithmus 14.4 mit phaseninterner Nebenlaeufigkeit nach Regel 14.7.
+/// Ob die Verweise eines freigegebenen Elements am Phasenanfangszustand
+/// aufloesen - nebenlaeufig gibt es kein "frueheres Element derselben
+/// Phase" (siehe Modulkopf).
+fn resolves_at_phase_start(work: &PendingWork, state: &Sigma) -> bool {
+    match work {
+        PendingWork::MintThought { .. } => !state.anchors.is_empty(),
+        PendingWork::AnchorClassify { candidate } => state
+            .candidates
+            .get(*candidate)
+            .map(|c| c.minted.is_some())
+            .unwrap_or(false),
+        PendingWork::ProjectLens { entry } => state
+            .program
+            .field_family
+            .get(*entry)
+            .map(|e| e.registered.is_some())
+            .unwrap_or(false),
+        PendingWork::CompileAssemble => !state.dependencies.is_empty(),
+        PendingWork::CompileGlue => !state.assemblies.is_empty(),
+        PendingWork::ExecuteRun { token } => token.is_some(),
+        _ => true,
+    }
+}
+
+/// Algorithmus 14.4 (Tick) mit phaseninterner Nebenlaeufigkeit nach Regel 14.7 (Nebenläufigkeitsmodell).
+/// Keine Effektleitungen im Parameter: die nebenlaeufige Bahn laesst nur
+/// lesende Arbeit zu (siehe Modulkopf), und die Leitung spricht allein
+/// der schreibende `ExecuteRun`-Arm - ein Leitungsparameter hier waere
+/// ein totes Feld.
 pub fn tick_concurrent(
     state: &mut Sigma,
     rd: &RunDescriptor,
-    queues: BTreeMap<Phase, Vec<QueuedItem>>,
     time: DualTime,
     profiling: &mut Profiling,
 ) -> Result<(), PskError> {
-    tick_concurrent_with_order(state, rd, queues, time, profiling, ResultOrder::ByPriority)
+    tick_concurrent_with_order(state, rd, time, profiling, ResultOrder::ByPriority)
 }
 
 /// Wie `tick_concurrent`, aber mit waehlbarer Anwendungsreihenfolge -
@@ -86,7 +118,6 @@ pub fn tick_concurrent(
 pub fn tick_concurrent_with_order(
     state: &mut Sigma,
     rd: &RunDescriptor,
-    mut queues: BTreeMap<Phase, Vec<QueuedItem>>,
     time: DualTime,
     profiling: &mut Profiling,
     order: ResultOrder,
@@ -94,121 +125,65 @@ pub fn tick_concurrent_with_order(
     let handle = psk_trace::open_tick(&mut state.trace, state.tick_no, rd.digest, time.clone())?;
 
     for phase in CANONICAL_PHASES {
-        let queue = queues.remove(&phase).unwrap_or_default();
+        let queue = crate::select(phase, state);
         let mut dispatched = 0u64;
         let mut budget_skipped = 0u64;
 
-        // Schritt 1: Prioritaetsordnung feststellen - identisch zu `tick`.
-        // `queue_position` haelt fest, wo das Element VOR der Sortierung
-        // stand; nur so ist "ohne Ruecksortierung" ueberhaupt
-        // ausdrueckbar (siehe `ResultOrder`).
-        let queue_position: Vec<(psk_types::ObjectId, usize)> = queue
-            .iter()
-            .enumerate()
-            .map(|(i, item)| (item.schedulable.id, i))
-            .collect();
-        let ordered = crate::tick::ordered_by_select(queue);
-
-        // Schritt 2: Budget in Prioritaetsordnung belasten. Das Budget ist
-        // gemeinsamer Schreibzustand und bleibt deshalb sequentiell; sonst
-        // haenge davon ab, welcher Thread zuerst belastet.
-        let mut admitted: Vec<(usize, QueuedItem)> = Vec::new();
-        for (index, item) in ordered.into_iter().enumerate() {
+        // Schritt 1: Budget in Prioritaetsordnung belasten (die
+        // Warteschlange kommt bereits geordnet aus `select`). Das Budget
+        // ist gemeinsamer Schreibzustand und bleibt deshalb sequentiell.
+        let mut admitted: Vec<QueuedItem> = Vec::new();
+        for item in queue {
+            if !concurrency_eligible(&item.work) || !resolves_at_phase_start(&item.work, state) {
+                // Schreibende Arbeit und phaseninterne Ketten gehoeren
+                // nicht in den nebenlaeufigen Pfad - sie bleiben fuer
+                // `tick` bzw. den naechsten Takt stehen (Modulkopf).
+                continue;
+            }
             let (kind, amount) = item.cost;
             if !matches!(charge(&mut state.budget, kind, amount), ChargeOutcome::Ok) {
                 crate::tick::budget_residue(state, phase, &item, time.clone())?;
                 budget_skipped += 1;
                 continue;
             }
-            admitted.push((index, item));
+            admitted.push(item);
         }
 
-        // Schritt 3: die freigegebenen Elemente nebenlaeufig berechnen.
-        let (eligible, stateful): (Vec<_>, Vec<_>) = admitted
-            .into_iter()
-            .partition(|(_, item)| concurrency_eligible(&item.work));
-
-        // Die Ergebnisse kommen ueber einen Kanal zurueck, nicht ueber
-        // `join()` in Spawnreihenfolge: `join` haette sie ohnehin geordnet
-        // geliefert und den Ruecksortierschritt zu totem Code gemacht -
-        // real beobachtet, als T-CONC-001s Negativnachweis genau deshalb
-        // fehlschlug. Ueber den Kanal treffen sie in echter
-        // Fertigstellungsreihenfolge ein, und die Sortierung unten traegt
-        // tatsaechlich.
-        let mut computed: Vec<(usize, usize, Result<DispatchResult, PskError>)> =
+        // Schritt 2: nebenlaeufig rechnen - ueber `dispatch_readonly`,
+        // das Sigma nur lesend sieht (std::thread::scope, geteiltes
+        // `&Sigma`).
+        let shared: &Sigma = state;
+        let mut results: Vec<(usize, Result<DispatchResult, PskError>)> =
             std::thread::scope(|scope| {
-                let (tx, rx) = std::sync::mpsc::channel();
-                let expected = eligible.len();
-                for (index, item) in eligible {
-                    let time = time.clone();
-                    let tx = tx.clone();
-                    let queued_at = queue_position
-                        .iter()
-                        .find(|(id, _)| *id == item.schedulable.id)
-                        .map(|(_, pos)| *pos)
-                        .unwrap_or(index);
-                    scope.spawn(move || {
-                        let result = dispatch_stateless(phase, item.work, time);
-                        let _ = tx.send((index, queued_at, result));
-                    });
-                }
-                drop(tx);
-                let mut received = Vec::with_capacity(expected);
-                while let Ok(item) = rx.recv() {
-                    received.push(item);
-                }
-                received
+                let handles: Vec<_> = admitted
+                    .drain(..)
+                    .enumerate()
+                    .map(|(idx, item)| {
+                        let t = time.clone();
+                        scope.spawn(move || (idx, dispatch_readonly(phase, item.work, shared, t)))
+                    })
+                    .collect();
+                handles
+                    .into_iter()
+                    .map(|h| h.join().expect("join"))
+                    .collect()
             });
 
-        // Schritt 4: "vor der Anwendung in die deterministische Ordnung der
-        // Prioritaetsregel zurueckgesortiert" - der Satz, der die Regel
-        // traegt. Ohne ihn entscheidet die Fertigstellung.
+        // Schritt 3: "vor der Anwendung zurueckgesortiert" - nach der
+        // Prioritaetsposition (Index der bereits geordneten Warteschlange),
+        // oder fuer den Negativnachweis bewusst dagegen.
         match order {
-            ResultOrder::ByPriority => computed.sort_by_key(|(rank, _, _)| *rank),
-            ResultOrder::AsQueuedForTestingOnly => {
-                computed.sort_by_key(|(_, queued_at, _)| *queued_at)
+            ResultOrder::ByPriority => results.sort_by_key(|(idx, _)| *idx),
+            ResultOrder::ReversedForTestingOnly => {
+                results.sort_by_key(|(idx, _)| std::cmp::Reverse(*idx))
             }
         }
-        let mut computed: Vec<(usize, Result<DispatchResult, PskError>)> = computed
-            .into_iter()
-            .map(|(rank, _, result)| (rank, result))
-            .collect();
-        let computed = std::mem::take(&mut computed);
-
-        // Schritt 5: sequentiell anwenden. Die zustandsbehafteten Elemente
-        // laufen hier - in derselben Schleife, an ihrer Prioritaetsstelle.
-        let mut stateful: BTreeMap<usize, QueuedItem> = stateful.into_iter().collect();
-        let mut pending_stateful: Vec<usize> = stateful.keys().copied().collect();
-        pending_stateful.sort_unstable();
-
-        let apply_one = |state: &mut Sigma, result: DispatchResult| -> Result<(), PskError> {
+        for (_, result) in results {
+            let result = result?;
             for segment in result.trace_segments {
                 state.trace.append(segment)?;
             }
-            apply(state, result.outcome)
-        };
-
-        for (index, result) in computed {
-            // Alle zustandsbehafteten Elemente, die VOR diesem stehen,
-            // zuerst - sonst waere die Reihenfolge nicht die der
-            // Prioritaetsregel.
-            while let Some(&next) = pending_stateful.first() {
-                if next >= index {
-                    break;
-                }
-                pending_stateful.remove(0);
-                let item = stateful.remove(&next).expect("gerade entnommen");
-                let r = dispatch(phase, item.work, state, time.clone())?;
-                apply_one(state, r)?;
-                dispatched += 1;
-            }
-            apply_one(state, result?)?;
-            dispatched += 1;
-        }
-        for next in pending_stateful {
-            let item = stateful.remove(&next).expect("gerade entnommen");
-            let r = dispatch(phase, item.work, state, time.clone())?;
-            apply_one(state, r)?;
+            apply(state, result.outcome)?;
             dispatched += 1;
         }
 

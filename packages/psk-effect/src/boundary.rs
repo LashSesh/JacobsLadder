@@ -50,7 +50,7 @@ use psk_types::{Digest, DualTime, PskError};
 /// `apply` nimmt `started_at` als Parameter statt es selbst zu bestimmen:
 /// "M16 fuehrt keine eigene Uhr" (`consume::check_not_expired`s
 /// Modulkommentar) gilt fuer Adapter genauso wie fuer die Grenze selbst -
-/// `EffectAttempt.started_at` MUSS gesetzt sein (Struktur 7.35, kein
+/// `EffectAttempt.started_at` MUSS gesetzt sein (Struktur 7.35 (EffectAttempt / ExternalReceipt), kein
 /// optionales Feld), aber woher der Zeitwert stammt, ist Sache des
 /// Aufrufers von `execute_effect`, nicht des Adapters.
 /// ## Warum `prestate` und `apply` `&mut self` nehmen
@@ -75,9 +75,9 @@ pub trait EffectAdapter {
     fn id(&self) -> AdapterId;
     fn declared_effect_classes(&self) -> Vec<EffectClassId>;
     fn required_capabilities(&self) -> Vec<CapabilityId>;
-    /// Klammert mit `apply` (Regel 20.6) - siehe Traitkommentar.
+    /// Klammert mit `apply` (Regel 20.6 (Vorzustand und Versuch klammern den Effekt)) - siehe Traitkommentar.
     fn prestate(&mut self, scope: &ScopeExpr) -> Digest;
-    /// Klammert mit `prestate` (Regel 20.6) - siehe Traitkommentar.
+    /// Klammert mit `prestate` (Regel 20.6 (Vorzustand und Versuch klammern den Effekt)) - siehe Traitkommentar.
     fn apply(&mut self, token: &EffectToken, started_at: DualTime) -> EffectAttempt;
     fn compensate(&self, attempt: &EffectAttempt) -> EffectAttempt;
     fn is_reversible(&self, token: &EffectToken) -> bool;
@@ -117,6 +117,42 @@ impl EffectAdapter for Box<dyn EffectAdapter + Send> {
 
 /// Invariante 20.4 (Kein Effekt ohne Token): "ExecuteEffect(e) = 1 =>
 /// Gate(e) = PASS UND TokenBound(e) = 1. Ein Adapteraufruf ohne
+/// Die ANGESCHLOSSENEN Leitungen der Effektgrenze (M16), wie der
+/// Taktzyklus sie sieht: je Effektklasse hoechstens eine exklusive,
+/// bereits verbundene Leitung.
+///
+/// Warum ein eigener Typ und kein Wert in Sigma: eine Leitung ist kein
+/// Zustand, sondern die Anwesenheit der Aussenwelt - sie laesst sich
+/// weder kanonisieren noch digesten, und ein Laufzustand, der sie
+/// enthielte, waere nicht mehr H(Can(Sigma_t))-faehig. Die BINDUNG der
+/// Adapter steht als Wert im RuntimeManifest (`adapter_versions`); das
+/// lebende Gegenstueck reicht der Aufrufer der Taktschleife hier herein -
+/// dasselbe Muster wie `ExclusiveLine` fuer den Kindprozess: der Kern
+/// nimmt typisiert entgegen, was andere besitzen (das Spawnen gehoert
+/// M26, `proc.control` liegt laut module_map.yaml nicht bei M25).
+///
+/// `&mut` in `line`: wer die Leitung bekommt, haelt sie exklusiv -
+/// dieselbe Klammer-Begruendung wie bei `prestate`/`apply` oben. Kein
+/// `Send`-Bund: `ExecuteRun` ist nicht nebenlaeufigkeitsfaehig
+/// (gemeinsamer Schreibzustand, Regel 14.7 (Nebenläufigkeitsmodell)), die Leitung wechselt also
+/// nie den Thread - ein Bund ohne Nutzer waere eine Anforderung, die
+/// echte Kindprozess-Handles grundlos ausschloesse.
+pub trait EffectLines {
+    fn line(&mut self, class: &EffectClassId) -> Option<&mut dyn EffectAdapter>;
+}
+
+/// Keine Leitung angeschlossen: fuer Laeufe ohne Aussenwirkung (Shadow/
+/// Readonly-Profile, reine Rechenlaeufe) und fuer Tests, die die
+/// Execute-Phase nicht betreten. Ein ExecuteRun-Element ueber dieser
+/// Grenze scheitert typisiert statt still zu simulieren.
+pub struct NoEffectLines;
+
+impl EffectLines for NoEffectLines {
+    fn line(&mut self, _class: &EffectClassId) -> Option<&mut dyn EffectAdapter> {
+        None
+    }
+}
+
 /// gueltiges, nicht konsumiertes, nicht abgelaufenes Token erzeugt
 /// PSK-E008, fuehrt keinen Effekt aus und schreibt ein ResidueRecord."
 ///
@@ -125,12 +161,12 @@ impl EffectAdapter for Box<dyn EffectAdapter + Send> {
 /// Ablaufzeit nicht ueberschritten ist, und markiert das Token danach als
 /// verbraucht (`consume_once`) - der Adapter selbst sieht nie ein Token,
 /// das nicht schon durch diese Pruefung ist.
-pub fn execute_effect(
+pub fn execute_effect<A: EffectAdapter + ?Sized>(
     ledger: &mut TokenLedger,
     token: &EffectToken,
     current_tau_i: u64,
     started_at: DualTime,
-    adapter: &mut impl EffectAdapter,
+    adapter: &mut A,
 ) -> Result<EffectAttempt, PskError> {
     check_not_expired(token, current_tau_i)?;
     ledger.consume_once(&token.idempotency_key)?;

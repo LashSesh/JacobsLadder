@@ -1,43 +1,33 @@
-//! Die Domaenenseite des IRBundle-Zusammenbaus: Knoten aus den realen
-//! Objekten des Golden Run bauen, das Domaenenprofil laden und beides an
-//! M23 (`psk_ir::assemble_ir_bundle`) reichen.
+//! Die Domaenenseite des IRBundle-Zusammenbaus: das Domaenenprofil und
+//! die versiegelten Register LADEN. Der Bau selbst (Knoten, Kanten,
+//! Sondierungsvermerke) liegt seit der Taktumverdrahtung (Regel 24.4 (Der Golden Run läuft unter tick)
+//! (Der Golden Run laeuft unter tick)) in M23 (`psk_ir::builders`, siehe
+//! dortigen Modulkopf): die Compile-Phase wickelt ihn als Arbeit ab.
 //!
-//! ## Warum das hier liegt und nicht in psk-ir
+//! ## Warum die Lader hier liegen und nicht in psk-ir
 //!
-//! Regel 10.9 macht die Kantenbedingungen domaenengeliefert; Vertrag 27.2
+//! Regel 10.9 (Herkunft der Kantenbedingungen) macht die Kantenbedingungen domaenengeliefert; Vertrag 27.2 (Domänengelieferte opake Eingaben)
 //! sagt, der Kern reicht sie "nur typisiert weiter". Wer das
 //! Domaenenprofil LIEST, ist also die Domaene - und die Referenzdomaene
 //! ist dieser Konformanzlauf. psk-ir kennt deshalb weder den Dateipfad
-//! noch das YAML-Format.
+//! noch das YAML-Format; es bekommt die geladenen Werte typisiert, und
+//! seit der Taktumverdrahtung bekommt es sie aus dem Laufzustand Sigma,
+//! in den dieser Lauf sie DEPONIERT.
 //!
 //! Dasselbe gilt fuer die Sorten-Port-Matrix: sie steht in
 //! architecture/sort_registry.yaml und wird von hier gelesen, statt in
 //! psk-ir noch einmal als Rust-Tabelle zu existieren. Eine zweite Wahrheit
 //! neben dem Register ist genau die Driftklasse, die dieses Projekt schon
 //! bei den Objektzahlen und beim Katalog getroffen hat.
-//!
-//! ## Welche Knoten entstehen - und welche nicht
-//!
-//! Regel 9.14 Punkt 4: Knoten der Sorten S-WIT, S-GAT, S-TRC, S-RES sind
-//! ZELLGEBUNDEN - ihre Zelle ist "diejenige, die den geprueften Knoten
-//! traegt", und die kennt nur der Gesamtgraph. `psk_topology::place`
-//! verlangt sie folgerichtig als `EdgeContext.bound_cell` und schlaegt
-//! ohne sie mit `NonclosingM13Seam` fehl (nachgemessen, nicht vermutet).
-//! Nichts im Baum berechnet diese Traegerzelle heute.
-//!
-//! Deshalb tragen die beiden GateReports und die 15 SeamReports des Laufs
-//! KEINEN Knoten. Sie fehlen nicht aus Nachlaessigkeit, sondern weil ihre
-//! Platzierung eine Grundlage braucht, die es vor Pass C9 nicht gibt - und
-//! ein frei gewaehlter Platz waere eine Erfindung. Die Kante `authorizes`
-//! (S-GAT -> S-CAP) ist damit deklariert, aber ohne Quellknoten; sie
-//! erscheint als `EdgeOmission::EndpointMissing` und nicht als Kante.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use psk_ir::{EdgeCandidate, EdgeConditionDeclarations, EdgeConditions};
-use psk_types::objects::{IRNode, M13Address, PredicateExpr, RelationSortId, SortId};
-use psk_types::{ModuleId, ObjectId, PskError, TraceRef};
+use psk_ir::{EdgeConditionDeclarations, EdgeConditions};
+use psk_types::objects::{PredicateExpr, RelationSortId, SortId};
+use psk_types::{ModuleId, PskError};
+
+pub use psk_ir::{build_node, edge, edge_census, NodeEnvelope};
 
 /// Liest die Portmatrix aus dem versiegelten Register.
 pub fn load_port_matrix(
@@ -107,7 +97,7 @@ pub fn load_closure_norms(workspace_root: &Path) -> Result<ClosureNorms, PskErro
         module_layer.insert(module, layer);
     }
     if module_layer.len() != 28 {
-        // Definition 3.1: |M| = 28, abgeschlossen.
+        // Definition 3.1 (Modulmenge): |M| = 28, abgeschlossen.
         return Err(PskError::UntypedInput);
     }
 
@@ -167,7 +157,7 @@ pub fn load_closure_norms(workspace_root: &Path) -> Result<ClosureNorms, PskErro
     })
 }
 
-/// Laedt das Domaenenprofil der Referenzdomaene (Regel 10.9).
+/// Laedt das Domaenenprofil der Referenzdomaene (Regel 10.9 (Herkunft der Kantenbedingungen)).
 ///
 /// Bewusst ausserhalb von architecture/: laege es dort, waeren die
 /// Praedikate der Domaene Teil von I_A und damit Teil der Identitaet des
@@ -206,7 +196,7 @@ pub fn load_reference_domain_profile(
         // sie stuende in keiner Zeile der Portmatrix und koennte nie eine
         // Kante tragen.
         let relation = RelationSortId::from_id(relation).ok_or(PskError::UntypedInput)?;
-        // `declare` erzwingt Invariante 10.7 (Kantenvollstaendigkeit), nichtleer, und Regel 10.9
+        // `declare` erzwingt Invariante 10.7 (Kantenvollstaendigkeit), nichtleer, und Regel 10.9 (Herkunft der Kantenbedingungen)
         // (kein stets wahres Praedikat) - hier wird nichts nachgeprueft,
         // was M23 schon prueft.
         declarations.declare(
@@ -218,129 +208,6 @@ pub fn load_reference_domain_profile(
         )?;
     }
     Ok(declarations)
-}
-
-/// Der Zustand, den ein Knoten aus dem Lauf mitbringt und den er nicht
-/// selbst traegt: Kontext, Lineage und Realitaetstypisierung des Laufs.
-pub struct NodeEnvelope {
-    pub context: psk_types::objects::ContextRef,
-    pub lineage: psk_types::objects::Lineage,
-    pub reality_status: psk_types::objects::RealityStatus,
-    pub facticity: psk_types::objects::FactStatus,
-    pub anchor_ref: ObjectId,
-    pub trace_ref: TraceRef,
-    /// Die Residuen, die DIESES Objekt als Ursprung fuehren. Der
-    /// Aufrufer kennt den Ledger; `build_node` erfindet nichts.
-    pub residue_refs: Vec<ObjectId>,
-}
-
-/// Die Residuen des Laufs, nach ihrem `origin_object` gruppiert - die
-/// Rueckrichtung des Verweises, den der Ledger vorwaerts fuehrt.
-pub fn residues_by_origin(
-    residues: &[psk_types::objects::ResidueRecord],
-) -> std::collections::HashMap<ObjectId, Vec<ObjectId>> {
-    // HashMap statt BTreeMap: ObjectId ist Hash, aber nicht Ord - die
-    // Ordnung des Ledgers bleibt in den Vec-Werten erhalten, und die
-    // ist die einzige, auf die es ankommt.
-    let mut out: std::collections::HashMap<ObjectId, Vec<ObjectId>> =
-        std::collections::HashMap::new();
-    for r in residues {
-        out.entry(r.origin_object).or_default().push(r.id);
-    }
-    out
-}
-
-/// Baut einen IR-Knoten aus einem realen Laufobjekt.
-///
-/// `payload_digest` ist H(Can(Objekt)) ueber die identitaetsbildende
-/// Projektion - dieselbe, aus der auch die ObjectId des Objekts entsteht
-/// (Definition 6.6). Er wird berechnet, nicht uebernommen: kein
-/// Laufobjekt ausser AnchorSnapshot fuehrt ein eigenes Digestfeld
-/// (nachgeprueft an den generierten Strukturen).
-///
-/// Die Platzierung ist zweiphasig, und das ist kein Umweg: `place`
-/// hasht den kanonisierten Knoten EINSCHLIESSLICH `m13_address`, also
-/// muss dort beim Hashen der leere Platzhalter stehen. Alle bestehenden
-/// Aufrufer machen es genauso.
-pub fn build_node<T: serde::Serialize>(
-    object: &T,
-    id: ObjectId,
-    sort: SortId,
-    env: &NodeEnvelope,
-    probes: &mut Vec<(ObjectId, Vec<u8>)>,
-) -> Result<IRNode, PskError> {
-    let bytes = serde_json::to_vec(object).map_err(|_| PskError::CanonicalizationFailed)?;
-    let payload_digest = psk_canon::identity_projection(&bytes, psk_canon::Media::Json)?.digest();
-
-    let draft = IRNode {
-        id,
-        sort,
-        context: env.context.clone(),
-        lineage: env.lineage.clone(),
-        reality_status: env.reality_status,
-        facticity: env.facticity,
-        anchor_refs: vec![env.anchor_ref],
-        // Der Referenzlauf erzeugt kein EvidenceObject; ein erfundener
-        // Witnessverweis waere ein Selbstwitness (Invariante 12.2).
-        witness_refs: Vec::new(),
-        // Die Residuen, die dieses Objekt als `origin_object` fuehren.
-        // Bis v1.0.6 stand hier hart `Vec::new()`, und die
-        // QPM-Massenklasse Residuum konnte deshalb nie von null
-        // verschieden werden - obwohl der Lauf ein blockierendes
-        // Residuum auf den Anker oeffnet. Das war eine Verdrahtungs-
-        // luecke, keine Eigenschaft der Domaene.
-        residue_refs: env.residue_refs.clone(),
-        trace_ref: env.trace_ref,
-        payload_digest,
-        m13_address: M13Address(String::new()),
-    };
-
-    // Regel 9.14: reine Funktion des kanonisierten Knotens. `occupied`
-    // bleibt leer - M13 hat 18 Zellen und traegt beliebig viele Knoten,
-    // eine Zelle ist also nicht exklusiv. Aufsteigende Sondierung greift
-    // nur, wo ein Aufrufer Exklusivitaet verlangt; dieser tut es nicht,
-    // und mit ihr waeren schon die sechs Projektionen plus das
-    // Abhaengigkeitsprofil nicht platzierbar (sieben Bruecken-Knoten,
-    // sechs Brueckenzellen - nachgemessen).
-    let placement = psk_topology::place(&draft, &psk_topology::EdgeContext::default())?;
-    // Struktur 9.10: die Sondierungsfolge "wird hier vermerkt, nicht
-    // verworfen" - bis v1.0.34 verwarf genau diese Stelle sie
-    // (Fehlerkorrektur Punkt 39 auf der Registerseite, dieser Ledger auf
-    // der Laufseite). close_cell filtert spaeter auf echte Konflikte.
-    probes.push((id, placement.probed_k.clone()));
-    Ok(IRNode {
-        m13_address: placement.address,
-        ..draft
-    })
-}
-
-/// Eine belegte Verknuepfung: welches Objektfeld sie festhaelt, steht
-/// daneben. Ohne ein solches Feld entsteht keine Kante - eine Kante, die
-/// kein Objekt festhaelt, waere dieselbe Sorte Erfindung, die Regel 10.9
-/// fuer Praedikate verbietet.
-pub fn edge(
-    source: ObjectId,
-    target: ObjectId,
-    relation: RelationSortId,
-    evidence_field: &'static str,
-    trace_ref: TraceRef,
-) -> EdgeCandidate {
-    EdgeCandidate {
-        source,
-        target,
-        relation,
-        evidence_field,
-        trace_ref,
-    }
-}
-
-/// Fuer den Bericht: welche Relationssorte wie oft eine Kante trug.
-pub fn edge_census(bundle: &psk_types::objects::IRBundle) -> BTreeMap<String, usize> {
-    let mut census = BTreeMap::new();
-    for e in &bundle.graph.edges {
-        *census.entry(e.relation_sort.id().to_string()).or_insert(0) += 1;
-    }
-    census
 }
 
 #[cfg(test)]
@@ -358,7 +225,11 @@ mod tests {
     #[test]
     fn the_port_matrix_is_read_from_the_sealed_register() {
         let matrix = load_port_matrix(&root()).expect("Portmatrix lesbar");
-        assert_eq!(matrix.len(), 23, "Regel 10.6 fuehrt 23 zulaessige Tripel");
+        assert_eq!(
+            matrix.len(),
+            23,
+            "Regel 10.6 (Sorten-Port-Matrix) fuehrt 23 zulaessige Tripel"
+        );
         assert!(matrix.contains(&(SortId::Anchor, SortId::Context, RelationSortId::Grounds)));
     }
 
@@ -380,7 +251,7 @@ mod tests {
 
     #[test]
     fn a_profile_with_an_always_true_predicate_is_refused_at_load_time() {
-        // Regel 10.9 mechanisch: das Muster des T-IR-001-Fixtures darf
+        // Regel 10.9 (Herkunft der Kantenbedingungen) mechanisch: das Muster des T-IR-001-Fixtures darf
         // nicht durch den Lader kommen.
         let dir = std::env::temp_dir().join(format!("psk-profile-{}", std::process::id()));
         let profile_dir = dir.join("domains/jacobs-ladder-reference");

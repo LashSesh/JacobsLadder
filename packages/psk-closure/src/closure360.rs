@@ -17,9 +17,9 @@
 
 use psk_types::Digest;
 
-/// Evidenz fuer Definition 9.16: die bereits andernorts (M09/M10)
+/// Evidenz fuer Definition 9.16 (360-Grad-Closure): die bereits andernorts (M09/M10)
 /// berechneten Groessen pi(Phi(x)), pi(x) und Seam(Phi,x).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct Close360Evidence {
     /// pi(Phi(x)) - Projektion des gelinsten Bildes.
     pub projected_lensed: Digest,
@@ -29,25 +29,25 @@ pub struct Close360Evidence {
     pub seam_ok: bool,
 }
 
-/// Definition 9.16 woertlich: pi(Phi(x)) = pi(x) und Seam(Phi,x) = 1.
+/// Definition 9.16 (360-Grad-Closure) woertlich: pi(Phi(x)) = pi(x) und Seam(Phi,x) = 1.
 pub fn close360(e: &Close360Evidence) -> bool {
     e.projected_lensed == e.projected_source && e.seam_ok
 }
 
-/// Evidenz fuer Definition 9.17: die bereits andernorts (M09/M19)
+/// Evidenz fuer Definition 9.17 (720-Grad-Closure): die bereits andernorts (M09/M19)
 /// berechneten Groessen Phi^2(x) ==can x, Hol(Phi^2) = I und
 /// Replay(Phi^2) ==can x.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct Close720Evidence {
     /// Phi^2(x) ==can x.
     pub double_lensed_canon_eq: bool,
-    /// Hol(Phi^2) == I (Identitaetstransport, Definition 9.19).
+    /// Hol(Phi^2) == I (Identitaetstransport, Definition 9.19 (Transport und Holonomie)).
     pub holonomy_is_identity: bool,
     /// Replay(Phi^2) ==can x.
     pub replay_canon_eq: bool,
 }
 
-/// Definition 9.17 woertlich: alle drei Bedingungen zugleich.
+/// Definition 9.17 (720-Grad-Closure) woertlich: alle drei Bedingungen zugleich.
 pub fn close720(e: &Close720Evidence) -> bool {
     e.double_lensed_canon_eq && e.holonomy_is_identity && e.replay_canon_eq
 }
@@ -68,7 +68,7 @@ pub enum ReturnClassification {
     UnclassifiedDeviation,
 }
 
-/// Vertrag 9.22: semantisch geschlossen, sofern eine der drei benannten
+/// Vertrag 9.22 (Semantische Rückkehr): semantisch geschlossen, sofern eine der drei benannten
 /// Ausweichklassen zutrifft oder der Exaktfall Can(Hol)=Can(E) vorliegt;
 /// eine unklassifizierte Abweichung ist es nicht.
 pub fn semantically_closed(classification: ReturnClassification) -> bool {
@@ -83,7 +83,9 @@ pub fn semantically_closed(classification: ReturnClassification) -> bool {
 
 /// Ergebnis einer Closure-Auswertung (Portnutzlast P18, M11 -> M12:
 /// "ClosureReport", architecture/port_registry.yaml#P18).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// `Serialize`: Closure-Berichte liegen seit der Taktumverdrahtung als
+// Phasenprodukt im Laufzustand Sigma und gehen damit in I_t ein.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct ClosureReport {
     pub close360: bool,
     pub close720: bool,
@@ -96,12 +98,12 @@ pub struct ClosureReport {
 }
 
 /// Wertet Close360 und Close720 aus der jeweiligen Evidenz aus (Definition
-/// 9.16/9.17) und bildet daraus den ClosureReport (Invariante 9.23:
+/// 9.16/9.17) und bildet daraus den ClosureReport (Invariante 9.23 (Keine Halbschließung):
 /// `executable_eligible` haengt ausschliesslich von `close720` ab).
-/// Verify-Abschlussbedingung (Definition 14.2): "ClosureReport UND alle
+/// Verify-Abschlussbedingung (Definition 14.2 (Phasen-Modul-Bindung)): "ClosureReport UND alle
 /// GateReports vorhanden." `evaluate` unten liefert den ersten Teil allein
 /// aus Close360Evidence/Close720Evidence - `ClosureReport` selbst kennt
-/// gar kein GateReport-Feld (Struktur 7.22), und `psk_gate::GateReport`
+/// gar kein GateReport-Feld (Struktur 7.22 (IRNode / IREdge)), und `psk_gate::GateReport`
 /// entsteht unabhaengig davon in M14. Keine Funktion in psk-closure oder
 /// psk-gate prueft, dass "alle" (im Sinne von: die fuer diesen Takt
 /// erwarteten) GateReports tatsaechlich vorliegen, bevor ein ClosureReport
@@ -207,7 +209,7 @@ mod tests {
     fn invariante_9_16_no_half_closure() {
         // Close360 = 1, aber Close720 = 0: executable_eligible MUSS false
         // bleiben - Close360 allein darf niemals Identitaetsschluss
-        // begruenden (Invariante 9.23).
+        // begruenden (Invariante 9.23 (Keine Halbschließung)).
         let d = digest(b"same");
         let c360 = Close360Evidence {
             projected_lensed: d,

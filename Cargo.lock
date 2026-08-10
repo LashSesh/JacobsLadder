@@ -943,6 +943,7 @@ dependencies = [
  "psk-canon",
  "psk-codegen",
  "psk-types",
+ "serde",
  "serde_json",
 ]
 
@@ -1000,6 +1001,7 @@ dependencies = [
  "psk-canon",
  "psk-codegen",
  "psk-types",
+ "serde",
  "serde_json",
 ]
 
@@ -1032,6 +1034,7 @@ dependencies = [
  "psk-ir",
  "psk-lifecycle",
  "psk-reconciliation",
+ "psk-scheduler",
  "psk-thought",
  "psk-topology",
  "psk-trace",
@@ -1123,7 +1126,9 @@ version = "0.0.0"
 dependencies = [
  "psk-canon",
  "psk-codegen",
+ "psk-topology",
  "psk-types",
+ "serde",
  "serde_json",
 ]
 
@@ -1175,8 +1180,10 @@ dependencies = [
  "psk-effect",
  "psk-fields",
  "psk-gate",
+ "psk-ir",
  "psk-reconciliation",
  "psk-thought",
+ "psk-topology",
  "psk-trace",
  "psk-types",
  "psk-witness",
@@ -1191,6 +1198,7 @@ dependencies = [
  "psk-canon",
  "psk-codegen",
  "psk-types",
+ "serde",
  "serde_json",
 ]
 
@@ -1201,6 +1209,7 @@ dependencies = [
  "psk-canon",
  "psk-codegen",
  "psk-types",
+ "serde",
  "serde_json",
 ]
 
