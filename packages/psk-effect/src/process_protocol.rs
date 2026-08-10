@@ -38,6 +38,11 @@ pub struct EffectApplyRequest {
 }
 
 pub const SCHEMA_APPLY_REQUEST: &str = "psk.effect-apply-request/1.0";
+
+/// P22-Nutzlast der ERSTEN Klammerhaelfte (Regel 20.6): der Scope, dessen
+/// Vorzustand zu beobachten ist. Antwort ist der Digest in kanonischer
+/// Hexform - dieselbe Schreibweise, in der ihn jeder Trace fuehrt.
+pub const SCHEMA_PRESTATE_REQUEST: &str = "psk.effect-prestate-request/1.0";
 pub const SCHEMA_TOKEN_INVALIDATE: &str = "psk.token-invalidate/1.0";
 
 fn wire_time() -> DualTime {
@@ -93,8 +98,27 @@ fn fault(request: &Msg, reason: &str) -> Msg {
 /// Wertet eine einzelne Anfrage gegen `adapter` aus und baut die Antwort -
 /// von `effect-local-fs::main` (reale Prozessgrenze) und von Tests
 /// (in-process) gleichermassen aufrufbar.
-pub fn serve_request(adapter: &impl EffectAdapter, request: &Msg) -> Msg {
+pub fn serve_request(adapter: &mut impl EffectAdapter, request: &Msg) -> Msg {
     match request.port_id {
+        // Erste Klammerhaelfte: Vorzustand. Muss ueber DIESELBE Leitung
+        // laufen wie der Versuch (Regel 20.6), also ueber denselben
+        // Port, unterschieden durch das Schema.
+        PortId::P22 if request.schema_id.0 == SCHEMA_PRESTATE_REQUEST => {
+            match std::str::from_utf8(&request.payload) {
+                Ok(scope) => {
+                    let digest =
+                        adapter.prestate(&psk_types::objects::ScopeExpr(scope.to_string()));
+                    respond(
+                        request,
+                        PortId::P23,
+                        MessageType::Response,
+                        "psk.digest/1.0",
+                        digest.to_string().into_bytes(),
+                    )
+                }
+                Err(_) => fault(request, "Scope nicht als UTF-8 lesbar"),
+            }
+        }
         PortId::P22 => match serde_json::from_slice::<EffectApplyRequest>(&request.payload) {
             Ok(apply_request) => {
                 let attempt: EffectAttempt =
@@ -147,10 +171,10 @@ mod tests {
         fn required_capabilities(&self) -> Vec<CapabilityId> {
             vec![]
         }
-        fn prestate(&self, _scope: &ScopeExpr) -> Digest {
+        fn prestate(&mut self, _scope: &ScopeExpr) -> Digest {
             Digest::sha256(b"pre")
         }
-        fn apply(&self, token: &EffectToken, started_at: DualTime) -> EffectAttempt {
+        fn apply(&mut self, token: &EffectToken, started_at: DualTime) -> EffectAttempt {
             EffectAttempt {
                 id: ObjectId::new(SortId::Effect, Digest::sha256(b"applied")),
                 token_ref: token.id,
@@ -230,7 +254,7 @@ mod tests {
         let payload = serde_json::to_vec(&req).unwrap();
         let msg = request_msg(PortId::P22, SCHEMA_APPLY_REQUEST, payload);
 
-        let response = serve_request(&NoopAdapter, &msg);
+        let response = serve_request(&mut NoopAdapter, &msg);
         assert_eq!(response.port_id, PortId::P23);
         assert_eq!(response.r#type, MessageType::Response);
         let attempt: EffectAttempt = serde_json::from_slice(&response.payload).unwrap();
@@ -243,7 +267,7 @@ mod tests {
     #[test]
     fn p37_invalidate_is_acknowledged_not_dropped() {
         let msg = request_msg(PortId::P37, SCHEMA_TOKEN_INVALIDATE, Vec::new());
-        let response = serve_request(&NoopAdapter, &msg);
+        let response = serve_request(&mut NoopAdapter, &msg);
         assert_eq!(response.port_id, PortId::P37);
         assert_eq!(response.r#type, MessageType::Response);
     }
@@ -251,7 +275,7 @@ mod tests {
     #[test]
     fn a_malformed_apply_payload_yields_a_fault_not_a_panic() {
         let msg = request_msg(PortId::P22, SCHEMA_APPLY_REQUEST, b"not json".to_vec());
-        let response = serve_request(&NoopAdapter, &msg);
+        let response = serve_request(&mut NoopAdapter, &msg);
         assert_eq!(response.r#type, MessageType::Fault);
     }
 }

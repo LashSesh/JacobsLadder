@@ -9,7 +9,7 @@
 //! Beobachtungsfaehigkeit erhalten KANN - es gibt keine Methode, ueber die
 //! er eine liefern koennte.
 //!
-//! Invariante 20.6 (Adaptertrennung): "Keine Codeeinheit DARF zugleich
+//! Invariante 20.7 (Adaptertrennung): "Keine Codeeinheit DARF zugleich
 //! EffectAdapter und ObserverAdapter implementieren. Die beiden Adapter
 //! MUSS getrennte Prozesse, getrennte Capabilities und getrennte
 //! Identitaeten besitzen." Die getrennten Prozesse sind bereits als
@@ -44,7 +44,7 @@ use psk_types::objects::{
 };
 use psk_types::{Digest, DualTime, PskError};
 
-/// Schnittstelle 20.5, `interface EffectAdapter`. Absichtlich OHNE
+/// Schnittstelle 20.5 (Adapter), `interface EffectAdapter`. Absichtlich OHNE
 /// `observe`/`read_result`/`confirm` - siehe Modulkopf.
 ///
 /// `apply` nimmt `started_at` als Parameter statt es selbst zu bestimmen:
@@ -53,12 +53,32 @@ use psk_types::{Digest, DualTime, PskError};
 /// `EffectAttempt.started_at` MUSS gesetzt sein (Struktur 7.35, kein
 /// optionales Feld), aber woher der Zeitwert stammt, ist Sache des
 /// Aufrufers von `execute_effect`, nicht des Adapters.
+/// ## Warum `prestate` und `apply` `&mut self` nehmen
+///
+/// Regel 20.6 (Vorzustand und Versuch klammern den Effekt): beide
+/// Aufrufe MUESSEN denselben Beobachtungskanal benutzen, und zwischen
+/// ihnen darf am beobachteten Bereich nichts geschehen. Ueber eine
+/// Prozessgrenze heisst das: DERSELBE Kindprozess bedient beide und
+/// wird ueber beide hinweg gehalten.
+///
+/// Die Regel sagt ausdruecklich, dass die Signatur zu aendern ist, wenn
+/// sie das Halten verhindert. Gewaehlt ist `&mut self` und nicht innere
+/// Veraenderlichkeit: `&mut self` DRUECKT die Klammer im Typsystem aus -
+/// wer klammert, haelt den Adapter exklusiv. Ein Mutex haette dieselbe
+/// Leitung geschuetzt, aber zwei Aufrufern erlaubt, sich zwischen
+/// Vorzustand und Versuch zu schieben; genau das Fenster, das die Regel
+/// schliesst.
+///
+/// Die vier lesenden Methoden bleiben `&self` - sie beobachten den
+/// Bereich nicht.
 pub trait EffectAdapter {
     fn id(&self) -> AdapterId;
     fn declared_effect_classes(&self) -> Vec<EffectClassId>;
     fn required_capabilities(&self) -> Vec<CapabilityId>;
-    fn prestate(&self, scope: &ScopeExpr) -> Digest;
-    fn apply(&self, token: &EffectToken, started_at: DualTime) -> EffectAttempt;
+    /// Klammert mit `apply` (Regel 20.6) - siehe Traitkommentar.
+    fn prestate(&mut self, scope: &ScopeExpr) -> Digest;
+    /// Klammert mit `prestate` (Regel 20.6) - siehe Traitkommentar.
+    fn apply(&mut self, token: &EffectToken, started_at: DualTime) -> EffectAttempt;
     fn compensate(&self, attempt: &EffectAttempt) -> EffectAttempt;
     fn is_reversible(&self, token: &EffectToken) -> bool;
 }
@@ -81,11 +101,11 @@ impl EffectAdapter for Box<dyn EffectAdapter + Send> {
     fn required_capabilities(&self) -> Vec<CapabilityId> {
         self.as_ref().required_capabilities()
     }
-    fn prestate(&self, scope: &ScopeExpr) -> Digest {
-        self.as_ref().prestate(scope)
+    fn prestate(&mut self, scope: &ScopeExpr) -> Digest {
+        self.as_mut().prestate(scope)
     }
-    fn apply(&self, token: &EffectToken, started_at: DualTime) -> EffectAttempt {
-        self.as_ref().apply(token, started_at)
+    fn apply(&mut self, token: &EffectToken, started_at: DualTime) -> EffectAttempt {
+        self.as_mut().apply(token, started_at)
     }
     fn compensate(&self, attempt: &EffectAttempt) -> EffectAttempt {
         self.as_ref().compensate(attempt)
@@ -110,7 +130,7 @@ pub fn execute_effect(
     token: &EffectToken,
     current_tau_i: u64,
     started_at: DualTime,
-    adapter: &impl EffectAdapter,
+    adapter: &mut impl EffectAdapter,
 ) -> Result<EffectAttempt, PskError> {
     check_not_expired(token, current_tau_i)?;
     ledger.consume_once(&token.idempotency_key)?;
@@ -138,10 +158,10 @@ mod tests {
         fn required_capabilities(&self) -> Vec<CapabilityId> {
             vec![CapabilityId("fs.write.sandbox".into())]
         }
-        fn prestate(&self, _scope: &ScopeExpr) -> Digest {
+        fn prestate(&mut self, _scope: &ScopeExpr) -> Digest {
             Digest::sha256(b"prestate")
         }
-        fn apply(&self, token: &EffectToken, started_at: psk_types::DualTime) -> EffectAttempt {
+        fn apply(&mut self, token: &EffectToken, started_at: psk_types::DualTime) -> EffectAttempt {
             EffectAttempt {
                 id: ObjectId::new(SortId::Effect, Digest::sha256(b"attempt")),
                 token_ref: token.id,
@@ -202,7 +222,8 @@ mod tests {
         let mut ledger = TokenLedger::new();
         let token = sample_token("k1", 100);
         ledger.register(&token);
-        let attempt = execute_effect(&mut ledger, &token, 10, sample_time(), &NullAdapter).unwrap();
+        let attempt =
+            execute_effect(&mut ledger, &token, 10, sample_time(), &mut NullAdapter).unwrap();
         assert_eq!(attempt.token_ref, token.id);
         assert_eq!(
             ledger.state_of("k1"),
@@ -215,9 +236,9 @@ mod tests {
         let mut ledger = TokenLedger::new();
         let token = sample_token("k1", 100);
         ledger.register(&token);
-        execute_effect(&mut ledger, &token, 10, sample_time(), &NullAdapter).unwrap();
+        execute_effect(&mut ledger, &token, 10, sample_time(), &mut NullAdapter).unwrap();
         assert_eq!(
-            execute_effect(&mut ledger, &token, 10, sample_time(), &NullAdapter),
+            execute_effect(&mut ledger, &token, 10, sample_time(), &mut NullAdapter),
             Err(PskError::EffectWithoutToken)
         );
     }
@@ -228,7 +249,7 @@ mod tests {
         let token = sample_token("k1", 5);
         ledger.register(&token);
         assert_eq!(
-            execute_effect(&mut ledger, &token, 10, sample_time(), &NullAdapter),
+            execute_effect(&mut ledger, &token, 10, sample_time(), &mut NullAdapter),
             Err(PskError::EffectWithoutToken)
         );
         // Nicht konsumiert - ein spaeter noch rechtzeitig eintreffender
@@ -244,7 +265,7 @@ mod tests {
         let mut ledger = TokenLedger::new();
         let token = sample_token("never-registered", 100);
         assert_eq!(
-            execute_effect(&mut ledger, &token, 10, sample_time(), &NullAdapter),
+            execute_effect(&mut ledger, &token, 10, sample_time(), &mut NullAdapter),
             Err(PskError::EffectWithoutToken)
         );
     }

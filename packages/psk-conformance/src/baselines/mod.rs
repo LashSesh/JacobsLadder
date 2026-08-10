@@ -1,4 +1,4 @@
-//! Regel 24.4 (Pflichtbaselines): der Kern wird gegen mindestens zwei
+//! Regel 24.5 (Pflichtbaselines): der Kern wird gegen mindestens zwei
 //! Baselines verglichen. Regel 32.6 (Referenzauftrag) beschreibt die
 //! Aufgabe fuer alle drei Systeme identisch: eine versiegelte Menge von
 //! Spezifikations-/Quelltextdateien erhalten, widerspruechliche

@@ -1,4 +1,4 @@
-//! Regel 24.4 (Pflichtbaselines), die zehn Metriken, woertlich aus der
+//! Regel 24.5 (Pflichtbaselines), die zehn Metriken, woertlich aus der
 //! Tabelle:
 //!
 //! | Metrik                     | Messung                                                    |
@@ -50,7 +50,7 @@ pub struct ValidationEfficiency {
     pub gain_per_effect_token: f64,
 }
 
-/// Laufzeit, Speicher-, Kontext- und Artefaktkosten (Regel 24.4).
+/// Laufzeit, Speicher-, Kontext- und Artefaktkosten (Regel 24.5).
 /// "Speicher"/"Kontext" werden ueber Objekt-/Ereigniszahlen approximiert -
 /// diese Referenzimplementierung fuehrt kein Speicherprofiling (siehe
 /// T-OBSV-001s eigener Befund in conformance_catalog.rs).
@@ -209,7 +209,7 @@ pub fn measure_monolithic(report: &MonolithicRunReport, replay_deviation: bool) 
     // Jede Behauptung ist unbelegt: dieser Agent kennt kein Anchor-Konzept.
     let unbound_fact_claims = report.claims_made.len();
     // Er behauptet Abschluss, ohne je zu reconciliieren - genau die in
-    // Regel 24.4 benannte Falschpromotion.
+    // Regel 24.5 benannte Falschpromotion.
     let false_fact_promotions = usize::from(!report.claims_made.is_empty());
     let synthetic_majority = 0.0; // genau eine, unquotierte Meinung - nichts zu ueberzaehlen
     let unauthorized_effects = report.effects_applied.len(); // ausnahmslos, kein Token existiert

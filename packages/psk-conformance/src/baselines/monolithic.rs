@@ -1,4 +1,4 @@
-//! Regel 24.4 (Pflichtbaselines), Baseline (i): "einen monolithischen
+//! Regel 24.5 (Pflichtbaselines), Baseline (i): "einen monolithischen
 //! Agenten mit demselben Modell und denselben Werkzeugen." "Demselben
 //! Modell" ist hier wie ueberall in dieser Referenzimplementierung ein
 //! typisierter Fixture-Kandidat, kein Live-Modellaufruf (Regel 27.8: ein
@@ -19,7 +19,7 @@
 //!
 //! `run_monolithic_agent` schreibt die Datei direkt. Das ist keine
 //! Nachlaessigkeit, sondern die gemessene Eigenschaft: die zehn Metriken
-//! (Regel 24.4) sollen sichtbar machen, was OHNE die konstitutionelle
+//! (Regel 24.5) sollen sichtbar machen, was OHNE die konstitutionelle
 //! Architektur passiert - allen voran "Nichtautorisierte Effekte"
 //! (Seiteneffekte ohne gueltiges Token), die hier per Konstruktion JEDEN
 //! Schreibvorgang treffen.

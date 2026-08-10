@@ -1,4 +1,4 @@
-//! Regel 24.4 (Pflichtbaselines), Baseline (ii): "einen Agenten mit
+//! Regel 24.5 (Pflichtbaselines), Baseline (ii): "einen Agenten mit
 //! strukturierter Planung und Event Sourcing, aber ohne Realitaetsleiter,
 //! Abhaengigkeitsquotient und konstitutionelle Gates." Diese drei
 //! Abwesenheiten sind der Witz der Baseline (Auftrag des Nutzers,

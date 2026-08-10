@@ -5,7 +5,7 @@
 //! Realisierungsort getestet (Verweis statt Duplikat - DRY gilt auch fuer
 //! Tests), oder (c) mit einer konkreten Begruendung als derzeit nicht
 //! realisierbar dokumentiert. Kategorie (c) ist ein Befund, kein
-//! uebersprungener Test: Vertrag 24.1 verlangt Artefakt+Test+Owner je
+//! uebersprungener Test: Vertrag 24.1 (Testpflicht je Requirement) verlangt Artefakt+Test+Owner je
 //! Requirement, und ein fehlender Test OHNE Begruendung wuerde genau das
 //! stillschweigend verletzen, was diese Datei verhindern soll.
 //!
@@ -34,7 +34,7 @@
 //!   `pass_decisions_do_not_residualize`,
 //!   `residue_origin_module_is_derived_from_the_gates_registered_owner`).
 //!   `evaluate_gate` ruft seither selbst `M19.append`/`M19.residualize`
-//!   (Algorithmus 18.6) - urspruenglich hier unter (c) als Befund
+//!   (Algorithmus 18.6 (Gate-Auswertung)) - urspruenglich hier unter (c) als Befund
 //!   dokumentiert, dann auf explizite Anweisung behoben statt nur
 //!   geflaggt; dieser Eintrag verschoben, statt die Vorfix-Begruendung
 //!   stehen zu lassen.
@@ -138,7 +138,7 @@
 //!   BESTEHENDE Tokeninvalidierung (FSM-TOKEN-Operator `plan_changed`,
 //!   P37), nicht ueber eine zusaetzliche Modusabfrage in `dispatch()` -
 //!   der Adapter wird unter `shadow`/`readonly` nie aufgerufen
-//!   (Invariante 22.6, "Replay ist effektfrei"). Ein Gegentest unter
+//!   (Invariante 22.6 (Replay ist effektfrei), "Replay ist effektfrei"). Ein Gegentest unter
 //!   `reference` zeigt denselben Aufruf real ausfuehren, damit der
 //!   Negativnachweis nicht auch bei einem kaputten Match-Arm gruen waere.
 //! - T-OBSV-001 (mit/ohne Profiling identischer kanonischer Digest,
@@ -152,7 +152,7 @@
 //!   eingebettet wird. Beide Schichten sind getrennt geprueft: identischer
 //!   Tracekopf/Objekt-IDs/Segmentzahl mit und ohne Profiling, UND ein
 //!   eingebettetes `runtime_metrics` laesst die Identitaet unveraendert,
-//!   waehrend der `record_digest` abweicht (Definition 6.6/6.7). Ein
+//!   waehrend der `record_digest` abweicht (Definition 6.6 (Objekt-ID)/6.7). Ein
 //!   Gegentest stellt sicher, dass der profilierte Lauf ueberhaupt etwas
 //!   sammelt - sonst verglichen beide Seiten denselben leeren Zustand.
 //!   Nur EIN Codepfad: `record_phase` ist bei ausgeschaltetem Profiling
@@ -163,7 +163,7 @@
 //!   sequentiellen): real gruen getestet in `psk-scheduler/tests/
 //!   concurrent_tick_equals_sequential.rs::t_conc_001_a_concurrent_tick_
 //!   yields_the_same_canonical_digest_as_the_sequential_one`.
-//!   `tick_concurrent` (psk-scheduler::concurrent) setzt Regel 14.7s drei
+//!   `tick_concurrent` (psk-scheduler::concurrent) setzt Regel 14.7 (Nebenläufigkeitsmodell)s drei
 //!   Saetze je einzeln um: Nebenlaeufigkeit nur INNERHALB einer Phase;
 //!   nur fuer Operationen ohne gemeinsamen Schreibzustand
 //!   (`concurrency_eligible` zaehlt die vier Ausnahmen abschliessend auf,
@@ -182,7 +182,7 @@
 //!   nicht divergieren, und nicht aus Glueck - `TraceStore::append` nimmt
 //!   `&mut self`, `Sigma` wird nie geteilt, kein Thread KANN anhaengen.
 //!   Alle Segmente entstehen in der sequentiellen Anwendungsschleife in
-//!   `select()`-Ordnung. Der Grund ist Regel 14.7s eigener: der Trace IST
+//!   `select()`-Ordnung. Der Grund ist Regel 14.7 (Nebenläufigkeitsmodell)s eigener: der Trace IST
 //!   gemeinsamer Schreibzustand, also ist Anhaengen keine freigegebene
 //!   Operation - es braucht keine Sperre, weil es keinen Wettlauf gibt.
 //!
@@ -197,12 +197,12 @@
 //!   zugesichert. Diese Enge ist der Punkt: t_arch_001 zeigt bereits,
 //!   dass IRGENDEINE Inhaltsaenderung I_A bricht; erst die reine
 //!   Permutation zeigt, dass die REIHENFOLGE selbst identitaetsbildend
-//!   ist (Definition 11.1, geordnete Passfolge; `Can` erhaelt
+//!   ist (Definition 11.1 (Passfolge), geordnete Passfolge; `Can` erhaelt
 //!   Arrayreihenfolgen).
 //! - T-TRACE-001 (drop_previous_residue -> FAIL): real gruen als
 //!   `compile_fail`-Doctests an `psk_trace::ResidueLedger`. Die
 //!   Zusicherung IST die Abwesenheit von `remove`/`clear` und eines
-//!   Schreibzugriffs auf die Sammlung (Axiom 7.44) - ein Laufzeittest
+//!   Schreibzugriffs auf die Sammlung (Axiom 7.44 (No Silent Loss)) - ein Laufzeittest
 //!   kann das nicht leisten, weil man nicht aufrufen kann, was nicht
 //!   existiert. Eine Positivkontrolle daneben zeigt, dass derselbe Aufbau
 //!   uebersetzt: ohne sie bestuende ein `compile_fail` auch bei einem
@@ -215,13 +215,13 @@
 //!   gruen in `psk_thought::forecast` - `t_forecast_001_a_later_
 //!   observation_only_appends_and_never_replaces` plus drei
 //!   `compile_fail`-Doctests und eine Positivkontrolle.
-//!   PSK-RA v1.0.22 hat die Voraussetzung an der Quelle geschaffen: OBJ-FCT
-//!   (Struktur 20.10) fuehrt horizon, generation_basis, validity_window,
-//!   anchor_ref und append-only `evaluations`. Zuvor benannte Vertrag
-//!   20.12 vier Pflichtfelder, ohne dass ein Objekt sie trug - es gab
-//!   nichts zu ueberschreiben.
-//!   Befund bei der Umsetzung: der GENERIERTE Typ allein genuegt Regel
-//!   20.11 nicht - alle Felder sind `pub` (Codegen-Konvention), also ist
+//!   PSK-RA v1.0.22 hat die Voraussetzung an der Quelle geschaffen:
+//!   OBJ-FCT (Struktur 20.11 (Forecast)) fuehrt horizon, generation_basis,
+//!   validity_window, anchor_ref und append-only `evaluations`. Zuvor
+//!   benannte Vertrag 20.13 (Prognosepersistenz) vier Pflichtfelder,
+//!   ohne dass ein Objekt sie trug - es gab nichts zu ueberschreiben.
+//!   Befund bei der Umsetzung: der GENERIERTE Typ allein genuegt
+//!   Regel 20.12 nicht - alle Felder sind `pub` (Codegen-Konvention), also ist
 //!   "besitzen keinen Schreibpfad nach Konstruktion" auf ihm eine blosse
 //!   Konvention, dieselbe Lage wie bei T-OWN-001. `SealedForecast` (M07)
 //!   schliesst das mit dem Muster von `ResidueLedger`/`TraceStore`:
@@ -234,7 +234,7 @@
 //!   M18-Tests in `psk_reconciliation::reconcile::tests`.
 //!   Die fruehere Einordnung ("verbale Unsicherheit ist nirgends als Typ
 //!   gefasst") verwechselte die Szenarienrahmung mit dem pruefbaren Kern.
-//!   Vertrag 7.13 enumeriert vier Formen, in denen sich Unwissen
+//!   Vertrag 7.13 (Unknown als wirksamer Status) enumeriert vier Formen, in denen sich Unwissen
 //!   materialisieren MUSS - das ist dieselbe Art Aufzaehlung, die
 //!   T-PERSONA-001 ueber Personas Feldliste traegt, nur ueber Zustaende
 //!   statt ueber Felder. Und `claim.text` ist ohnehin `non_canonical`,
@@ -912,7 +912,7 @@ mod tests {
     /// T-PASS-001, das ebenfalls Inhalt aendert, bewiese nur dasselbe ein
     /// zweites Mal. Erst die reine Umordnung zeigt die Aussage, die
     /// T-PASS-001 eigen ist: die REIHENFOLGE der Passfolge ist selbst
-    /// identitaetsbildend, nicht bloss ihre Menge. Definition 11.1 fuehrt
+    /// identitaetsbildend, nicht bloss ihre Menge. Definition 11.1 (Passfolge) fuehrt
     /// C1..C11 als geschlossene, geordnete Folge; `Can` erhaelt
     /// Arraysreihenfolgen ausdruecklich ("erhaelt Arrayreihenfolgen",
     /// Kapitel 6), weshalb eine Permutation einen anderen Digest ergibt.
@@ -971,7 +971,7 @@ mod tests {
         assert!(
             !after.matches(),
             "eine reine Umordnung der Passfolge MUSS I_A brechen - die Reihenfolge \
-             ist identitaetsbildend, nicht nur die Menge (Definition 11.1)"
+             ist identitaetsbildend, nicht nur die Menge (Definition 11.1 (Passfolge))"
         );
 
         fs::remove_dir_all(&scratch).ok();

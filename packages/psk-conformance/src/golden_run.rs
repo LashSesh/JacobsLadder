@@ -1,4 +1,4 @@
-//! Golden Run Harness (Definition 24.2, Regel 24.3).
+//! Golden Run Harness (Definition 24.2 (Golden Run), Regel 24.3).
 //!
 //! Regel 24.3 (Golden-Run-Ablauf), woertlich, die 13 Schritte:
 //! 1. Bundle verifizieren, Bootgate schliessen.
@@ -15,18 +15,18 @@
 //! 12. Reconciliation durchfuehren; Faktpromotion entscheiden.
 //! 13. Maschinenzertifikat und Replaymanifest exportieren.
 //!
-//! # Schritt 1: Bootgate, real (Algorithmus 17.1 vollstaendig realisiert)
+//! # Schritt 1: Bootgate, real (Algorithmus 17.1 (Boot) vollstaendig realisiert)
 //!
 //! Algorithmus 17.1 (Boot) hat 21 Schritte ueber M00-M04, M14, M15, M19,
 //! M21, M22, M26; `g = M14.gate("G-BOOT", all_of(above))` aggregiert ALLE
 //! davon. M00 (Bundle-Loader), M02 (Artefaktregistrierung) und M04
 //! (Identitaetsbindung/Profilbindung) sind seit `packages/psk-contract`
-//! real (`psk_contract::boot`, dort Algorithmus 17.1 Schritt fuer Schritt
+//! real (`psk_contract::boot`, dort Algorithmus 17.1 (Boot) Schritt fuer Schritt
 //! nachgebaut - siehe dessen Modulkopf fuer jede Realisierungsentscheidung
 //! und ihre Begruendung), ebenso M15s
 //! `register_only_versioned_operators_and_capabilities` (Schritt 17,
 //! psk-effect) und M21s `compute_release_and_operational_posture`
-//! (Schritt 18, psk-certify, Definition 31.3). Diese Funktion ruft
+//! (Schritt 18, psk-certify, Definition 31.3 (Releaseposture)). Diese Funktion ruft
 //! `psk_contract::boot` gegen den echten Workspace-Root auf: fuer ein
 //! korrekt versiegeltes Bundle (constitution.lock.json/
 //! architecture.lock.json beide deckungsgleich mit dem selbst berechneten
@@ -78,7 +78,7 @@ use psk_types::{
     SchemaId, TraceRef, Ulid,
 };
 
-/// Regel 12.7 / v1.0.26: das Ratchet-Rundenbudget dieses Laufs. EINE
+/// Regel 12.7 (Selektionsdruck) / v1.0.26: das Ratchet-Rundenbudget dieses Laufs. EINE
 /// deklarierte Quelle fuer beide Verbraucher - der RunDescriptor traegt
 /// die Deklaration ("im RunDescriptor erzwungen"), die Challenge-Phase
 /// verbraucht denselben Wert. Zwei getrennte Zahlen waeren zwei
@@ -90,7 +90,7 @@ const GOLDEN_RUN_RATCHET_MAX_ROUNDS: u32 = 4;
 /// Lauf), damit sie nicht auseinanderlaufen.
 const GOLDEN_RUN_PATCH_TARGET: &str = "golden-run-patch.txt";
 
-/// Deterministische Laufzeit (Definition 24.2: "erwartetem kanonischen
+/// Deterministische Laufzeit (Definition 24.2 (Golden Run): "erwartetem kanonischen
 /// Zustandsdigest" - Replaystabilitaet verlangt eine feste, nicht eine
 /// systemuhrabhaengige Zeit).
 fn run_time() -> DualTime {
@@ -102,10 +102,10 @@ fn run_time() -> DualTime {
     }
 }
 
-/// Gesammeltes Ergebnis EINER Ausfuehrung der Schritte 1-12 (Regel 24.3).
+/// Gesammeltes Ergebnis EINER Ausfuehrung der Schritte 1-12 (Regel 24.3 (Golden-Run-Ablauf)).
 /// Schritt 13 (Zertifikat/Replaymanifest) ist bewusst NICHT Teil dieses
 /// Typs: `issue_certificate` verlangt Vertrag 22.4 (Replayklasse des Referenzrelease), mindestens R2 als
-/// Vorbedingung, und eine Replayklasse ist per Definition 22.1 keine
+/// Vorbedingung, und eine Replayklasse ist per Definition 22.1 (Replayklassen) keine
 /// Eigenschaft EINES Laufs, sondern eines VERGLEICHS zweier Laeufe - siehe
 /// `run_golden_run_with_certificate`.
 pub struct GoldenRunReport {
@@ -130,7 +130,7 @@ pub struct GoldenRunReport {
     pub reconciliation: ReconciliationReport,
     pub trace_head: Digest,
     /// Anzahl der waehrend dieses Laufs residualisierten Gate-Entscheidungen
-    /// (T-RES-001/Algorithmus 18.6: jede Nicht-PASS-Entscheidung MUSS
+    /// (T-RES-001/Algorithmus 18.6 (Gate-Auswertung): jede Nicht-PASS-Entscheidung MUSS
     /// residualisiert werden). Bei einem PASS-Bootgate kann das durchaus 0
     /// sein - siehe die beiden golden_run-Tests (PASS- und HOLD-Fall).
     pub residues_opened: usize,
@@ -138,7 +138,7 @@ pub struct GoldenRunReport {
     /// dieser Lauf hat genau eine Klasse). Herausgegeben als FC5-Artefakt:
     /// Kandidatenkapsel, Ratchet und Supportentscheidung sind an ihr
     /// ablesbar. `capsule_reached_fixpoint` haelt fest, WELCHER der beiden
-    /// zulaessigen Challenge-Ausgaenge eintrat (Definition 14.2) -
+    /// zulaessigen Challenge-Ausgaenge eintrat (Definition 14.2 (Phasen-Modul-Bindung)) -
     /// Fixpunkt, nicht Budget-RESIDUAL.
     pub capsule: psk_types::objects::CandidateCapsule,
     pub capsule_reached_fixpoint: bool,
@@ -163,14 +163,14 @@ pub struct GoldenRunReport {
     /// nicht enthaelt, kann nichts belegen. Dieselbe Ueberlegung, aus der
     /// schon `residues` und der EffectToken herausgegeben wurden.
     pub field_identities: Vec<FieldIdentity>,
-    /// Der IRBundle-Kandidat dieses Laufs (Definition 14.2, Compile).
+    /// Der IRBundle-Kandidat dieses Laufs (Definition 14.2 (Phasen-Modul-Bindung), Compile).
     /// `emission_class` ist HOLD - siehe psk_ir::assembly.
     pub ir_bundle: psk_types::objects::IRBundle,
     /// Regel 10.9: je Relationssorte ohne Deklaration im Domaenenprofil
     /// ein ResidueRecord(scope).
     ///
     /// BEWUSST getrennt von `residues`: jene sind Gate-Residuen
-    /// (Algorithmus 18.6, "jede Nicht-PASS-Entscheidung MUSS
+    /// (Algorithmus 18.6 (Gate-Auswertung), "jede Nicht-PASS-Entscheidung MUSS
     /// residualisiert werden"), diese halten eine fehlende
     /// Domaenendeklaration fest. Beides in einen Topf zu werfen wuerde
     /// zwei verschiedene Bedeutungen vermengen - und die Aussage von
@@ -180,17 +180,17 @@ pub struct GoldenRunReport {
     /// Jede nicht gebaute Kante mit Grund.
     pub ir_omissions: Vec<psk_ir::EdgeOmission>,
     /// Die Residuensaetze selbst, nicht nur ihre Anzahl - Eingabe des
-    /// `residue_report_digest`, das Struktur 7.49 als einen der vier
+    /// `residue_report_digest`, das Struktur 7.49 (MachineCertificate) als einen der vier
     /// Berichtsdigests verlangt. Ein Bericht ueber eine Zahl waere keiner.
     pub residues: Vec<psk_types::objects::ResidueRecord>,
-    /// Vertrag 9.7 ueber dem finalen Graphen: alle 18 Zellberichte
+    /// Vertrag 9.7 (Zellclosure) ueber dem finalen Graphen: alle 18 Zellberichte
     /// (Regel 9.9 verlangt, die Vakuumschliessungen AUSZUWEISEN - die
     /// Zahl steht in den occupancy-Feldern, `vacuum_closed_count`
     /// leitet sie ab).
     pub cell_reports: Vec<psk_topology::CellReport>,
     /// Die sieben Bedingungen aus pass_registry.executable_requires,
     /// einzeln abgeleitet. `close720_replay_canon_eq` bleibt im
-    /// Einzellauf None - Definition 22.1 macht die Replayklasse zur
+    /// Einzellauf None - Definition 22.1 (Replayklassen) macht die Replayklasse zur
     /// Eigenschaft eines VERGLEICHS zweier Laeufe; erst die
     /// Zertifizierung fuellt sie.
     pub executable: ExecutableCheck,
@@ -215,12 +215,12 @@ pub struct ExecutableCheck {
     /// Regel 9.9: wie viele der geschlossenen Zellen vakuum schlossen.
     pub cells_vacuum_closed: usize,
     /// Close720-Schenkel 1: Phi^2(x) ==can x. Bei max_depth = 0 gilt
-    /// Phi = I aus T_ii = I (Regel 9.21) - TRIVIAL, ausgewiesen.
+    /// Phi = I aus T_ii = I (Regel 9.21 (Triviale Route ist eine Route)) - TRIVIAL, ausgewiesen.
     pub close720_phi_squared_trivially: bool,
     /// Close720-Schenkel 2: Hol(Phi^2) = I - ebenso trivial (Regel 9.21).
     pub close720_holonomy_trivially: bool,
     /// Close720-Schenkel 3: Replay(Phi^2) ==can x. Braucht den
-    /// Zweitlauf (Definition 22.1); None heisst "in diesem Artefakt
+    /// Zweitlauf (Definition 22.1 (Replayklassen)); None heisst "in diesem Artefakt
     /// nicht bestimmbar", nicht "bestanden".
     pub close720_replay_canon_eq: Option<bool>,
     /// GlueOutcome.section ist eindeutig vorhanden.
@@ -257,14 +257,14 @@ impl ExecutableCheck {
 }
 
 /// Ergebnis von Schritt 13 plus der beiden Laeufe, aus deren Vergleich die
-/// Replayklasse (Definition 22.1) tatsaechlich folgt.
+/// Replayklasse (Definition 22.1 (Replayklassen)) tatsaechlich folgt.
 pub struct GoldenRunCertification {
     pub first: GoldenRunReport,
     pub second: GoldenRunReport,
     pub replay_check: psk_trace::ReplayCheck,
     pub replay_manifest: psk_types::objects::ReplayManifest,
     pub certificate: MachineCertificate,
-    /// PROPOSE_REVISION: der eine Vorschlag dieses Laufs (Struktur 12.12),
+    /// PROPOSE_REVISION: der eine Vorschlag dieses Laufs (Struktur 12.12 (RevisionProposal)),
     /// mit getrennt gefuehrten vorhandenen/fehlenden CRA-Eingaben.
     pub revision_proposal: psk_types::objects::RevisionProposal,
     /// G-SELF-COMPILE ueber den Vorschlag - das FC7-Artefakt. Sein
@@ -302,9 +302,9 @@ fn record(
 }
 
 /// Schritt 1. Siehe Modulkopf - ruft jetzt den vollstaendigen, realen
-/// `psk_contract::boot()` (Algorithmus 17.1, alle 21 Schritte) gegen den
+/// `psk_contract::boot()` (Algorithmus 17.1 (Boot), alle 21 Schritte) gegen den
 /// echten Workspace-Root auf. `store_root` ist bewusst NICHT
-/// `workspace_root`: Struktur 16.7s Store-Lock gehoert zu einer eigenen,
+/// `workspace_root`: Struktur 16.7 (Store-Layout)s Store-Lock gehoert zu einer eigenen,
 /// veraenderlichen Laufzeitablage, nicht zum (weitgehend gelesenen)
 /// Bundle - siehe `psk_contract::BootInputs`s Modulkopf. Der Sandbox-Root
 /// ist bereits ein pro-Lauf eindeutiger Pfad und dient hier zugleich als
@@ -455,7 +455,7 @@ fn classify_thought_reality(
     // RealityEvidence, ohne method_ref, ohne Grundlage. classify()
     // erzwingt selbst, dass daraus nur UNKNOWN werden kann - und
     // UNKNOWN mit leerem evidence_refs IST die Materialisierung
-    // "fehlender Witness" aus Vertrag 7.13, kein fehlender Wert.
+    // "fehlender Witness" aus Vertrag 7.13 (Unknown als wirksamer Status), kein fehlender Wert.
     psk_thought::classify(
         thought,
         ClassificationInputs {
@@ -471,7 +471,7 @@ fn classify_thought_reality(
 }
 
 /// Schritt 5: Statische Feldfamilie - alle sechs Archetypen registrieren
-/// und je einmal projizieren (Regel 32.7).
+/// und je einmal projizieren (Regel 32.7 (Feldfamilie der Referenzdomäne)).
 fn run_static_field_family(
     anchor: &AnchorSnapshot,
     reality_status: RealityStatus,
@@ -543,11 +543,11 @@ fn project_field(
     }
 }
 
-/// Compile (Definition 14.2): den IRBundle-Kandidaten aus den realen
+/// Compile (Definition 14.2 (Phasen-Modul-Bindung)): den IRBundle-Kandidaten aus den realen
 /// Objekten dieses Laufs bauen.
 ///
 /// Knoten entstehen nur fuer Sorten, die `psk_topology::place` ohne eine
-/// Traegerzelle platzieren kann (Regel 9.14 Punkte 1-3). Die
+/// Traegerzelle platzieren kann (Regel 9.14 (Platzierungsregel) Punkte 1-3). Die
 /// zellgebundenen Sorten S-GAT/S-TRC/S-WIT/S-RES (Punkt 4) bleiben aussen
 /// vor - siehe den Kopfkommentar von `ir_assembly`.
 ///
@@ -557,7 +557,7 @@ fn project_field(
 /// Versuch - der Beobachter ist unabhaengig und sieht ihn nie. Eine Kante
 /// dort waere eine Verknuepfung, die kein Objekt bezeugt.
 /// Zusammenbau plus die Sondierungsvermerke des Laufs, der platziert hat
-/// (Struktur 9.10: "wird hier vermerkt, nicht verworfen").
+/// (Struktur 9.10 (CellReport): "wird hier vermerkt, nicht verworfen").
 type AssembledGraph = (psk_ir::AssemblyOutcome, Vec<(ObjectId, Vec<u8>)>);
 
 /// Die Objekte, die erst NACH dem Effekt existieren (Schritte 9-12).
@@ -796,7 +796,7 @@ fn assemble_run_ir_bundle(
         witnesses: Vec::new(),
         // IRBundle.residues (R) ist das Aufloesungsuniversum der
         // Residuenverweise. Seit die Knoten `residue_refs` tragen, MUSS
-        // es sie enthalten - Vertrag 9.7s Bedingung "offene Differenzen
+        // es sie enthalten - Vertrag 9.7 (Zellclosure)s Bedingung "offene Differenzen
         // explizit residualisiert" prueft genau diese Aufloesung, und
         // ein Verweis ins Leere ist ein defekter Graph. Die Zellclosure
         // hat das sofort gemeldet, als der Rueckverweis entstand und R
@@ -837,8 +837,8 @@ fn derive_executable_check(
     // (die Felder heissen so). Der ClosureMode der Zellberichte traegt
     // dieselbe Auskunft je Zelle.
     // Kein Zellbericht traegt Substantive: alle Schliessungen sind
-    // trivial oder vakuum (Regel 9.21/9.9) - und werden genau so
-    // ausgewiesen, nicht als gepruefte Struktur (Regel 9.11).
+    // trivial oder vakuum (Regel 9.21 (Triviale Route ist eine Route)/9.9) - und werden genau so
+    // ausgewiesen, nicht als gepruefte Struktur (Regel 9.11 (Vakuum ist kein Beleg)).
     let trivially = cell_reports
         .iter()
         .all(|r| r.closure_mode != psk_topology::ClosureMode::Substantive);
@@ -900,7 +900,7 @@ fn derive_executable_check(
     }
 }
 
-/// Vertrag 9.7 ueber dem konkreten Graphen: Kontext aus Buendel (W, R, T)
+/// Vertrag 9.7 (Zellclosure) ueber dem konkreten Graphen: Kontext aus Buendel (W, R, T)
 /// und versiegelten Registern bauen, alle 18 Zellen schliessen.
 fn stage_closure(
     workspace_root: &std::path::Path,
@@ -961,8 +961,8 @@ fn glue_projections(
 
 /// Schritt 8 (Patchplan/Gate): G-EFFECT ist order 2 (gate_registry.yaml) -
 /// dasselbe Muster wie G-BOOT/G-RELEASE (siehe Modulkopf).
-/// Schritt 7b - Challenge (Definition 14.2: "Alle Kapseln im
-/// Kapselfixpunkt oder RESIDUAL"; Algorithmus 11.19: `capsules =
+/// Schritt 7b - Challenge (Definition 14.2 (Phasen-Modul-Bindung): "Alle Kapseln im
+/// Kapselfixpunkt oder RESIDUAL"; Algorithmus 11.19 (Normativer Compilerlauf): `capsules =
 /// C7_adversarial_canonicalize(profile.quotient_classes)`).
 ///
 /// JE Quotientenklasse eine Kapsel - der Lauf hat genau eine Klasse
@@ -974,7 +974,7 @@ fn glue_projections(
 /// KAPSELFIXPUNKT in Runde 1, nicht Budget-RESIDUAL - im Lauf existiert
 /// kein Widerlegungserzeuger (der Falsifikator ist ein Label ohne
 /// Verhalten), also ueberlebt der eine Kandidat und
-/// `allowed_next(ratchet(c)) == allowed_next(c)` (Definition 22.2).
+/// `allowed_next(ratchet(c)) == allowed_next(c)` (Definition 22.2 (Kapselfixpunkt)).
 struct ChallengeOutcome {
     capsule: psk_types::objects::CandidateCapsule,
     reached_fixpoint: bool,
@@ -1032,7 +1032,7 @@ fn run_challenge(
             coupling: vec![],
             // Der eine Aenderungsvorschlag, ueber seinen realen Plandigest
             // benannt - die groesste Nachfolgemenge, die diese Kapsel je
-            // haben wird (Invariante 12.6).
+            // haben wird (Invariante 12.6 (Monotone Kontraktion)).
             allowed_next: vec![psk_types::objects::CapsuleId(plan_digest.to_string())],
         },
     )?;
@@ -1044,7 +1044,7 @@ fn run_challenge(
     // zu verkleinern hatte.
     // Das Budget kommt aus der EINEN deklarierten Quelle (siehe
     // GOLDEN_RUN_RATCHET_MAX_ROUNDS: derselbe Wert steht im
-    // RunDescriptor, Regel 12.7 / v1.0.26).
+    // RunDescriptor, Regel 12.7 (Selektionsdruck) / v1.0.26).
     let survivors: Vec<psk_types::objects::CapsuleId> = capsule
         .allowed_next
         .iter()
@@ -1093,7 +1093,7 @@ fn run_challenge(
     }
     let reached_fixpoint = psk_adversarial::is_capsule_fixpoint(&before, &after);
 
-    // Pass C8, Definition 11.11: fuenf Pfade, "innerhalb des geltenden
+    // Pass C8, Definition 11.11 (Perkolationssupport): fuenf Pfade, "innerhalb des geltenden
     // Horizonts DEFINIERT" - definiert, nicht bestanden. Zwei Werte sind
     // aus realen Objekten BERECHNET, drei sind deklariert und benennen
     // ihre maschinenlesbare Quelle. Keiner ist gesetzt, damit die Kapsel
@@ -1115,7 +1115,7 @@ fn run_challenge(
         // die Gatberichte tragen).
         replay: true,
         // BudgetSpec der Feldfamilie plus das deklarierte Rundenbudget
-        // (Regel 12.7) - beide Ressourcenerklaerungen existieren.
+        // (Regel 12.7 (Selektionsdruck)) - beide Ressourcenerklaerungen existieren.
         resource: true,
         // BERECHNET: keine Kopplung vorhanden, also keine unaufgeloeste.
         coupling: capsule.coupling.is_empty(),
@@ -1241,7 +1241,7 @@ fn run_isolated_candidate(
 struct SelfCompileOutcome {
     proposal: psk_types::objects::RevisionProposal,
     gate_report: psk_types::objects::GateReport,
-    /// Die Residuen der Gateauswertung (Algorithmus 18.6: jede
+    /// Die Residuen der Gateauswertung (Algorithmus 18.6 (Gate-Auswertung): jede
     /// Nicht-PASS-Entscheidung MUSS residualisiert werden) - eigenes
     /// Ledger, weil der Schritt nach den Laeufen liegt.
     residues: Vec<psk_types::objects::ResidueRecord>,
@@ -1448,6 +1448,30 @@ fn evaluate_patch_gate(
     )
 }
 
+/// Die exklusive Leitung zum Effektkind (Regel 20.6 (Vorzustand und Versuch klammern den Effekt)).
+///
+/// `ChildProcess::shutdown` nimmt `self` by value, `ExclusiveLine`
+/// braucht `&mut self` - deshalb der Halter. Er ist kein Trick, sondern
+/// die Stelle, an der das Halten sichtbar wird: solange `Some`, ist es
+/// DIESELBE Leitung; nach `shutdown` ist sie fort und kann nicht
+/// versehentlich neu erzeugt werden.
+struct HeldChild(Option<psk_lifecycle::ChildProcess>);
+
+impl psk_effect::ExclusiveLine for HeldChild {
+    fn request(&mut self, request: &psk_types::Msg) -> Result<psk_types::Msg, PskError> {
+        self.0
+            .as_mut()
+            .ok_or(PskError::EffectWithoutToken)?
+            .request(request)
+    }
+    fn shutdown(&mut self) -> Result<(), PskError> {
+        match self.0.take() {
+            Some(child) => child.shutdown(),
+            None => Ok(()),
+        }
+    }
+}
+
 /// Schritte 9-10: EffectToken ausstellen, Patch in der Sandbox ausfuehren.
 /// Schritte 9-10, P22/P23 (v1.0.13/P24a): EffectToken/EffectAttempt ueber
 /// eine echte, von M26 gespawnte Prozessgrenze - dasselbe Muster wie
@@ -1485,43 +1509,42 @@ fn issue_and_execute(
         },
     )?;
 
+    // Ablaufpruefung und Einmalverbrauch macht `execute_effect` selbst -
+    // sie IST die Schwelle aus Invariante 20.4 (Kein Effekt ohne Token). Hier stand beides
+    // frueher noch einmal von Hand, weil der Effekt an der Schwelle
+    // vorbeilief; jetzt waere es ein zweiter Verbrauch desselben Tokens.
     let mut ledger = TokenLedger::new();
     ledger.register(&token);
-    psk_effect::check_not_expired(&token, run_time().tau_i)?;
-    ledger.consume_once(&token.idempotency_key)?;
 
     let exe = psk_lifecycle::sibling_binary_path("effect-local-fs")?;
-    let mut child = psk_lifecycle::ChildProcess::spawn(
+    let child = psk_lifecycle::ChildProcess::spawn(
         &exe,
         &[sandbox_root.to_str().ok_or(PskError::UntypedInput)?],
         Some(sandbox_root),
     )?;
 
-    let apply_payload = serde_json::to_vec(&psk_effect::EffectApplyRequest {
-        token: token.clone(),
-        started_at: run_time(),
-    })
-    .map_err(|_| PskError::CanonicalizationFailed)?;
-    let request = Msg {
-        msg_id: Ulid(1),
-        port_id: psk_types::PortId::P22,
-        r#type: MessageType::Request,
-        schema_id: SchemaId(psk_effect::SCHEMA_APPLY_REQUEST.to_string()),
-        producer: ModuleId::EffectTokenService,
-        consumer: ModuleId::EffectBoundary,
-        run_id: RunId("golden-run".into()),
-        seq: 1,
-        input_digests: vec![],
-        created_at: run_time(),
-        trace_parent: TraceRef(Digest::sha256(b"golden-run-apply-request")),
-        payload_digest: Digest::sha256(&apply_payload),
-        payload: apply_payload,
-        signature: None,
-    };
-    let response = child.request(&request)?;
-    let attempt: EffectAttempt =
-        serde_json::from_slice(&response.payload).map_err(|_| PskError::CanonicalizationFailed)?;
-    child.shutdown()?;
+    // Regel 20.6 (Vorzustand und Versuch klammern den Effekt): der
+    // Adapter HAELT die Leitung ueber beide Aufrufe. Vorher spawnte
+    // dieser Code das Kind selbst und sprach das Protokoll direkt - an
+    // der Warteschlangenform vorbei und ohne Vorzustand. Jetzt geht
+    // beides durch `execute_effect`, also durch dieselbe Schwelle, die
+    // auch die Execute-Phase benutzt (Invariante 20.4 (Kein Effekt ohne Token): kein Effekt ohne
+    // Token).
+    let mut adapter = psk_effect::ProcessEffectAdapter::new(
+        HeldChild(Some(child)),
+        psk_types::objects::AdapterId("effect-local-fs".into()),
+        RunId("golden-run".into()),
+    );
+    // Erste Klammerhaelfte, auf derselben Leitung wie der Versuch.
+    let _prestate = psk_effect::EffectAdapter::prestate(&mut adapter, &token.scope);
+    let attempt = psk_effect::execute_effect(
+        &mut ledger,
+        &token,
+        run_time().tau_i,
+        run_time(),
+        &mut adapter,
+    )?;
+    adapter.shutdown()?;
 
     let _ = trace_ref;
     // Der EffectToken wird mit herausgegeben, nicht mehr verworfen: er ist
@@ -1623,13 +1646,17 @@ fn run_reconciliation(
 
 /// Schritt 13, Zertifikatsteil. `replay_class` kommt vom Aufrufer - siehe
 /// `run_golden_run_with_certificate`, wo er aus einem echten Vergleich
-/// zweier Laeufe folgt (Definition 22.1: keine Eigenschaft eines
+/// zweier Laeufe folgt (Definition 22.1 (Replayklassen): keine Eigenschaft eines
 /// einzelnen Laufs).
 fn issue_golden_run_certificate(
     reconciliation: &ReconciliationReport,
     replay_class: MachineCertificateReplayClassKind,
     trace_head: Digest,
     replay_manifest_digest: Digest,
+    // Der reale Laufzustandsdigest (Regel 6.10 (Vier Identitäten)). Als Parameter, nicht
+    // hier gebildet: wer das Zertifikat ausstellt, kennt den Zustand
+    // nicht - er bekommt ihn.
+    i_t: Digest,
 ) -> Result<MachineCertificate, PskError> {
     let acceptance = AdditionalAcceptance {
         artifact_conformant: true,
@@ -1651,7 +1678,20 @@ fn issue_golden_run_certificate(
         i_c: Digest::sha256(b"golden-run-i-c"),
         i_a: Digest::sha256(b"golden-run-i-a"),
         i_m: Digest::sha256(b"golden-run-i-m"),
-        i_t: Digest::sha256(b"golden-run-i-t"),
+        // I_t = H(Can(Sigma_t)), Regel 6.10 (Vier Identitäten). Hier stand bis v1.0.38
+        // `Digest::sha256(b"golden-run-i-t")` - eine KONSTANTE an der
+        // Stelle einer der vier Systemidentitaeten, fuenfte Instanz der
+        // Erfindungsklasse und die erste im ausgestellten Artefakt. Ein
+        // Zertifikat mit konstantem I_t bezeugt keinen Zustand.
+        //
+        // Der Wert kommt jetzt aus dem realen Laufzustand, den Boot-
+        // Schritt 12 bildet. Solange die dreizehn Schritte noch nicht
+        // unter tick laufen (Regel 24.4), ist das der Zustand VOR den
+        // Schritten - richtig gerechnet, aber noch nicht der Zustand
+        // NACH den Takten, den das Zertifikat meint. Gemeldet, nicht
+        // ueberspielt: eine Konstante waere schlechter als ein
+        // ehrlicher Zwischenstand.
+        i_t,
         features,
         acceptance,
         replay_class,
@@ -1677,9 +1717,9 @@ fn issue_golden_run_certificate(
     })
 }
 
-/// Orchestriert alle 13 Schritte aus Regel 24.3 gegen eine echte,
+/// Orchestriert alle 13 Schritte aus Regel 24.3 (Golden-Run-Ablauf) gegen eine echte,
 /// vom Aufrufer bereitgestellte Sandbox (kein `/tmp`-Zufallspfad hier -
-/// Determinismus/Reproduzierbarkeit ist Definition 24.2's eigene Anforderung).
+/// Determinismus/Reproduzierbarkeit ist Definition 24.2 (Golden Run)'s eigene Anforderung).
 pub fn run_golden_run(
     workspace_root: &Path,
     sandbox_root: &Path,
@@ -1687,7 +1727,7 @@ pub fn run_golden_run(
     fs::create_dir_all(sandbox_root).map_err(|_| PskError::UntypedInput)?;
 
     let mut trace = TraceStore::new();
-    // T-RES-001/Algorithmus 18.6: `evaluate_gate` selbst haengt jetzt jede
+    // T-RES-001/Algorithmus 18.6 (Gate-Auswertung): `evaluate_gate` selbst haengt jetzt jede
     // Auswertung an `trace` und residualisiert jede Nicht-PASS-Entscheidung
     // hier - eine Sammelablage fuer den gesamten Lauf, nicht pro Aufruf neu.
     let mut residues = ResidueLedger::new();
@@ -1759,7 +1799,7 @@ pub fn run_golden_run(
     // Schritt 6 in Passordnung C4->C9: erst der Abhaengigkeitsquotient
     // (er speist Knoten und shares_source-Kanten des Graphen), dann der
     // COMPILE-Graph (ohne die Effektobjekte der Schritte 9-12, die es
-    // noch nicht gibt), dann Vertrag 9.7 ueber alle 18 Zellen, und erst
+    // noch nicht gibt), dann Vertrag 9.7 (Zellclosure) ueber alle 18 Zellen, und erst
     // daraus das Verkleben - cells_closed ist ab hier ein Messwert.
     let dependency_profile = quotient_projections(&field_projections)?;
     let (compile_ir, compile_probes) = assemble_run_ir_bundle(
@@ -1901,7 +1941,7 @@ pub fn run_golden_run(
         // Die Werte des klassifizierten Subjekts, nicht eine Vorgabe:
         // reality_status aus der einzigen Klassifikation des Laufs,
         // facticity aus derselben (sie kopiert die des ThoughtBody,
-        // Regel 7.12).
+        // Regel 7.12 (Klassifikation ist ein eigenes Objekt)).
         reality.reality_status,
         reality.facticity,
     )?;
@@ -1914,7 +1954,7 @@ pub fn run_golden_run(
     )?;
     let _ = after_reconciliation;
 
-    // Compile (Definition 14.2, M10+M23): "IRBundle als Kandidat
+    // Compile (Definition 14.2 (Phasen-Modul-Bindung), M10+M23): "IRBundle als Kandidat
     // vorhanden." Der Schritt steht hier und nicht direkt nach dem
     // Abhaengigkeitsquotienten, weil die Endpunkte von `permits` und
     // `feeds` erst jetzt existieren - ein frueherer Zusammenbau haette
@@ -1937,7 +1977,7 @@ pub fn run_golden_run(
         trace.head(),
         residues.all(),
     )?;
-    // Vertrag 9.7 ueber dem FINALEN Graphen - er traegt auch die
+    // Vertrag 9.7 (Zellclosure) ueber dem FINALEN Graphen - er traegt auch die
     // Effektobjekte und entscheidet die EXECUTABLE-Frage.
     let cell_reports = stage_closure(
         workspace_root,
@@ -1987,8 +2027,8 @@ pub fn run_golden_run(
 }
 
 /// Fuehrt den Lauf zweimal gegen dieselbe Sandbox aus und bildet daraus
-/// Schritt 13 (Regel 24.3: "Maschinenzertifikat UND Replaymanifest
-/// exportieren" - beide sind genannt, keine Option). Definition 22.1
+/// Schritt 13 (Regel 24.3 (Golden-Run-Ablauf): "Maschinenzertifikat UND Replaymanifest
+/// exportieren" - beide sind genannt, keine Option). Definition 22.1 (Replayklassen)
 /// definiert die Replayklasse als Eigenschaft eines VERGLEICHS zweier
 /// Laeufe, nicht eines einzelnen - deshalb laeuft `run_golden_run` hier
 /// zweimal, bevor `issue_certificate` (Vertrag 22.4: mindestens R2 als
@@ -2026,7 +2066,7 @@ pub fn run_golden_run_with_certificate(
     };
     // Close720-Schenkel 3 (Replay(Phi^2) ==can x): mit Phi = I (Regel
     // 9.21) ist das die kanonische Replaygleichheit des Laufs selbst -
-    // genau das, was dieser Zweitlauf misst (Definition 22.1, R2:
+    // genau das, was dieser Zweitlauf misst (Definition 22.1 (Replayklassen), R2:
     // kanonischer Digest und Gatefolge). Erst hier wird der Schenkel
     // bestimmbar; der Einzellaufbericht traegt None.
     let mut first = first;
@@ -2101,6 +2141,7 @@ pub fn run_golden_run_with_certificate(
         replay_class,
         first.trace_head,
         replay_manifest_digest,
+        first.boot_report.identity.I_t,
     )?;
 
     let self_compile = propose_and_evaluate_self_compile(
@@ -2178,7 +2219,7 @@ mod tests {
             report.boot_report.posture,
             psk_types::objects::Releaseposture::ConformantLimited
         );
-        // T-RES-001/Algorithmus 18.6: da sowohl Bootgate als auch spaeter
+        // T-RES-001/Algorithmus 18.6 (Gate-Auswertung): da sowohl Bootgate als auch spaeter
         // Patchgate (G-EFFECT) in diesem Szenario PASS erreichen, entsteht
         // hier - richtigerweise - kein einziges Residuum. Siehe die
         // Schwesterdatei psk-contract/src/boot.rs fuer den expliziten
@@ -2202,7 +2243,7 @@ mod tests {
         assert_eq!(
             report.field_projections.len(),
             6,
-            "sechs Archetypen (Regel 32.7)"
+            "sechs Archetypen (Regel 32.7 (Feldfamilie der Referenzdomäne))"
         );
         assert!(
             report.glue.hold_reason.is_none(),
@@ -2247,12 +2288,12 @@ mod tests {
             "CLOSED beabsichtigt ACTUALIZED; NONE hier heisst: die Sperre griff"
         );
 
-        // Challenge (Definition 14.2): der gemessene Ausgang ist der
+        // Challenge (Definition 14.2 (Phasen-Modul-Bindung)): der gemessene Ausgang ist der
         // KAPSELFIXPUNKT in Runde 1, nicht Budget-RESIDUAL - im Lauf
         // existiert kein Widerlegungserzeuger, der eine Kandidat
-        // ueberlebt, allowed_next bleibt gleich (Definition 22.2). Die
+        // ueberlebt, allowed_next bleibt gleich (Definition 22.2 (Kapselfixpunkt)). Die
         // Supportentscheidung fiel positiv (alle fuenf Pfade definiert,
-        // Definition 11.11), also SUPPORTED.
+        // Definition 11.11 (Perkolationssupport)), also SUPPORTED.
         // Schritt 2/3: beide Widerspruchsarten identifiziert, jede mit
         // bestimmter Geltung. Die Kontrollmenge des Korpus stellt sicher,
         // dass hier nicht einfach alles als widerspruechlich gilt.
@@ -2319,7 +2360,7 @@ mod tests {
 
     #[test]
     fn boot_still_holds_for_a_bundle_whose_constitution_is_not_yet_sealed() {
-        // Regel 17.2s undecidable->hold-Pfad darf durch die M00/M02/M04-
+        // Regel 17.2 (Bootpolitik)s undecidable->hold-Pfad darf durch die M00/M02/M04-
         // Realisierung nicht verschwinden - nur der DEFAULT-Fall (echter,
         // versiegelter Workspace) aendert sich von HOLD auf PASS. Diese
         // Kopie versiegelt eine echte, real schemakonforme Architektur,

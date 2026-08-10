@@ -1,5 +1,5 @@
 //! Algorithmus 14.4 (Tick) end-to-end gegen die realen Phasenempfaenger,
-//! plus T-REPLAY-002s Negativnachweis (Regel 22.3: Replay laeuft unter
+//! plus T-REPLAY-002s Negativnachweis (Regel 22.3 (Replay läuft unter shadow): Replay laeuft unter
 //! shadow).
 
 use std::collections::BTreeMap;
@@ -202,7 +202,7 @@ fn a_type_phase_item_reaches_its_real_receiver_and_lands_in_sigma() {
     tick(&mut sigma, &rd, queues, time(), &mut Profiling::off()).unwrap();
 
     // M06 compile_thought hat real gelaufen: der ThoughtBody liegt in Sigma
-    // und traegt Regel 5.10s Anfangswerte.
+    // und traegt Regel 5.10 (Schreibpfad der Statusfelder)s Anfangswerte.
     assert_eq!(sigma.thoughts.len(), 1);
     assert_eq!(
         sigma.thoughts[0].reality_status,
@@ -218,7 +218,7 @@ fn a_type_phase_item_reaches_its_real_receiver_and_lands_in_sigma() {
 
 #[test]
 fn an_exhausted_budget_opens_a_residue_and_skips_the_item() {
-    // Algorithmus 14.4: "if budget.exhausted: M19.residue(item, kind:
+    // Algorithmus 14.4 (Tick): "if budget.exhausted: M19.residue(item, kind:
     // budget); continue" - Vertrag 14.11, HOLD statt stillem Saettigen.
     let mut sigma = Sigma::new(manifest(ProfileId::Reference), tiny_budget());
     let rd = run_descriptor();
@@ -293,6 +293,31 @@ struct RecordingAdapter {
     applied: std::sync::atomic::AtomicBool,
 }
 
+impl RecordingAdapter {
+    /// Der geteilte Kern hinter den beiden klammernden Methoden. Er
+    /// nimmt `&self`, weil `applied` atomar ist - die `&mut`-Signatur
+    /// des Traits ist die Klammer (Regel 20.6), keine Speicherbedingung.
+    fn prestate_shared(&self, _scope: &ScopeExpr) -> Digest {
+        Digest::sha256(b"pre")
+    }
+    fn apply_shared(&self, token: &EffectToken, started_at: DualTime) -> EffectAttempt {
+        self.applied
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        EffectAttempt {
+            id: ObjectId::new(SortId::Effect, Digest::sha256(b"attempt")),
+            token_ref: token.id,
+            adapter: AdapterId("recording".into()),
+            prestate_digest: Digest::sha256(b"pre"),
+            plan_digest: token.plan_digest,
+            started_at,
+            ended_at: None,
+            outcome: psk_types::objects::EffectAttemptOutcomeKind::Completed,
+            error: None,
+            compensation_ref: None,
+        }
+    }
+}
+
 impl psk_effect::EffectAdapter for RecordingAdapter {
     fn id(&self) -> AdapterId {
         AdapterId("recording".into())
@@ -303,24 +328,11 @@ impl psk_effect::EffectAdapter for RecordingAdapter {
     fn required_capabilities(&self) -> Vec<CapabilityId> {
         vec![CapabilityId("fs.write.sandbox".into())]
     }
-    fn prestate(&self, _scope: &ScopeExpr) -> Digest {
-        Digest::sha256(b"pre")
+    fn prestate(&mut self, scope: &ScopeExpr) -> Digest {
+        self.prestate_shared(scope)
     }
-    fn apply(&self, token: &EffectToken, started_at: DualTime) -> EffectAttempt {
-        self.applied
-            .store(true, std::sync::atomic::Ordering::SeqCst);
-        EffectAttempt {
-            id: ObjectId::new(SortId::Effect, Digest::sha256(b"attempt")),
-            token_ref: token.id,
-            adapter: self.id(),
-            prestate_digest: Digest::sha256(b"pre"),
-            plan_digest: token.plan_digest,
-            started_at,
-            ended_at: None,
-            outcome: psk_types::objects::EffectAttemptOutcomeKind::Completed,
-            error: None,
-            compensation_ref: None,
-        }
+    fn apply(&mut self, token: &EffectToken, started_at: DualTime) -> EffectAttempt {
+        self.apply_shared(token, started_at)
     }
     fn compensate(&self, attempt: &EffectAttempt) -> EffectAttempt {
         attempt.clone()
@@ -366,11 +378,16 @@ fn execute_queue(
         fn required_capabilities(&self) -> Vec<CapabilityId> {
             self.0.required_capabilities()
         }
-        fn prestate(&self, scope: &ScopeExpr) -> Digest {
-            self.0.prestate(scope)
+        // `RecordingAdapter` haelt seinen Zustand atomar und ist
+        // bewusst geteilt; die `&mut self`-Signatur drueckt die
+        // KLAMMER aus (Regel 20.6), nicht eine Speicherbedingung der
+        // Implementierung. Deshalb delegiert der Wrapper auf die
+        // inhaerenten `&self`-Methoden.
+        fn prestate(&mut self, scope: &ScopeExpr) -> Digest {
+            self.0.prestate_shared(scope)
         }
-        fn apply(&self, token: &EffectToken, started_at: DualTime) -> EffectAttempt {
-            self.0.apply(token, started_at)
+        fn apply(&mut self, token: &EffectToken, started_at: DualTime) -> EffectAttempt {
+            self.0.apply_shared(token, started_at)
         }
         fn compensate(&self, attempt: &EffectAttempt) -> EffectAttempt {
             self.0.compensate(attempt)
@@ -432,7 +449,7 @@ fn t_replay_002_under_shadow_the_token_is_invalidated_and_the_adapter_never_runs
 
 #[test]
 fn under_readonly_the_token_is_likewise_invalidated() {
-    // Regel 22.3: "Ein Replaylauf MUSS unter shadow ODER readonly
+    // Regel 22.3 (Replay läuft unter shadow): "Ein Replaylauf MUSS unter shadow ODER readonly
     // ausgefuehrt werden" - beide Profile fuehren keinen realen Effekt aus.
     let mut sigma = Sigma::new(manifest(ProfileId::Readonly), budget());
     let rd = run_descriptor();

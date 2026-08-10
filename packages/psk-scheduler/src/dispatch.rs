@@ -501,7 +501,7 @@ fn dispatch_inner(
                 token,
                 current_tau_i,
                 started_at,
-                adapter,
+                mut adapter,
             },
         ) => {
             let state = state.as_deref_mut().ok_or(PskError::UntypedInput)?;
@@ -531,7 +531,7 @@ fn dispatch_inner(
                         &token,
                         current_tau_i,
                         started_at.clone(),
-                        &adapter,
+                        &mut adapter,
                     )?;
                     let segment = seg(
                         ModuleId::EffectBoundary,

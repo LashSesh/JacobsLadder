@@ -46,7 +46,7 @@ impl EffectAdapter for LocalFsAdapter {
         vec![CapabilityId("fs.write.sandbox".into())]
     }
 
-    fn prestate(&self, scope: &ScopeExpr) -> Digest {
+    fn prestate(&mut self, scope: &ScopeExpr) -> Digest {
         digest_of_file(&self.sandbox_root.join(&scope.0))
     }
 
@@ -59,7 +59,7 @@ impl EffectAdapter for LocalFsAdapter {
     /// Aufrufer (`execute_effect`), nicht von diesem Adapter - siehe
     /// psk-effect::boundary::EffectAdapter-Dokumentation ("M16 fuehrt keine
     /// eigene Uhr").
-    fn apply(&self, token: &EffectToken, started_at: DualTime) -> EffectAttempt {
+    fn apply(&mut self, token: &EffectToken, started_at: DualTime) -> EffectAttempt {
         let path = self.sandbox_root.join(&token.scope.0);
         let prestate_digest = self.prestate(&token.scope);
         let content = token
@@ -155,7 +155,7 @@ mod tests {
     fn apply_writes_the_declared_content_at_the_scoped_path() {
         let dir = std::env::temp_dir().join(format!("psk-golden-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
-        let adapter = LocalFsAdapter {
+        let mut adapter = LocalFsAdapter {
             sandbox_root: dir.clone(),
         };
         let token = sample_token("patch.txt", "hello golden run", &dir);
@@ -170,7 +170,7 @@ mod tests {
     fn prestate_digest_reflects_absence_before_writing() {
         let dir = std::env::temp_dir().join(format!("psk-golden-pre-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
-        let adapter = LocalFsAdapter {
+        let mut adapter = LocalFsAdapter {
             sandbox_root: dir.clone(),
         };
         let scope = ScopeExpr("never-written.txt".into());

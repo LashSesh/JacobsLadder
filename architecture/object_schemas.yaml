@@ -9,7 +9,7 @@ schema: psk.object-schemas/1.0
 # nachgetragen in v1.0.3, Fehlerkorrektur Punkt 4; Struktur 7.15, Regel
 # 7.16/7.15/7.16), OBJ-RCL (RealityClassification, nachgetragen in
 # v1.0.7, Fehlerkorrektur Punkt 10; Struktur 7.11, Regel 7.12) und OBJ-FCT
-# (Forecast, nachgetragen in v1.0.22; Struktur 20.10, Regel 20.11). Die
+# (Forecast, nachgetragen in v1.0.22; Struktur 20.11, Regel 20.12). Die
 # ersten beiden waren jeweils schon vorher im Objektregister und an einem
 # Port gefuehrt, nur ohne Felder; OBJ-FCT fehlte ganz, obwohl der Vertrag
 # zur Prognosepersistenz seine vier Pflichtfelder seit je benannte.
@@ -508,13 +508,13 @@ objects:
 
   - id: OBJ-FCT
     name: Forecast
-    struktur: "20.10"
+    struktur: "20.11"
     schema_id: psk.forecast/1.0
     note: "Nachgetragen in v1.0.22. Vertrag Prognosepersistenz verlangte
       seit je Horizont, Erzeugungsbasis, Gueltigkeitsfenster und den
       damaligen Anker - ohne dass ein Objekt diese Felder getragen haette."
     rules:
-      - {id: "Regel 20.11", title: "Prognosen werden bewertet, nicht umgeschrieben",
+      - {id: "Regel 20.12", title: "Prognosen werden bewertet, nicht umgeschrieben",
           statement: "horizon, generation_basis, validity_window und
             anchor_ref sind nach Erzeugung unveraenderlich. Eine spaetere
             Beobachtung erzeugt ausschliesslich einen neuen Eintrag in

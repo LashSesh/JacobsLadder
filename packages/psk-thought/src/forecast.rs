@@ -1,7 +1,7 @@
-//! M07, Prognosepersistenz (Struktur 20.10 OBJ-FCT, Regel 20.11,
-//! Vertrag 20.12) - PSK-RA v1.0.22.
+//! M07, Prognosepersistenz (Struktur 20.11 (Forecast) OBJ-FCT, Regel 20.12,
+//! Vertrag 20.13 (Prognosepersistenz)) - PSK-RA v1.0.22.
 //!
-//! Regel 20.11 woertlich: "horizon, generation_basis, validity_window und
+//! Regel 20.12 woertlich: "horizon, generation_basis, validity_window und
 //! anchor_ref sind nach Erzeugung unveraenderlich. Eine spaetere
 //! Beobachtung erzeugt ausschliesslich einen neuen Eintrag in
 //! evaluations; sie DARF NICHT ein bestehendes Feld aendern und DARF
@@ -24,7 +24,7 @@
 //! `ResidueLedger`/`TraceStore` bereits tragen: das Objekt liegt in einem
 //! privaten Feld, Lesezugriff geht ueber `&`-Getter, und der einzige
 //! veraendernde Weg ist `evaluate()`, das ausschliesslich anhaengt. Was
-//! Regel 20.11 verbietet, ist damit nicht dokumentiert, sondern nicht
+//! Regel 20.12 verbietet, ist damit nicht dokumentiert, sondern nicht
 //! ausdrueckbar - `T-FORECAST-001` prueft genau das, per `compile_fail`.
 
 use psk_canon::{identity_projection, object_id, Media};
@@ -53,7 +53,7 @@ pub struct ForecastInputs {
     pub trace_ref: TraceRef,
 }
 
-/// Eine erzeugte Prognose. Die vier von Regel 20.11 geschuetzten Felder
+/// Eine erzeugte Prognose. Die vier von Regel 20.12 geschuetzten Felder
 /// sind nach der Konstruktion nicht mehr erreichbar; `evaluations` waechst
 /// ausschliesslich ueber `evaluate`.
 ///
@@ -143,7 +143,7 @@ pub struct SealedForecast {
 impl SealedForecast {
     /// Erzeugt eine Prognose. Danach gibt es keinen Weg mehr, `horizon`,
     /// `generation_basis`, `validity_window` oder `anchor_ref` zu
-    /// veraendern (Regel 20.11).
+    /// veraendern (Regel 20.12 (Prognosen werden bewertet, nicht umgeschrieben)).
     pub fn create(inputs: ForecastInputs) -> Result<Self, PskError> {
         let draft = Forecast {
             schema: "psk.forecast/1.0".to_string(),
@@ -162,7 +162,7 @@ impl SealedForecast {
         })
     }
 
-    /// Vertrag 20.12: "Spaetere Beobachtungen DARF die Prognose bewerten,
+    /// Vertrag 20.13 (Prognosepersistenz): "Spaetere Beobachtungen DARF die Prognose bewerten,
     /// DARF NICHT aber rueckwirkend in eine scheinbar korrekte Prognose
     /// umschreiben." Genau ein Anhaengen, kein Ersetzen - dieselbe Form
     /// wie `TraceStore::append`.
@@ -251,7 +251,7 @@ mod tests {
 
     #[test]
     fn a_new_forecast_carries_all_four_mandatory_fields_and_no_evaluation() {
-        // Vertrag 20.12: Horizont, Erzeugungsbasis, Gueltigkeitsfenster
+        // Vertrag 20.13 (Prognosepersistenz): Horizont, Erzeugungsbasis, Gueltigkeitsfenster
         // und der damalige Anker MUESSEN gespeichert sein.
         let f = sample();
         assert_eq!(f.horizon().0, "PT24H");
@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn t_forecast_001_a_later_observation_only_appends_and_never_replaces() {
-        // Regel 20.11 / Vertrag 20.12: bewerten ja, umschreiben nein.
+        // Regel 20.12 / Vertrag 20.13: bewerten ja, umschreiben nein.
         let mut f = sample();
         let before = f.as_object().clone();
 
@@ -290,7 +290,7 @@ mod tests {
             f.evaluations()[0].verdict,
             ForecastEvaluationVerdictKind::Refuted,
             "eine spaetere Bewertung DARF eine fruehere nicht ueberschreiben - \
-             genau die rueckwirkend korrekt erscheinende Prognose, die Vertrag 20.12 verbietet"
+             genau die rueckwirkend korrekt erscheinende Prognose, die Vertrag 20.13 verbietet"
         );
         assert_eq!(
             f.evaluations()[1].verdict,

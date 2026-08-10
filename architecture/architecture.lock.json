@@ -1,5 +1,5 @@
 {
-  "architecture_id": "757575a7401c5c5c21c561452e5bef699e7271c80e0eaf7024e3da066ea8ad1a",
+  "architecture_id": "cbd39b3198a8e37e17d1e444998a4ed413c682932fed3fc36c6d23a0bc963167",
   "computed_by": "M01.collection_digest(canon.architecture_registers), Boot-Schritt 10 (Algorithmus 17.1); IA = H(Can(architecture/*)) nach Definition 1.6 und Regel 6.10",
   "filled_in_phase": "I1 (WP01, Bundle Compiler)",
   "note": "Versiegelt ueber die 18 YAML-Register und die 18 zugehoerigen Registerschemas (36 Dateien). v1.0.10: capability_matrix.yaml ergaenzt (Struktur 19.4 - Kapitel-19.2-Capabilitymatrix, bis dahin nur im Fliesstext, kein Register; Grundlage fuer GateAuthorization/T-SEC-001). architecture_id ist bis zum naechsten lock-gen-Lauf auf null gesetzt und wird darueber neu versiegelt.",
