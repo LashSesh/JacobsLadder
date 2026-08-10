@@ -1,7 +1,7 @@
 //! Regel 24.5 (Pflichtbaselines), Baseline (i): "einen monolithischen
 //! Agenten mit demselben Modell und denselben Werkzeugen." "Demselben
 //! Modell" ist hier wie ueberall in dieser Referenzimplementierung ein
-//! typisierter Fixture-Kandidat, kein Live-Modellaufruf (Regel 27.8: ein
+//! typisierter Fixture-Kandidat, kein Live-Modellaufruf (Regel 27.8 (Rolle eines Sprachmodells): ein
 //! Sprachmodell tritt ausschliesslich als MethodPlugin auf, seine
 //! Ausgabe ist ein Kandidat, nie ein Zustand; ein echter Aufruf hier
 //! wuerde Replay/R2 fuer die gesamte Konformanzsuite brechen - siehe
@@ -9,7 +9,7 @@
 //! dasselbe Muster).
 //!
 //! "Dieselben Werkzeuge" heisst: derselbe Dateisystemzugriff auf dieselbe
-//! Referenzdomaene (Regel 32.5), NICHT dieselbe Modulstruktur - das
+//! Referenzdomaene (Regel 32.5 (Erste Domäne)), NICHT dieselbe Modulstruktur - das
 //! Gegenteil ist der Witz dieser Baseline: "eine Funktion von Auftrag zu
 //! Patch, keine FieldIdentity, kein Gate, kein Token." Es gibt deshalb
 //! absichtlich:
@@ -19,7 +19,7 @@
 //!
 //! `run_monolithic_agent` schreibt die Datei direkt. Das ist keine
 //! Nachlaessigkeit, sondern die gemessene Eigenschaft: die zehn Metriken
-//! (Regel 24.5) sollen sichtbar machen, was OHNE die konstitutionelle
+//! (Regel 24.5 (Pflichtbaselines)) sollen sichtbar machen, was OHNE die konstitutionelle
 //! Architektur passiert - allen voran "Nichtautorisierte Effekte"
 //! (Seiteneffekte ohne gueltiges Token), die hier per Konstruktion JEDEN
 //! Schreibvorgang treffen.
@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn two_runs_against_the_same_reset_sandbox_are_byte_identical() {
-        // Fixture-getrieben, kein Live-Modell (Regel 27.8) - Determinismus
+        // Fixture-getrieben, kein Live-Modell (Regel 27.8 (Rolle eines Sprachmodells)) - Determinismus
         // ist deshalb erwartbar, nicht zufaellig. Dieselbe Sandbox,
         // zurueckgesetzt zwischen den Laeufen (siehe event_sourcing.rs'
         // Testkommentar fuer die Begruendung).

@@ -191,7 +191,7 @@ impl QpmProfile {
     }
 
     /// Die Apertur eines Kanals samt ihrem Praedikat - der Beleg, den
-    /// QPM Regel 3.5 fuer jeden Schatten verlangt.
+    /// QPM Regel 3.5 (Eine Apertur erzeugt Schatten, keine Abwesenheit) fuer jeden Schatten verlangt.
     pub fn holding_aperture(
         &self,
         channel: &ChannelId,
@@ -208,7 +208,7 @@ impl QpmProfile {
             .ok_or(PskError::UntypedInput)
     }
 
-    /// QPM Regel 3.3: die vorhandenen, nicht deklarierten Kanaele mit
+    /// QPM Regel 3.3 (Scope ist explizit, nie universell): die vorhandenen, nicht deklarierten Kanaele mit
     /// ihrer Begruendung - keiner als Abwesenheit.
     pub fn undeclared_channels(&self) -> Vec<(ChannelId, String)> {
         self.undeclared.clone()

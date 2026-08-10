@@ -30,6 +30,12 @@ pub use qpm_profile::{load_qpm_profile, QpmProfile};
 
 pub use psk_fields::ChannelId;
 
+mod qpm_atlas;
+pub use qpm_atlas::{
+    atlas_digest, build_atlas, compare_atlases, seal_reproducibility, AtlasComparison,
+    SignatureAtlas, SignatureVector,
+};
+
 mod qpm_cycle;
 pub use qpm_cycle::{
     cycle_index_matches_ticks, observe_cycle, BoundaryKind, ChannelSwitchObservation, LeakStatus,

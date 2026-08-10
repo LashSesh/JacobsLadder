@@ -69,7 +69,7 @@ fn the_reference_run_is_observed_and_the_books_balance() {
         println!("  verdraengt bei {}: {:?}", node.0, classes);
     }
 
-    // QPM Regel 3.5: JEDER Schattenbeleg traegt seine Apertur - auch
+    // QPM Regel 3.5 (Eine Apertur erzeugt Schatten, keine Abwesenheit): JEDER Schattenbeleg traegt seine Apertur - auch
     // der eines Knotens, den die Praezedenz woanders zaehlt.
     assert_eq!(qpm.shadows.len(), shadow + qpm.displaced.len());
     for (node, aperture) in &qpm.shadows {
@@ -79,7 +79,7 @@ fn the_reference_run_is_observed_and_the_books_balance() {
         );
     }
 
-    // QPM Regel 3.5: eine Apertur, die alles durchlaesst, ist keine.
+    // QPM Regel 3.5 (Eine Apertur erzeugt Schatten, keine Abwesenheit): eine Apertur, die alles durchlaesst, ist keine.
     qpm.bank
         .check_predicates()
         .expect("kein stets wahres pass_predicate");
@@ -93,14 +93,14 @@ fn the_verdict_is_unknown_because_no_catalog_is_registered() {
     let run = psk_conformance::run_golden_run(&root, &sandbox).expect("Golden Run");
     let qpm = psk_conformance::observe_golden_run(&run, &root).expect("QPM-Beobachtung");
 
-    // QPM-OBL-002, ueber QPM Regel 3.3: "Fehlt catalog_ref, so endet
+    // QPM-OBL-002, ueber QPM Regel 3.3 (Scope ist explizit, nie universell): "Fehlt catalog_ref, so endet
     // jeder Lauf in UNKNOWN, nicht in FAIL."
     assert_eq!(qpm.verdict, psk_conformance::IdentityVerdict::Unknown);
     assert_ne!(qpm.verdict, psk_conformance::IdentityVerdict::Invalid);
     assert!(qpm.verdict_reason.contains("catalog_ref"));
     assert_eq!(qpm.scope.ceiling(), psk_fields::ScopeCeiling::ForcedUnknown);
 
-    // QPM Regel 4.3: die beiden Achsen sind unabhaengig. Der Lauf ist
+    // QPM Regel 4.3 (Zwei orthogonale Statusachsen): die beiden Achsen sind unabhaengig. Der Lauf ist
     // valide gemessen (RunGate PASS) UND das Verdikt ist UNKNOWN -
     // "diese Kombination ist ausdruecklich erwuenscht".
     assert_eq!(qpm.run_gate, psk_conformance::RunGate::Pass);
@@ -135,7 +135,7 @@ fn undeclared_channels_are_named_never_treated_as_absent() {
         println!("  nicht deklariert: {} - {}", channel.0, reason);
     }
 
-    // QPM Regel 3.7: der Gegenhorizont ist leer, aber begruendet - seit
+    // QPM Regel 3.7 (Gegenhorizont ist konstruiert oder begründet leer): der Gegenhorizont ist leer, aber begruendet - seit
     // v1.0.4 traegt die Struktur dafuer ein Feld.
     assert_eq!(
         qpm.counter_horizon_standing,

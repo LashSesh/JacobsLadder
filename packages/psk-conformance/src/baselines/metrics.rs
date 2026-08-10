@@ -22,7 +22,7 @@
 //!
 //! "Validierungseffizienz" (Informationsgewinn pro Probe/Zeit/Token):
 //! "Token" bedeutet hier `EffectToken` (das Werk-eigene Kapitel-19-
-//! Konzept), nicht ein LLM-Sampling-Token - Regel 27.8 verbietet echte
+//! Konzept), nicht ein LLM-Sampling-Token - Regel 27.8 (Rolle eines Sprachmodells) verbietet echte
 //! Modellaufrufe in dieser Referenzimplementierung, es gibt also keine
 //! echten Sampling-Tokens zu zaehlen. Das ist zugleich das Konzept, dessen
 //! Abwesenheit beide Baselines per Auftrag auszeichnet - eine passende,
@@ -50,7 +50,7 @@ pub struct ValidationEfficiency {
     pub gain_per_effect_token: f64,
 }
 
-/// Laufzeit, Speicher-, Kontext- und Artefaktkosten (Regel 24.5).
+/// Laufzeit, Speicher-, Kontext- und Artefaktkosten (Regel 24.5 (Pflichtbaselines)).
 /// "Speicher"/"Kontext" werden ueber Objekt-/Ereigniszahlen approximiert -
 /// diese Referenzimplementierung fuehrt kein Speicherprofiling (siehe
 /// T-OBSV-001s eigener Befund in conformance_catalog.rs).
@@ -88,7 +88,7 @@ fn scaled_to_f64(s: &psk_types::objects::Scaled) -> f64 {
 }
 
 /// Kern: real ueber `psk_lifecycle::recovery` gepruefte Wiederherstellung
-/// nach einem injizierten UNKNOWN_EFFECT (Axiom 17.7 - niemals "nicht
+/// nach einem injizierten UNKNOWN_EFFECT (Axiom 17.7 (Keine Annahme fehlender Wirkung) - niemals "nicht
 /// geschehen" annehmen). Kein Adapteraufruf noetig: die Klassifikations-
 /// /Planungslogik selbst ist das, was hier gemessen wird.
 fn kern_recovery_check() -> bool {
@@ -209,7 +209,7 @@ pub fn measure_monolithic(report: &MonolithicRunReport, replay_deviation: bool) 
     // Jede Behauptung ist unbelegt: dieser Agent kennt kein Anchor-Konzept.
     let unbound_fact_claims = report.claims_made.len();
     // Er behauptet Abschluss, ohne je zu reconciliieren - genau die in
-    // Regel 24.5 benannte Falschpromotion.
+    // Regel 24.5 (Pflichtbaselines) benannte Falschpromotion.
     let false_fact_promotions = usize::from(!report.claims_made.is_empty());
     let synthetic_majority = 0.0; // genau eine, unquotierte Meinung - nichts zu ueberzaehlen
     let unauthorized_effects = report.effects_applied.len(); // ausnahmslos, kein Token existiert

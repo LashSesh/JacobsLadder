@@ -29,7 +29,7 @@
 //! ohne die drei genannten konstitutionellen Eigenschaften".
 //!
 //! Wie bei `monolithic.rs`: "dasselbe Modell" ist ein typisierter
-//! Fixture-Kandidat, kein Live-Aufruf (Regel 27.8) - `plan_perspectives`
+//! Fixture-Kandidat, kein Live-Aufruf (Regel 27.8 (Rolle eines Sprachmodells)) - `plan_perspectives`
 //! liefert feste, deterministische Zeichenketten.
 
 use std::fs;

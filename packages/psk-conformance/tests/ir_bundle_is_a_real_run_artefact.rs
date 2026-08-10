@@ -35,28 +35,28 @@ fn the_golden_run_produces_an_ir_bundle_that_round_trips() {
         println!("     {o:?}");
     }
 
-    // Round-Trip-Pflicht (Algorithmus 10.3) am LAUFARTEFAKT, nicht an
+    // Round-Trip-Pflicht (Algorithmus 10.3 (IR-Codec)) am LAUFARTEFAKT, nicht an
     // einem Fixture: ir_encode(ir_decode(x)) == x.
     let encoded = psk_ir::ir_encode(bundle).expect("encode");
     let decoded = psk_ir::ir_decode(&encoded).expect("decode");
     let reencoded = psk_ir::ir_encode(&decoded).expect("re-encode");
     assert_eq!(
         encoded, reencoded,
-        "der Round-Trip MUSS verlustfrei sein (Algorithmus 10.3)"
+        "der Round-Trip MUSS verlustfrei sein (Algorithmus 10.3 (IR-Codec))"
     );
 
-    // Invariante 10.7: keine Kante ohne Bedingungen - und Regel 10.9: keine
+    // Invariante 10.7 (Kantenvollständigkeit): keine Kante ohne Bedingungen - und Regel 10.9 (Herkunft der Kantenbedingungen): keine
     // davon stets wahr. Das ist der Punkt der ganzen Uebung.
     for e in &bundle.graph.edges {
         assert!(
             !e.preconditions.is_empty() && !e.postconditions.is_empty(),
-            "Invariante 10.7: Kante {:?} ohne Bedingungen",
+            "Invariante 10.7 (Kantenvollständigkeit): Kante {:?} ohne Bedingungen",
             e.relation_sort
         );
         for p in e.preconditions.iter().chain(e.postconditions.iter()) {
             assert!(
                 !p.0.trim().eq_ignore_ascii_case("true") && !p.0.trim().is_empty(),
-                "Regel 10.9: stets wahres Praedikat an Kante {:?}",
+                "Regel 10.9 (Herkunft der Kantenbedingungen): stets wahres Praedikat an Kante {:?}",
                 e.relation_sort
             );
         }

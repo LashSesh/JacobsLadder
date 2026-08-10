@@ -755,7 +755,7 @@ impl psk_effect::ExclusiveLine for HeldChild {
 /// zweier Laeufe folgt (Definition 22.1 (Replayklassen): keine Eigenschaft eines
 /// einzelnen Laufs).
 /// Schritt 13, Zertifikatsteil. **Jedes Feld kommt vom Aufrufer, keines
-/// entsteht hier** - Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat):
+/// entsteht hier** - Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat):
 /// "Kein Feld eines MachineCertificate DARF einen Wert tragen, der nicht
 /// aus einem Artefakt des zertifizierten Laufes stammt."
 ///
@@ -808,21 +808,23 @@ fn issue_golden_run_certificate(
         negative_test_report_digest: reports.negative_test_report.digest,
         scope: ScopeExpr("golden-run".into()),
         issued_at: run_time(),
-        // BEFUND, gemeldet und nicht ueberspielt: Struktur 7.49 (MachineCertificate) fuehrt
-        // `signature: Signature` OHNE Fragezeichen - anders als
-        // `Msg.signature` und `EvidenceObject.signature`, die beide
-        // `Signature?` sind. Das Feld ist also pflichtig, und ein leerer
-        // Vektor ist kein Verfahren. OBL-005 (Security Reduction) macht
-        // Signaturverfahren und Schluesselhaltung domaenenabhaengig und
-        // ist `blocking_from: C4`; dieser Lauf beansprucht C0. Vertrag
-        // 7.52 (Selbstgueltigkeit) verlangt die Signatur fuer
-        // SELBSTGUELTIGKEIT, nicht fuer die Ausstellung. Lesart:
-        // ausstellbar, aber nicht selbstgueltig - und das gehoert
-        // erklaert, nicht stillschweigend getragen. Die Entscheidung
-        // liegt beim Auftraggeber; bis dahin bleibt der Wert leer UND
-        // ist durch einen Test als erklaerter Nullstand festgehalten.
+        // Regel 7.51 (Unsignierte Ausstellung unterhalb C4), seit
+        // v1.0.42 normativ und woertlich die Lesart, die dieser Lauf
+        // gemeldet hatte: "signature ist ein Pflichtfeld; ein leerer
+        // Wert ist kein Verfahren. Er ist dennoch zulaessig, solange die
+        // beanspruchte Klasse unterhalb von C4 liegt [...] Ein solches
+        // Zertifikat ist auszustellen, aber nicht selbstgueltig: es
+        // bezeugt einen Lauf und belegt sich nicht selbst. Der Nullstand
+        // MUSS als erklaerter gefuehrt werden - mit einem Nachweis, der
+        // genau in dem Moment faellt, in dem C4 erreicht wird."
+        //
+        // Der verlangte Nachweis ist
+        // `the_empty_signature_is_a_declared_null_state_not_an_oversight`
+        // in tests/every_certificate_field_is_derived.rs: er nennt die
+        // Bedingung, unter der der Nullstand zulaessig bleibt, und faellt
+        // bei C4. Der Lauf steht heute auf C3 - eine Stufe darunter.
         signature: psk_types::Signature(vec![]),
-        // Regel 7.51 (Plattformgebundene Verpflichtungsaufloesung im
+        // Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat) (Plattformgebundene Verpflichtungsaufloesung im
         // Zertifikat): der abgeleitete Vektor haelt diesen Lauf
         // unterhalb jeder Klasse, die OBL-010 (blocking_from: C4)
         // betrifft - siehe `is_relevant` in
@@ -1453,7 +1455,7 @@ pub fn run_golden_run_with_certificate(
 
     // Der Selbstkompilationsvorschlag steht JETZT vor dem Zertifikat, und
     // das ist keine Umsortierung aus Bequemlichkeit: sein GateReport ist
-    // FC7s Beleg, und Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat)
+    // FC7s Beleg, und Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat)
     // verlangt `feature_coverage` als abgeleiteten Wert. Solange das
     // Zertifikat zuerst entstand, konnte der Vektor nicht abgeleitet
     // werden - er wurde behauptet. Das Zertifikat ist das LETZTE Artefakt

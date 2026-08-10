@@ -1,4 +1,4 @@
-//! Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat), feldweise.
+//! Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat), feldweise.
 //!
 //! "Für jedes Feld MUSS ein Test die Ableitung belegen, und zwar so, dass
 //! ein konstanter Wert an dieser Stelle den Test fallen lässt." Und der
@@ -70,7 +70,7 @@ fn assert_not_a_known_constant(field: &str, value: Digest) {
     for (name, c) in banned_constants() {
         assert_ne!(
             value, c,
-            "{field} traegt die Konstante sha256(\"{name}\") - Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat) verletzt"
+            "{field} traegt die Konstante sha256(\"{name}\") - Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat) verletzt"
         );
     }
     assert_ne!(value, Digest::sha256(b""), "{field} ist sha256(leer)");
@@ -78,7 +78,7 @@ fn assert_not_a_known_constant(field: &str, value: Digest) {
 
 // ------------------------------------------------- Punkt 1: I_C, I_A, I_M
 
-/// Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat) Punkt 1: "I_C, I_A, I_M sind die Werte der IdentityBinding
+/// Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat) Punkt 1: "I_C, I_A, I_M sind die Werte der IdentityBinding
 /// DESSELBEN BOOTES, nicht neu gebildete oder eingesetzte."
 ///
 /// Drei Felder, drei eigene Vergleiche - nicht ein gemeinsamer, denn ein
@@ -122,7 +122,7 @@ fn i_m_is_the_identity_binding_of_the_same_boot() {
 
 // ---------------------------------------------------------- Punkt 2: I_t
 
-/// Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat) Punkt 2: "I_t ist H(Can(Sigma_t)) NACH DEN TAKTEN."
+/// Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat) Punkt 2: "I_t ist H(Can(Sigma_t)) NACH DEN TAKTEN."
 #[test]
 fn i_t_is_the_state_after_the_ticks() {
     let c = certified("i-t");
@@ -140,7 +140,7 @@ fn i_t_is_the_state_after_the_ticks() {
 
 // ------------------------------------------- Punkt 3: die vier Berichte
 
-/// Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat) Punkt 3: "die vier Berichtsdigests sind Digests der
+/// Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat) Punkt 3: "die vier Berichtsdigests sind Digests der
 /// TATSAECHLICH AGGREGIERTEN Berichte."
 ///
 /// Die Gegenprobe steckt in der Aggregation selbst: derselbe Aufruf ueber
@@ -235,7 +235,7 @@ fn the_four_report_digests_are_four_distinct_values() {
 
 // ------------------------------------------- Punkt 4: feature_coverage
 
-/// Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat) Punkt 4: "feature_coverage ist ABGELEITET, nicht
+/// Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat) Punkt 4: "feature_coverage ist ABGELEITET, nicht
 /// beansprucht." Der Beleg: derselbe Vektor entsteht noch einmal aus der
 /// realen Evidenz - und die Ableitung nennt je Merkmal ihren Grund.
 #[test]
@@ -291,7 +291,7 @@ fn the_conformance_class_follows_from_derived_inputs_only() {
 
 // ---------------------------------------------------- Punkt 5: trace_head
 
-/// Regel 7.51 (plattformgebundeneverpflichtungsaufloesungimzertifikat) Punkt 5: "trace_head ist der Kopf der KETTE DIESES LAUFES."
+/// Regel 7.53 (plattformgebundeneverpflichtungsaufloesungimzertifikat) Punkt 5: "trace_head ist der Kopf der KETTE DIESES LAUFES."
 #[test]
 fn the_trace_head_is_the_head_of_this_runs_chain() {
     let c = certified("trace");
@@ -315,7 +315,7 @@ fn the_trace_head_is_the_head_of_this_runs_chain() {
 /// Fragezeichen - das Feld ist pflichtig, und ein leerer Vektor ist kein
 /// Verfahren. OBL-005 (Security Reduction) macht Signaturverfahren und
 /// Schluesselhaltung domaenenabhaengig, `blocking_from: C4`; dieser Lauf
-/// beansprucht C0. Vertrag 7.52 (Selbstgueltigkeit) verlangt die Signatur
+/// beansprucht C0. Vertrag 7.54 (selbstgueltigkeit) verlangt die Signatur
 /// fuer SELBSTGUELTIGKEIT, nicht fuer die Ausstellung.
 ///
 /// Der Test haelt beide Seiten fest: dass die Signatur leer IST und dass

@@ -1,6 +1,6 @@
 //! Die vier Berichtsdigests des Maschinenzertifikats, real aggregiert.
 //!
-//! Struktur 7.49 verlangt in `MachineCertificate` vier Digests, die auf
+//! Struktur 7.49 (MachineCertificate) verlangt in `MachineCertificate` vier Digests, die auf
 //! Berichte zeigen: `gate_report_digest`, `residue_report_digest`,
 //! `capability_audit_digest`, `negative_test_report_digest`. Drei davon
 //! stehen namentlich unter den acht Pflichtberichten. Ein Platzhalter an
@@ -10,7 +10,7 @@
 //! ## Warum die Wanduhr nicht in diesen Digests steht
 //!
 //! `GateReport.decided_at` und `ResidueRecord.opened_at` sind `DualTime`
-//! und tragen `tau_e`. Invariante 6.14 haelt die Wanduhr aus Digests
+//! und tragen `tau_e`. Invariante 6.14 (Replayneutralität der Wanduhr) haelt die Wanduhr aus Digests
 //! heraus. Zwei Schichten sorgen dafuer, und es ist wichtig, sie nicht zu
 //! verwechseln:
 //!
@@ -284,7 +284,7 @@ mod tests {
         }
     }
 
-    /// Invariante 6.14, an der Stelle gemessen, an der sie hier greift.
+    /// Invariante 6.14 (Replayneutralität der Wanduhr), an der Stelle gemessen, an der sie hier greift.
     ///
     /// Der Nachweis MUSS hier stattfinden und nicht am Golden Run: dessen
     /// Uhr ist eine Konstante ("2026-08-05T00:00:00.000000000Z" in beiden
@@ -302,7 +302,7 @@ mod tests {
         let b = Report::new("g", json!({"gates": [gate_entry(&late)]})).expect("digest");
         assert_eq!(
             a.digest, b.digest,
-            "die Wanduhr DARF NICHT im Berichtsdigest stehen (Invariante 6.14)"
+            "die Wanduhr DARF NICHT im Berichtsdigest stehen (Invariante 6.14 (Replayneutralität der Wanduhr))"
         );
 
         // Positivkontrolle: ohne die Auslassung waeren es zwei

@@ -1,9 +1,9 @@
-//! Vertrag 9.7 ueber dem realen Graphen des Golden Run - und die
+//! Vertrag 9.7 (Zellclosure) ueber dem realen Graphen des Golden Run - und die
 //! EXECUTABLE-Frage, ehrlich beantwortet.
 //!
 //! Bis v1.0.34 war `close_all_18` ein Stub und `glue` bekam ein
 //! hartkodiertes `cells_closed: true`. Jetzt misst der Lauf: alle 18
-//! Zellen schliessen, ein Teil davon VAKUUM (Regel 9.9 verlangt, genau
+//! Zellen schliessen, ein Teil davon VAKUUM (Regel 9.9 (Leere Zelle schließt vakuum, aber nicht stillschweigend) verlangt, genau
 //! das auszuweisen: "18 geschlossen, davon N vakuum", nicht "18
 //! geschlossen"), und EXECUTABLE scheitert nicht mehr an der Topologie,
 //! sondern am blockierenden Residuum des offen gebliebenen
@@ -18,13 +18,17 @@ fn all_18_cells_close_and_the_vacuum_ones_are_disclosed() {
     let report = psk_conformance::run_golden_run(&root, &sandbox).expect("Golden Run");
 
     let reports = &report.cell_reports;
-    assert_eq!(reports.len(), 18, "Definition 9.4: |Delta| = 18");
+    assert_eq!(
+        reports.len(),
+        18,
+        "Definition 9.4 (Zellklassen): |Delta| = 18"
+    );
     assert!(
         psk_topology::all_18_closed(reports),
-        "Vertrag 9.7 ueber dem realen Graphen"
+        "Vertrag 9.7 (Zellclosure) ueber dem realen Graphen"
     );
 
-    // Regel 9.9, Zaehlpflicht. Die genaue Zahl ist inhaltsadressiert
+    // Regel 9.9 (Leere Zelle schließt vakuum, aber nicht stillschweigend), Zaehlpflicht. Die genaue Zahl ist inhaltsadressiert
     // (H(Can(node)) mod 6) und wandert mit jedem Normdokumenttausch -
     // gepinnt wird deshalb die STRUKTUR, nicht der Zufallswert:
     let vacuum = psk_topology::vacuum_closed_count(reports);
@@ -45,16 +49,16 @@ fn all_18_cells_close_and_the_vacuum_ones_are_disclosed() {
 
     for r in reports {
         // Kein Knoten des Referenzlaufs traegt Witnessverweise - die
-        // Aufloesung ist VAKUUM wahr und steht auch so da (Regel 9.11).
+        // Aufloesung ist VAKUUM wahr und steht auch so da (Regel 9.11 (Vakuum ist kein Beleg)).
         assert_eq!(
             r.refs_resolution,
             psk_topology::RefsResolution::VacuousEmpty
         );
         match r.occupancy {
-            // Regel 9.21: max_depth = 0 -> belegte Zellen trivial.
+            // Regel 9.21 (Triviale Route ist eine Route): max_depth = 0 -> belegte Zellen trivial.
             psk_topology::Occupancy::Occupied => {
                 assert_eq!(r.closure_mode, psk_topology::ClosureMode::Trivial);
-                // Struktur 9.10: JEDE Platzierung vermerkt, alle
+                // Struktur 9.10 (CellReport): JEDE Platzierung vermerkt, alle
                 // konfliktfrei (EdgeContext::default() sondiert nicht).
                 assert!(!r.probe_notes.is_empty());
                 assert!(r.probe_notes.iter().all(|n| n.probe_steps == 0));
@@ -100,7 +104,7 @@ fn executable_fails_on_the_blocking_residue_not_on_topology() {
         x.blockers
     );
 
-    // Im Einzellauf bleibt der Replayschenkel offen (Definition 22.1:
+    // Im Einzellauf bleibt der Replayschenkel offen (Definition 22.1 (Replayklassen):
     // Replayklasse ist eine Eigenschaft eines VERGLEICHS) - also ist
     // die EXECUTABLE-Frage hier UNENTSCHIEDEN, nicht "nein".
     assert_eq!(x.close720_replay_canon_eq, None);
