@@ -84,6 +84,20 @@ use std::process::ExitCode;
 /// ein Fehler - siehe Modulkopf.
 const NAMESPACES: [&str; 2] = ["QPM", "CPSK"];
 
+/// Obergrenze der TITELLOSEN Zitate. Sie darf nur sinken.
+///
+/// Ein titelloses Zitat ist gegen Neubesetzung blind (siehe Modulkopf).
+/// Alle auf einmal zu betiteln waere eine Grossaktion; stattdessen gilt
+/// dieselbe Mechanik wie beim Testratchet: wer eine Datei anfasst,
+/// betitelt was er anfasst, und diese Stufe faellt, sobald die Zahl
+/// steigt. Das konvergiert ohne eigene Runde.
+///
+/// Beim Senken die Zahl HIER nachziehen - sonst schuetzt die Grenze den
+/// erreichten Stand nicht mehr. Genau wie die Testuntergrenzen wird sie
+/// von Hand gepflegt, weil eine automatisch nachgezogene Grenze keine
+/// Grenze ist.
+const UNTITLED_CEILING: usize = 1183;
+
 const KINDS: [&str; 8] = [
     "Struktur",
     "Regel",
@@ -544,6 +558,16 @@ fn main() -> ExitCode {
             ));
         }
     }
+    // ---- Titel-Ratchet: die Zahl der titellosen Zitate darf nur sinken.
+    let untitled = citations.len() - titled;
+    if untitled > UNTITLED_CEILING {
+        problems.push(format!(
+            "{untitled} titellose Zitierungen, Obergrenze {UNTITLED_CEILING} - \
+             ein titelloses Zitat ist gegen Neubesetzung blind. Wer eine Datei \
+             anfasst, betitelt was er anfasst; die Grenze darf nur sinken."
+        ));
+    }
+
     if register_backrefs.is_empty() {
         // Nullwache: object_schemas.yaml traegt diese Felder seit I0.
         eprintln!(
@@ -553,9 +577,11 @@ fn main() -> ExitCode {
     }
 
     eprintln!(
-        "    {} Zitierungen geprueft ({} mit Titel), {} Registerrueckverweise | PSK-RA {} Bloecke, CPSK {}, QPM {}",
+        "    {} Zitierungen geprueft ({} mit Titel, {} ohne - Grenze {}), {} Registerrueckverweise | PSK-RA {} Bloecke, CPSK {}, QPM {}",
         citations.len(),
         titled,
+        untitled,
+        UNTITLED_CEILING,
         register_backrefs.len(),
         ra_index.len(),
         cpsk_index.len(),

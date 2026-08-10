@@ -584,11 +584,17 @@ fn assemble_run_ir_bundle(
     late: Option<&LateObjects<'_>>,
     boot_report: &psk_contract::BootReport,
     trace_head: Digest,
+    opened_residues: &[psk_types::objects::ResidueRecord],
 ) -> Result<AssembledGraph, PskError> {
     use crate::ir_assembly::{build_node, edge, NodeEnvelope};
     use psk_types::objects::{RelationSortId, SortId};
 
     let trace_ref = TraceRef(trace_head);
+    // QPM Regel 3.9 baut auf diesem Rueckverweis auf: der Ledger fuehrt
+    // `origin_object` vorwaerts, der Knoten fuehrt ihn zurueck. Ohne
+    // ihn koennte die Massenklasse Residuum nie von null verschieden
+    // werden - eine Verdrahtungsluecke, keine Domaeneneigenschaft.
+    let by_origin = crate::ir_assembly::residues_by_origin(opened_residues);
     let env = NodeEnvelope {
         // Der einzige reale ContextRef des Laufs - er sitzt auf dem Anker,
         // und in genau diesem Kontext sind alle uebrigen Objekte entstanden.
@@ -600,6 +606,17 @@ fn assemble_run_ir_bundle(
         facticity: thought.facticity,
         anchor_ref: anchor.id,
         trace_ref,
+        residue_refs: Vec::new(),
+    };
+    // Je Knoten die Residuen, die IHN als Ursprung fuehren.
+    let env_for = |id: ObjectId| NodeEnvelope {
+        residue_refs: by_origin.get(&id).cloned().unwrap_or_default(),
+        context: env.context.clone(),
+        lineage: env.lineage.clone(),
+        reality_status: env.reality_status,
+        facticity: env.facticity,
+        anchor_ref: env.anchor_ref,
+        trace_ref: env.trace_ref,
     };
 
     let mut probes: Vec<(ObjectId, Vec<u8>)> = Vec::new();
@@ -608,21 +625,21 @@ fn assemble_run_ir_bundle(
         anchor,
         anchor.id,
         SortId::Anchor,
-        &env,
+        &env_for(anchor.id),
         &mut probes,
     )?);
     nodes.push(build_node(
         thought,
         thought.id,
         SortId::Context,
-        &env,
+        &env_for(thought.id),
         &mut probes,
     )?);
     nodes.push(build_node(
         reality,
         reality.id,
         SortId::Horizon,
-        &env,
+        &env_for(reality.id),
         &mut probes,
     )?);
     for f in field_identities {
@@ -630,18 +647,24 @@ fn assemble_run_ir_bundle(
             f,
             f.id,
             SortId::FieldIdentity,
-            &env,
+            &env_for(f.id),
             &mut probes,
         )?);
     }
     for p in field_projections {
-        nodes.push(build_node(p, p.id, SortId::Projection, &env, &mut probes)?);
+        nodes.push(build_node(
+            p,
+            p.id,
+            SortId::Projection,
+            &env_for(p.id),
+            &mut probes,
+        )?);
     }
     nodes.push(build_node(
         dependency_profile,
         dependency_profile.id,
         SortId::Dependency,
-        &env,
+        &env_for(dependency_profile.id),
         &mut probes,
     )?);
     if let Some(l) = late {
@@ -649,28 +672,28 @@ fn assemble_run_ir_bundle(
             l.token_obj,
             l.token_obj.id,
             SortId::Capability,
-            &env,
+            &env_for(l.token_obj.id),
             &mut probes,
         )?);
         nodes.push(build_node(
             l.attempt,
             l.attempt.id,
             SortId::Effect,
-            &env,
+            &env_for(l.attempt.id),
             &mut probes,
         )?);
         nodes.push(build_node(
             l.receipt,
             l.receipt.id,
             SortId::Receipt,
-            &env,
+            &env_for(l.receipt.id),
             &mut probes,
         )?);
         nodes.push(build_node(
             l.reconciliation,
             l.reconciliation.id,
             SortId::Reconciliation,
-            &env,
+            &env_for(l.reconciliation.id),
             &mut probes,
         )?);
     }
@@ -771,7 +794,14 @@ fn assemble_run_ir_bundle(
         dependencies: dependency_profile.id,
         // Kein EvidenceObject im Referenzlauf (siehe ir_assembly).
         witnesses: Vec::new(),
-        residues: Vec::new(),
+        // IRBundle.residues (R) ist das Aufloesungsuniversum der
+        // Residuenverweise. Seit die Knoten `residue_refs` tragen, MUSS
+        // es sie enthalten - Vertrag 9.7s Bedingung "offene Differenzen
+        // explizit residualisiert" prueft genau diese Aufloesung, und
+        // ein Verweis ins Leere ist ein defekter Graph. Die Zellclosure
+        // hat das sofort gemeldet, als der Rueckverweis entstand und R
+        // noch leer war.
+        residues: opened_residues.iter().map(|r| r.id).collect(),
         gate_reports: Vec::new(),
         trace_ref,
         opened_at: run_time(),
@@ -1743,6 +1773,7 @@ pub fn run_golden_run(
         None,
         &boot_report,
         trace.head(),
+        residues.all(),
     )?;
     let compile_cells = stage_closure(
         workspace_root,
@@ -1904,6 +1935,7 @@ pub fn run_golden_run(
         }),
         &boot_report,
         trace.head(),
+        residues.all(),
     )?;
     // Vertrag 9.7 ueber dem FINALEN Graphen - er traegt auch die
     // Effektobjekte und entscheidet die EXECUTABLE-Frage.

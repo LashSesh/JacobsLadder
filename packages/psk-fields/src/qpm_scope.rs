@@ -1,5 +1,5 @@
-//! QPM-0 und QPM-1, Objektseite: `PanopticScope` (QPM Struktur 3.2) und
-//! `ApertureBank` (QPM Struktur 3.4). Beide Profile von S-FLD, Eigner
+//! QPM-0 und QPM-1, Objektseite: `PanopticScope` (QPM Struktur 3.2 (PanopticScope)) und
+//! `ApertureBank` (QPM Struktur 3.4 (ApertureBank)). Beide Profile von S-FLD, Eigner
 //! M08 - deshalb liegen sie hier in psk-fields.
 //!
 //! ## Die QPM-eigenen Feldtypen
@@ -28,7 +28,7 @@ macro_rules! qpm_newtype {
 }
 
 qpm_newtype!(
-    /// Bindet die Domaene (QPM Struktur 3.2: "ohne ihn kein Lauf").
+    /// Bindet die Domaene (QPM Struktur 3.2 (PanopticScope): "ohne ihn kein Lauf").
     DomainContractRef
 );
 qpm_newtype!(
@@ -60,7 +60,7 @@ qpm_newtype!(
     CoverageSpec
 );
 
-/// QPM Struktur 3.2, `policies`.
+/// QPM Struktur 3.2 (PanopticScope), `policies`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScopePolicies {
     /// UNKNOWN zulaessig? Sonst Q-OPENSET FAIL.
@@ -85,7 +85,7 @@ pub struct PanopticScope {
 }
 
 /// Wie ein im Zustandsraum vorhandener Kanal zu behandeln ist, der im
-/// Scope NICHT deklariert wurde (QPM Regel 3.3).
+/// Scope NICHT deklariert wurde (QPM Regel 3.3 (Scope ist explizit, nie universell)).
 ///
 /// Der Wert `Absent` fehlt hier mit Absicht: "niemals als Abwesenheit"
 /// steht woertlich in der Regel, und ein Aufzaehlungswert, den es nicht
@@ -157,7 +157,7 @@ impl PanopticScope {
     }
 }
 
-/// Eine einzelne Apertur der Bank (QPM Struktur 3.4).
+/// Eine einzelne Apertur der Bank (QPM Struktur 3.4 (ApertureBank)).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Aperture {
     pub id: ApertureId,

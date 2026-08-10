@@ -16,7 +16,7 @@ fn the_reference_run_is_observed_and_the_books_balance() {
     assert_eq!(qpm.total_mass, mass, "die ganze Masse ist verbucht");
     assert!(
         psk_conformance::books_balanced(&qpm, mass),
-        "QPM Axiom 3.1: die Buchfuehrung geht auf"
+        "QPM Axiom 3.1 (Kein stiller Ausschluss): die Buchfuehrung geht auf"
     );
 
     println!("=== QPM-Beobachtung des Referenzlaufs ===");
@@ -31,23 +31,47 @@ fn the_reference_run_is_observed_and_the_books_balance() {
     assert_eq!(qpm.census.len(), 4);
     let visible = qpm.census[&psk_fields::MassClass::VisibleBody];
     let shadow = qpm.census[&psk_fields::MassClass::Shadow];
-    assert_eq!(
-        visible + shadow,
-        mass,
-        "Gegenhorizont und Residuum sind ueber DIESER Masse leer"
-    );
+    let residue = qpm.census[&psk_fields::MassClass::Residue];
+    let counter = qpm.census[&psk_fields::MassClass::CounterHorizon];
+    assert_eq!(visible + shadow + residue + counter, mass);
 
-    // Beides muss echt sein: es gibt Sichtbares UND Schatten. Ein Lauf,
-    // der alles durchlaesst, haette keine Apertur (QPM Regel 3.5); ein
-    // Lauf, der nichts durchlaesst, haette nichts gemessen.
+    // DREI der vier Klassen sind real belegt. Die Residuenklasse wurde
+    // erst mit v1.0.6 erreichbar: der Lauf oeffnet ein blockierendes
+    // Residuum auf den Anker, und der Anker IST ein IR-Knoten - was
+    // fehlte, war der Rueckverweis in `residue_refs`.
     assert!(visible > 0, "das Instrument erreicht etwas");
     assert!(shadow > 0, "und es erreicht nicht alles - echte Schatten");
-    println!("sichtbar {visible}, Schatten {shadow}");
+    assert!(residue > 0, "und ein Teil der Masse ist residualisiert");
+    // Gegenhorizont bleibt null: die Nullmodelle des Laufs sind
+    // Aussagen UEBER ihn, keine Knoten IN ihm - das braucht die
+    // reichere Domaene und wird nicht erzwungen.
+    assert_eq!(counter, 0);
+    println!("sichtbar {visible}, Schatten {shadow}, Residuum {residue}");
 
-    // QPM Regel 3.5: JEDER Schatten traegt die Apertur, die ihn
-    // zurueckhielt - "ein Schatten ohne benannte Apertur ist ein
-    // stiller Ausschluss".
-    assert_eq!(qpm.shadows.len(), shadow);
+    // QPM Regel 3.9 (Präzedenz unter den Erzeugern): die Praezedenz wurde AUSGEUEBT, nicht nur
+    // deklariert - und die verdraengte Klasse ist erhalten.
+    assert!(
+        !qpm.displaced.is_empty(),
+        "die Praezedenz muss an dieser Masse greifen"
+    );
+    for (node, classes) in &qpm.displaced {
+        // Residuum sticht Schatten: der Knoten zaehlt als Residuum ...
+        assert_eq!(
+            qpm.census_class_of(node),
+            Some(psk_fields::MassClass::Residue)
+        );
+        // ... und fuehrt seinen Schattenbeleg weiter mit.
+        assert!(classes.contains(&psk_fields::MassClass::Shadow));
+        assert!(
+            qpm.shadows.iter().any(|(n, _)| n == node),
+            "der ShadowRecord bleibt bestehen: {node:?}"
+        );
+        println!("  verdraengt bei {}: {:?}", node.0, classes);
+    }
+
+    // QPM Regel 3.5: JEDER Schattenbeleg traegt seine Apertur - auch
+    // der eines Knotens, den die Praezedenz woanders zaehlt.
+    assert_eq!(qpm.shadows.len(), shadow + qpm.displaced.len());
     for (node, aperture) in &qpm.shadows {
         assert!(
             qpm.bank.aperture(aperture).is_some(),
@@ -92,7 +116,7 @@ fn undeclared_channels_are_named_never_treated_as_absent() {
     let run = psk_conformance::run_golden_run(&root, &sandbox).expect("Golden Run");
     let qpm = psk_conformance::observe_golden_run(&run, &root).expect("QPM-Beobachtung");
 
-    // QPM Struktur 3.18 (SignatureAtlas) nennt neun Kanaele; der Lauf
+    // QPM Struktur 3.19 (SignatureAtlas) nennt neun Kanaele; der Lauf
     // deklariert vier. Der Titel ist kein Schmuck: dieselbe Tatsache
     // stand hier eine Runde lang OHNE ihn unter der damaligen Nummer,
     // die v1.0.5 neu besetzte - die Stelle zeigte danach stumm auf ein
@@ -194,4 +218,59 @@ fn workspace_root() -> std::path::PathBuf {
         assert!(dir.pop(), "keine Workspace-Wurzel");
     }
     dir
+}
+
+/// QPM-2: der effektive Witnessrang, gebunden statt neu gebaut - und
+/// der blockierende Negativtest `correlated-views-counted-as-independent`
+/// an genau diesem Lauf GEMESSEN.
+///
+/// Der Referenzlauf ist dafuer der richtige Fall: sechs Projektionen,
+/// die alle dieselbe eine Ankerquelle teilen. Wer sie als unabhaengig
+/// zaehlte, kaeme auf Rang sechs; der Abhaengigkeitsquotient sagt eins.
+#[test]
+fn correlated_views_are_not_counted_as_independent() {
+    let root = workspace_root();
+    let sandbox = std::env::temp_dir().join(format!("psk-qpm-r-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&sandbox);
+    let run = psk_conformance::run_golden_run(&root, &sandbox).expect("Golden Run");
+    let rank = psk_conformance::witness_rank(&run);
+
+    println!(
+        "Sichten {}, unabhaengige Klassen {}, effective_rank {} ({})",
+        rank.views, rank.independent_classes, rank.effective_rank, rank.method
+    );
+
+    // Der Rang kommt aus PSK-RAs Abhaengigkeitsquotienten, unveraendert.
+    assert_eq!(rank.effective_rank, rank.independent_classes as i64);
+
+    // Der Fall wird WIRKLICH geuebt: es gibt mehr Sichten als Klassen.
+    // Ohne diese Zeile waere der Test gruen, auch wenn der Lauf gar
+    // keine korrelierten Sichten haette - dieselbe Ueberlegung wie bei
+    // den vakuum geschlossenen Zellen.
+    assert!(
+        rank.absorbed_by_correlation() > 0,
+        "ohne korrelierte Sichten prueft dieser Test nichts: {rank:?}"
+    );
+    assert_eq!(rank.views, 6);
+    assert_eq!(
+        rank.sources, 1,
+        "eine gemeinsame Quelle - das IST die Korrelation"
+    );
+
+    // Und der Negativtest selbst.
+    assert!(
+        rank.correlated_views_not_counted_as_independent(),
+        "correlated-views-counted-as-independent: {rank:?}"
+    );
+
+    // Gegenprobe, damit das Bestehen nicht Zufall ist: haette der Lauf
+    // die Sichten als unabhaengig gezaehlt, MUESSTE der Test fallen.
+    let inflated = psk_conformance::WitnessRank {
+        effective_rank: rank.views as i64,
+        ..rank.clone()
+    };
+    assert!(
+        !inflated.correlated_views_not_counted_as_independent(),
+        "der Test muss den aufgeblaehten Rang zurueckweisen"
+    );
 }

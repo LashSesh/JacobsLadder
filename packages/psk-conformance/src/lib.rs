@@ -29,7 +29,7 @@ pub use qpm_profile::{load_qpm_profile, QpmProfile};
 mod qpm_run;
 pub use qpm_run::{
     books_balanced, census_lines, counter_horizon_note, findings_admissible, observe_golden_run,
-    IdentityVerdict, QpmRunReport, RunGate,
+    witness_rank, IdentityVerdict, QpmRunReport, RunGate, WitnessRank,
 };
 
 mod ir_assembly;

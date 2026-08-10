@@ -12,11 +12,10 @@
 //! keine Auswahl unter vier Moeglichkeiten, sondern eine Buchfuehrung,
 //! die aufgehen muss.
 //!
-//! ## Jede Klasse hat genau einen Erzeuger
+//! ## Jede Klasse hat genau einen Erzeuger - und eine Praezedenz
 //!
 //! QPM Regel 3.8 (Die vier Massenklassen und ihre Erzeuger) macht die
-//! Zuordnung ableitbar - bis v1.0.2 musste sie noch vom Aufrufer
-//! kommen, weil ApertureBank und CounterHorizon keine Struktur hatten:
+//! Zuordnung ableitbar:
 //!
 //! | Klasse            | Erzeuger      | Beleg                        |
 //! |-------------------|---------------|------------------------------|
@@ -25,15 +24,33 @@
 //! | Gegenhorizont     | CounterHorizon| Nullmodell/begr. Ausschluss  |
 //! | Residuum          | M19           | ResidueRecord                |
 //!
-//! Die Klasse wird deshalb ABGELEITET: `account_mass` fragt die vier
-//! Erzeuger, statt eine Zuordnung entgegenzunehmen. Was kein Erzeuger
-//! hervorbringt, ist `dropped-occlusion` - und ein Schatten ohne
-//! benannte Apertur laesst sich gar nicht erst bauen (QPM Regel 3.5:
-//! "Ein Schatten ohne benannte Apertur ist ein stiller Ausschluss"),
-//! weil `ShadowRecord` die Apertur als Feld verlangt.
+//! Die drei Nichtdurchlassklassen sind ueber realer Masse NICHT von
+//! selbst disjunkt - das war ein hier gemeldeter Befund und ist seit
+//! QPM Regel 3.9 (Praezedenz unter den Erzeugern) geregelt: ein Knoten
+//! kann zugleich von keiner Apertur durchgelassen und als
+//! ResidueRecord gefuehrt sein, "kein Buchungsfehler, sondern der
+//! Normalfall - die Klassen speisen sich aus verschiedenen
+//! Wissensquellen".
+//!
+//!   Residuum > Gegenhorizont > Schatten
+//!
+//! absteigend nach Spezifitaet des Belegs. Schatten ist die
+//! Auffangklasse: nicht durchgelassen, und kein spezifischerer Beleg.
+//!
+//! ENTSCHEIDEND, und der Grund fuer `displaced` im `ApertureAccount`:
+//! "Die Praezedenz entscheidet die ZAEHLUNG, nicht die AUFZEICHNUNG."
+//! Ein als Residuum verbuchter Knoten, der zugleich im Schatten liegt,
+//! fuehrt seinen ShadowRecord weiter mit - sonst ginge genau die
+//! Information verloren, die das Axiom sichern soll.
+//!
+//! Die Klasse wird ABGELEITET: `account_mass` fragt die vier Erzeuger.
+//! Was kein Erzeuger hervorbringt, ist `dropped-occlusion` - und ein
+//! Schatten ohne benannte Apertur laesst sich gar nicht erst bauen
+//! (QPM Regel 3.5), weil `ShadowRecord` die Apertur als Feld verlangt.
 //!
 //! `account_from_pairs` bleibt als untere Schicht: sie prueft die
-//! Partitionseigenschaft selbst und kennt keine Erzeuger.
+//! Partitionseigenschaft ohne Praezedenz und ohne Erzeugerbegriff -
+//! wer dort doppelt bucht, bekommt weiterhin `DoubleCounted`.
 //!
 //! ## Was `route_lens` beitraegt
 //!
@@ -44,7 +61,7 @@
 //! ApertureBank, CounterHorizon und der Residuenledger.
 //!
 //! `classify_absence` (M12) beantwortet eine ANDERE Frage: ob EIN
-//! Ausbleiben Evidenz ist (Invariante 11.12, vier Tracebindungen). Seine
+//! Ausbleiben Evidenz ist (Invariante 11.12 (Okklusionsdisziplin), vier Tracebindungen). Seine
 //! zwei Werte sind keine zwei der vier Klassen, sondern eine
 //! orthogonale Achse - ein Schatten kann bezeugt oder unbezeugt sein,
 //! und beides bleibt ein Schatten.
@@ -54,7 +71,7 @@ use std::collections::BTreeMap;
 use psk_types::objects::IRNodeId;
 use psk_types::PskError;
 
-/// Die vier Klassen aus QPM Axiom 3.1, geschlossen. Kein `Other`: eine
+/// Die vier Klassen aus QPM Axiom 3.1 (Kein stiller Ausschluss), geschlossen. Kein `Other`: eine
 /// fuenfte Klasse waere genau der stille Ausschluss, den das Axiom
 /// verbietet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -89,7 +106,7 @@ impl MassClass {
 }
 
 /// Woran eine Aperturbuchfuehrung scheitert. Jede Variante ist ein
-/// eigener Verstoss gegen QPM Axiom 3.1, nicht eine Abstufung derselben
+/// eigener Verstoss gegen QPM Axiom 3.1 (Kein stiller Ausschluss), nicht eine Abstufung derselben
 /// Sache - deshalb tragen sie die betroffenen Kandidaten mit.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AccountingFailure {
@@ -113,11 +130,32 @@ pub enum AccountingFailure {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ApertureAccount {
     by_node: BTreeMap<IRNodeId, MassClass>,
+    /// QPM Regel 3.9: die von der Praezedenz VERDRAENGTEN Klassen je
+    /// Knoten - "die Praezedenz entscheidet die Zaehlung, nicht die
+    /// Aufzeichnung". Ohne dieses Feld ginge genau die Information
+    /// verloren, die das Axiom sichern soll.
+    displaced: BTreeMap<IRNodeId, Vec<MassClass>>,
 }
 
 impl ApertureAccount {
     pub fn class_of(&self, node: &IRNodeId) -> Option<MassClass> {
         self.by_node.get(node).copied()
+    }
+
+    /// Die Klassen, in die dieser Knoten AUCH faellt, die aber der
+    /// Praezedenz unterlagen. Leer heisst: nur eine Wissensquelle
+    /// kannte ihn.
+    pub fn displaced_classes(&self, node: &IRNodeId) -> &[MassClass] {
+        self.displaced.get(node).map(Vec::as_slice).unwrap_or(&[])
+    }
+
+    /// Alle Knoten, bei denen die Praezedenz greifen musste - der
+    /// Beleg, dass sie nicht bloss deklariert, sondern ausgeuebt wurde.
+    pub fn displacements(&self) -> Vec<(&IRNodeId, &Vec<MassClass>)> {
+        self.displaced
+            .iter()
+            .filter(|(_, v)| !v.is_empty())
+            .collect()
     }
 
     /// Zaehlung je Klasse, alle vier immer genannt - eine Klasse mit
@@ -145,7 +183,7 @@ impl ApertureAccount {
     }
 }
 
-/// QPM Axiom 3.1: prueft, dass `classification` ueber `incoming` eine
+/// QPM Axiom 3.1 (Kein stiller Ausschluss): prueft, dass `classification` ueber `incoming` eine
 /// Partition in die vier Klassen ist.
 ///
 /// `incoming` ist die eingegangene Masse (bei `route_lens`: die
@@ -179,6 +217,7 @@ pub fn account_apertures(
     }
     Ok(ApertureAccount {
         by_node: classification.clone(),
+        displaced: BTreeMap::new(),
     })
 }
 
@@ -223,7 +262,7 @@ pub struct ShadowRecord {
     pub pass_predicate: psk_types::objects::PredicateExpr,
 }
 
-/// Die vier Erzeuger aus QPM Regel 3.8, als Daten.
+/// Die vier Erzeuger aus QPM Regel 3.8 (Die vier Massenklassen und ihre Erzeuger), als Daten.
 ///
 /// Bewusst keine Modulverweise: M08 (dieses Paket) und M24
 /// (psk-adversarial) liegen beide auf L4, und eine Paketkante zwischen
@@ -280,18 +319,81 @@ impl MassProducers<'_> {
     }
 }
 
-/// QPM Axiom 3.1 gegen die vier Erzeuger aus QPM Regel 3.8.
+/// QPM Axiom 3.1 (Kein stiller Ausschluss) gegen die vier Erzeuger aus QPM Regel 3.8.
 ///
 /// Die Klasse wird ABGELEITET, nicht entgegengenommen. Was kein
 /// Erzeuger hervorbringt, faellt als `Dropped` auf - der blockierende
-/// Negativtest `dropped-occlusion`. Was zwei Erzeuger beanspruchen,
-/// faellt als `DoubleCounted` auf: "ist sie zweien zugeordnet, so ist
-/// die Buchfuehrung verletzt. Beides ist blockierend."
+/// Negativtest `dropped-occlusion`.
+///
+/// Mehrfachanspruch ist hier KEIN Fehler mehr, sondern der von QPM
+/// QPM Regel 3.9 (Präzedenz unter den Erzeugern) beschriebene Normalfall: die Praezedenz Residuum >
+/// Gegenhorizont > Schatten entscheidet die Zaehlung, und die
+/// verdraengte Klasse bleibt als Querverweis erhalten. `DoubleCounted`
+/// bleibt der Ausgang von `account_from_pairs`, wo es keine Erzeuger
+/// und damit keine Spezifitaetsordnung gibt.
 pub fn account_mass(
     incoming: &[IRNodeId],
     producers: &MassProducers,
 ) -> Result<ApertureAccount, AccountingFailure> {
-    account_from_pairs(incoming, &producers.classification())
+    // Alle Ansprueche je Knoten sammeln - noch ohne Praezedenz.
+    let mut claims: BTreeMap<IRNodeId, Vec<MassClass>> = BTreeMap::new();
+    for (node, class) in producers.classification() {
+        let entry = claims.entry(node).or_default();
+        if !entry.contains(&class) {
+            entry.push(class);
+        }
+    }
+
+    // Vollstaendigkeit zuerst: was kein Erzeuger kennt, ist
+    // dropped-occlusion - daran aendert die Praezedenz nichts.
+    let dropped: Vec<IRNodeId> = incoming
+        .iter()
+        .filter(|n| !claims.contains_key(*n))
+        .cloned()
+        .collect();
+    if !dropped.is_empty() {
+        return Err(AccountingFailure::Dropped(dropped));
+    }
+    let unaccounted: Vec<IRNodeId> = claims
+        .keys()
+        .filter(|n| !incoming.contains(*n))
+        .cloned()
+        .collect();
+    if !unaccounted.is_empty() {
+        return Err(AccountingFailure::Unaccounted(unaccounted));
+    }
+
+    // QPM Regel 3.9 (Präzedenz unter den Erzeugern): absteigend nach Spezifitaet des Belegs.
+    let mut by_node = BTreeMap::new();
+    let mut displaced = BTreeMap::new();
+    for (node, mut classes) in claims {
+        classes.sort_by_key(|c| specificity_rank(*c));
+        let winner = classes[0];
+        by_node.insert(node.clone(), winner);
+        // "Die Praezedenz entscheidet die Zaehlung, nicht die
+        // Aufzeichnung": der Rest bleibt als Querverweis stehen.
+        displaced.insert(node, classes[1..].to_vec());
+    }
+    Ok(ApertureAccount { by_node, displaced })
+}
+
+/// QPM Regel 3.9 (Präzedenz unter den Erzeugern), als Ordnung: kleinerer Wert sticht.
+///
+/// `VisibleBody` steht mit an der Spitze, aber nicht weil es
+/// spezifischer waere - es ist die DURCHGELASSENE Masse (QPM Axiom
+/// 3.1 seit v1.0.6: "Sichtbarer Koerper ist die durchgelassene Masse;
+/// die drei uebrigen sind die Weisen, nicht durchgelassen zu sein").
+/// Ein durchgelassener Knoten, den zugleich eine Apertur zurueckhielte,
+/// waere ein Widerspruch der Erzeuger, kein Praezedenzfall - deshalb
+/// erscheint er hier oben und traegt die andere Klasse als Querverweis,
+/// wo sie sichtbar bleibt.
+fn specificity_rank(c: MassClass) -> u8 {
+    match c {
+        MassClass::VisibleBody => 0,
+        MassClass::Residue => 1,
+        MassClass::CounterHorizon => 2,
+        MassClass::Shadow => 3,
+    }
 }
 
 /// Der blockierende Negativtest `dropped-occlusion` als Fehlerwert des
@@ -430,7 +532,7 @@ mod tests {
     }
 
     /// Der Befund als Test: was `route_lens` liefert, ist EINE Klasse,
-    /// und QPM Axiom 3.1 sagt das auch - der blockierende Negativtest
+    /// und QPM Axiom 3.1 (Kein stiller Ausschluss) sagt das auch - der blockierende Negativtest
     /// `dropped-occlusion` feuert, statt die Zweiteilung als
     /// Vierteilung durchzuwinken.
     #[test]
@@ -461,7 +563,7 @@ mod tests {
         // Nur der sichtbare Koerper laesst sich aus der Projektion
         // belegen - die beiden verdeckten fallen durch.
         let err = account_from_pairs(&mass, &visible_bodies(&projection))
-            .expect_err("die Zweiteilung erfuellt QPM Axiom 3.1 NICHT");
+            .expect_err("die Zweiteilung erfuellt QPM Axiom 3.1 (Kein stiller Ausschluss) NICHT");
         assert_eq!(err, AccountingFailure::Dropped(vec![n("b"), n("c")]));
 
         // Erst mit der domaenengelieferten Zuordnung der beiden geht
@@ -493,7 +595,7 @@ mod tests {
                 id: ApertureId("AP-topology".into()),
                 channel_ref: ChannelId("topology".into()),
                 // Aussondernd - eine Apertur, die alles durchlaesst,
-                // ist keine (QPM Regel 3.5).
+                // ist keine (QPM Regel 3.5 (Eine Apertur erzeugt Schatten, keine Abwesenheit)).
                 pass_predicate: PredicateExpr("knoten liegt in m13:0".into()),
                 declared_coverage: CoverageSpec("m13:0".into()),
             }],
@@ -546,26 +648,84 @@ mod tests {
         );
     }
 
-    /// Zwei Erzeuger, ein Knoten: die Buchfuehrung ist verletzt, auch
-    /// wenn nichts fehlt ("ist sie zweien zugeordnet ... blockierend").
+    /// Zwei Erzeuger, ein Knoten: seit QPM Regel 3.9 (Präzedenz unter den Erzeugern) KEIN Buchungs-
+    /// fehler, sondern "der Normalfall - die Klassen speisen sich aus
+    /// verschiedenen Wissensquellen". Die Praezedenz entscheidet die
+    /// Zaehlung, der Querverweis bleibt.
     #[test]
-    fn two_producers_claiming_the_same_mass_break_the_books() {
+    fn two_producers_are_resolved_by_precedence_and_the_loser_is_kept() {
         use psk_types::objects::PredicateExpr;
         let shadows = vec![ShadowRecord {
             node: n("a"),
             aperture: crate::ApertureId("AP".into()),
             pass_predicate: PredicateExpr("p".into()),
         }];
+        // Die Apertur sagt Schatten, das Ledger sagt Residuum.
         let producers = MassProducers {
-            visible: &[n("a")], // M09 sagt sichtbar ...
-            shadows: &shadows,  // ... die Apertur sagt Schatten
+            visible: &[],
+            shadows: &shadows,
             counter_horizon: &[],
+            residues: &[n("a")],
+        };
+        let account = account_mass(&[n("a")], &producers).expect("Praezedenz entscheidet");
+        // Residuum sticht: ein ResidueRecord ist ein benanntes,
+        // getracetes Objekt mit eigener Identitaet.
+        assert_eq!(account.class_of(&n("a")), Some(MassClass::Residue));
+        // Und der Schattenbeleg ist NICHT verloren.
+        assert_eq!(account.displaced_classes(&n("a")), [MassClass::Shadow]);
+        assert_eq!(account.census()[&MassClass::Residue], 1);
+        assert_eq!(account.census()[&MassClass::Shadow], 0);
+    }
+
+    /// Die ganze Ordnung, an einem Knoten durchgespielt.
+    #[test]
+    fn the_precedence_is_residue_then_counter_horizon_then_shadow() {
+        use psk_types::objects::PredicateExpr;
+        let shadows = vec![ShadowRecord {
+            node: n("a"),
+            aperture: crate::ApertureId("AP".into()),
+            pass_predicate: PredicateExpr("p".into()),
+        }];
+        // Gegenhorizont sticht Schatten: ein Urteil schlaegt eine
+        // blosse Reichweitengrenze.
+        let ch = MassProducers {
+            visible: &[],
+            shadows: &shadows,
+            counter_horizon: &[n("a")],
             residues: &[],
         };
+        let account = account_mass(&[n("a")], &ch).unwrap();
+        assert_eq!(account.class_of(&n("a")), Some(MassClass::CounterHorizon));
+        assert_eq!(account.displaced_classes(&n("a")), [MassClass::Shadow]);
+
+        // Und Residuum sticht beide.
+        let all = MassProducers {
+            visible: &[],
+            shadows: &shadows,
+            counter_horizon: &[n("a")],
+            residues: &[n("a")],
+        };
+        let account = account_mass(&[n("a")], &all).unwrap();
+        assert_eq!(account.class_of(&n("a")), Some(MassClass::Residue));
         assert_eq!(
-            account_mass(&[n("a")], &producers).expect_err("Doppelanspruch faellt auf"),
-            AccountingFailure::DoubleCounted(vec![n("a")])
+            account.displaced_classes(&n("a")),
+            [MassClass::CounterHorizon, MassClass::Shadow]
         );
+    }
+
+    /// Die untere Schicht kennt keine Erzeuger und damit keine
+    /// Spezifitaetsordnung - dort bleibt Doppelbuchung ein Fehler.
+    #[test]
+    fn without_producers_double_counting_is_still_a_failure() {
+        let err = account_from_pairs(
+            &[n("a")],
+            &[
+                (n("a"), MassClass::VisibleBody),
+                (n("a"), MassClass::Shadow),
+            ],
+        )
+        .expect_err("ohne Erzeugerbegriff keine Praezedenz");
+        assert_eq!(err, AccountingFailure::DoubleCounted(vec![n("a")]));
     }
 
     #[test]

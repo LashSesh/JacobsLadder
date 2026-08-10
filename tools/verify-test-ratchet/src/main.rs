@@ -40,7 +40,7 @@ const FLOORS: &[(&str, usize)] = &[
     ("psk-trace", 39),
     ("psk-anchor", 21),
     ("psk-thought", 31),
-    ("psk-fields", 40),
+    ("psk-fields", 42),
     ("psk-dependency", 12),
     ("psk-adversarial", 26),
     ("psk-closure", 20),
@@ -55,7 +55,7 @@ const FLOORS: &[(&str, usize)] = &[
     ("psk-contract", 22),
     ("psk-certify", 32),
     ("psk-observe", 6),
-    ("psk-conformance", 51),
+    ("psk-conformance", 52),
     ("psk-cli", 1),
     ("psk-ipc", 5),
 ];

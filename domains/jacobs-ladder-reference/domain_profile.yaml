@@ -127,7 +127,7 @@ edge_conditions:
 # LensSpec"). Der Kern liest diese Datei nicht selbst - psk-conformance
 # tut es, weil die Referenzdomaene dieser Konformanzlauf IST.
 qpm:
-  # QPM Struktur 3.2, declared_channels. QPM Struktur 3.18 (SignatureAtlas)
+  # QPM Struktur 3.2, declared_channels. QPM Struktur 3.19 (SignatureAtlas)
   # nennt neun Kanaele; der Referenzlauf instrumentiert VIER. Die
   # uebrigen fuenf sind nicht deklariert und damit OUT_OF_SCOPE - nach
   # QPM Regel 3.3 ausdruecklich NICHT abwesend.

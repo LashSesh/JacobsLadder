@@ -8,7 +8,7 @@
 
 use psk_types::{ObjectId, TraceRef};
 
-/// Eine abgewiesene Deutung, mit Grund (QPM Struktur 3.6).
+/// Eine abgewiesene Deutung, mit Grund (QPM Struktur 3.6 (CounterHorizon)).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RejectedReading {
     pub reading: ObjectId,
@@ -41,7 +41,7 @@ pub struct CounterHorizon {
     /// Bekannte Fehlermuster, geprueft.
     pub pathologies: Vec<ObjectId>,
     pub trace_ref: TraceRef,
-    /// Warum keine Gegenbahn konstruierbar war. QPM Struktur 3.6
+    /// Warum keine Gegenbahn konstruierbar war. QPM Struktur 3.6 (CounterHorizon)
     /// (v1.0.4): "Pflicht gdw. null_models UND out_of_scope leer sind;
     /// Leerraum ist keine Begruendung."
     ///

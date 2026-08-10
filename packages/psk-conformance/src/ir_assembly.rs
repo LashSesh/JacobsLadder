@@ -229,6 +229,25 @@ pub struct NodeEnvelope {
     pub facticity: psk_types::objects::FactStatus,
     pub anchor_ref: ObjectId,
     pub trace_ref: TraceRef,
+    /// Die Residuen, die DIESES Objekt als Ursprung fuehren. Der
+    /// Aufrufer kennt den Ledger; `build_node` erfindet nichts.
+    pub residue_refs: Vec<ObjectId>,
+}
+
+/// Die Residuen des Laufs, nach ihrem `origin_object` gruppiert - die
+/// Rueckrichtung des Verweises, den der Ledger vorwaerts fuehrt.
+pub fn residues_by_origin(
+    residues: &[psk_types::objects::ResidueRecord],
+) -> std::collections::HashMap<ObjectId, Vec<ObjectId>> {
+    // HashMap statt BTreeMap: ObjectId ist Hash, aber nicht Ord - die
+    // Ordnung des Ledgers bleibt in den Vec-Werten erhalten, und die
+    // ist die einzige, auf die es ankommt.
+    let mut out: std::collections::HashMap<ObjectId, Vec<ObjectId>> =
+        std::collections::HashMap::new();
+    for r in residues {
+        out.entry(r.origin_object).or_default().push(r.id);
+    }
+    out
 }
 
 /// Baut einen IR-Knoten aus einem realen Laufobjekt.
@@ -264,7 +283,13 @@ pub fn build_node<T: serde::Serialize>(
         // Der Referenzlauf erzeugt kein EvidenceObject; ein erfundener
         // Witnessverweis waere ein Selbstwitness (Invariante 12.2).
         witness_refs: Vec::new(),
-        residue_refs: Vec::new(),
+        // Die Residuen, die dieses Objekt als `origin_object` fuehren.
+        // Bis v1.0.6 stand hier hart `Vec::new()`, und die
+        // QPM-Massenklasse Residuum konnte deshalb nie von null
+        // verschieden werden - obwohl der Lauf ein blockierendes
+        // Residuum auf den Anker oeffnet. Das war eine Verdrahtungs-
+        // luecke, keine Eigenschaft der Domaene.
+        residue_refs: env.residue_refs.clone(),
         trace_ref: env.trace_ref,
         payload_digest,
         m13_address: M13Address(String::new()),

@@ -74,19 +74,27 @@ pub struct QpmRunReport {
     pub bank: ApertureBank,
     /// QPM-1: der Gegenhorizont und sein Stand (QPM Regel 3.7).
     pub counter_horizon_standing: CounterHorizonStanding,
-    /// QPM-1: die Buchfuehrung nach QPM Axiom 3.1, je Klasse gezaehlt.
+    /// QPM-1: die Buchfuehrung nach QPM Axiom 3.1 (Kein stiller Ausschluss), je Klasse gezaehlt.
     /// Alle vier Klassen erscheinen; eine Null ist eine Aussage.
     pub census: BTreeMap<MassClass, usize>,
     /// Die Gesamtmasse, ueber der die Buchfuehrung aufging.
     pub total_mass: usize,
     /// Je Schatten die Apertur, die ihn zurueckhielt (QPM Regel 3.5).
+    /// Enthaelt AUCH die Knoten, die die Praezedenz anderswo zaehlt -
+    /// der Schattenbeleg bleibt bestehen.
     pub shadows: Vec<(IRNodeId, ApertureId)>,
+    /// QPM Regel 3.9 (Präzedenz unter den Erzeugern): je Knoten die Klassen, in die er ebenfalls
+    /// faellt, die aber der Praezedenz unterlagen. "Die Praezedenz
+    /// entscheidet die Zaehlung, nicht die Aufzeichnung."
+    pub displaced: Vec<(IRNodeId, Vec<MassClass>)>,
+    /// Die Zaehlklasse je Knoten - das Ergebnis der Praezedenz.
+    counted: BTreeMap<IRNodeId, MassClass>,
     /// QPM Regel 3.3: vorhandene, nicht deklarierte Kanaele - jeder mit
     /// seiner Einordnung, keiner als Abwesenheit.
     pub undeclared_channels: Vec<(ChannelId, String)>,
-    /// QPM Struktur 4.2, abgeleitet.
+    /// QPM Struktur 4.2 (Ergebnisordnung), abgeleitet.
     pub verdict: IdentityVerdict,
-    /// QPM Regel 4.3: die zweite, unabhaengige Achse.
+    /// QPM Regel 4.3 (Zwei orthogonale Statusachsen): die zweite, unabhaengige Achse.
     pub run_gate: RunGate,
     /// Warum das Verdikt so ausfiel - benannt, nicht zu erraten.
     pub verdict_reason: String,
@@ -143,9 +151,13 @@ pub fn observe_golden_run(
     // Der Gegenhorizont der Referenzdomaene traegt keine Masse; seine
     // Objekte waeren Nullmodelle, und die Domaene konstruiert keine.
     let ch_mass: Vec<IRNodeId> = Vec::new();
-    // Kein IR-Knoten des Laufs traegt residue_refs (gemessen) - die
-    // Residuenklasse ist ueber DIESER Masse leer. Die 16 scope-Residuen
-    // des Zusammenbaus stehen ausserhalb der Knotenmenge.
+    // Erzeuger 4 (M19): ein Knoten, den der Ledger als Ursprung eines
+    // ResidueRecord fuehrt. Seit v1.0.6 traegt `build_node` diesen
+    // Rueckverweis - vorher stand er hart auf leer, und die Klasse
+    // konnte nie von null verschieden werden, obwohl der Lauf ein
+    // blockierendes Residuum auf den Anker oeffnet. Der Anker liegt
+    // zugleich im Schatten; QPM Regel 3.9 (Präzedenz unter den Erzeugern) entscheidet die Zaehlung
+    // (Residuum sticht) und erhaelt den Schattenbeleg als Querverweis.
     let residue_mass: Vec<IRNodeId> = run
         .ir_bundle
         .graph
@@ -195,12 +207,99 @@ pub fn observe_golden_run(
         counter_horizon_standing: counter_horizon.standing(),
         census: account.census(),
         total_mass: account.total(),
+        displaced: account
+            .displacements()
+            .into_iter()
+            .map(|(n, c)| (n.clone(), c.clone()))
+            .collect(),
+        counted: mass
+            .iter()
+            .filter_map(|n| account.class_of(n).map(|c| (n.clone(), c)))
+            .collect(),
         shadows: shadows.into_iter().map(|s| (s.node, s.aperture)).collect(),
         undeclared_channels: profile.undeclared_channels(),
         verdict,
         run_gate,
         verdict_reason,
     })
+}
+
+/// QPM-2, effektiver Witnessrang (QPM Regel 3.18 (Splitbild und Parallaxe), Splitbild und
+/// Parallaxe): "Der effektive Witnessrang folgt PSK-RAs
+/// Abhaengigkeitsquotient ... korrelierte Facetten (identisches
+/// Modell, identische Quelle) erhoehen den Rang nicht kuenstlich."
+///
+/// Das ist BINDUNG, kein Neubau: `DependencyProfile.effective_rank`
+/// rechnet PSK-RA bereits, und der Referenzlauf ist der Fall, an dem
+/// sich der blockierende Negativtest
+/// `correlated-views-counted-as-independent` MESSEN laesst statt nur
+/// behaupten - sechs Sichten, eine Quotientenklasse, Rang eins.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WitnessRank {
+    /// Wie viele gebundene Projektionen der Lauf hervorbrachte.
+    pub views: usize,
+    /// Wie viele davon nach dem Abhaengigkeitsquotienten unabhaengig
+    /// sind (`DependencyProfile.quotient_classes`).
+    pub independent_classes: usize,
+    /// `DependencyProfile.effective_rank`, unveraendert uebernommen.
+    /// Vorzeichenbehaftet, weil `Scaled.numerator` es ist - ein
+    /// negativer Rang waere ein Defekt, aber ihn hier wegzukuerzen
+    /// hiesse, ihn unsichtbar zu machen.
+    pub effective_rank: i64,
+    /// Die deklarierte Schaetzmethode - der Rang ohne sie waere eine
+    /// Zahl ohne Herkunft.
+    pub method: String,
+    /// Wie viele Quellen die Sichten teilen. Eine gemeinsame Quelle ist
+    /// genau die Korrelation, die den Rang nicht heben darf.
+    pub sources: usize,
+}
+
+impl WitnessRank {
+    /// Der blockierende Negativtest, als Praedikat statt als Prosa:
+    /// haette der Lauf die Sichten als unabhaengig gezaehlt, waere der
+    /// Rang gleich ihrer Anzahl.
+    ///
+    /// Wahr heisst BESTANDEN - der Rang folgt den Quotientenklassen,
+    /// nicht der Sichtenzahl.
+    pub fn correlated_views_not_counted_as_independent(&self) -> bool {
+        // Der Rang folgt den Quotientenklassen ...
+        let follows_quotient = self.effective_rank == self.independent_classes as i64;
+        // ... und wo Sichten korreliert sind, liegt er UNTER ihrer Zahl.
+        // Sind sie es nicht, ist Gleichheit richtig und kein Verstoss.
+        let not_inflated = if self.views > self.independent_classes {
+            self.effective_rank < self.views as i64
+        } else {
+            true
+        };
+        follows_quotient && not_inflated
+    }
+
+    /// Wie viele Sichten die Korrelation geschluckt hat - der Messwert,
+    /// der den Test aussagekraeftig macht. Null hiesse: der Fall ist
+    /// nicht geuebt.
+    pub fn absorbed_by_correlation(&self) -> usize {
+        self.views.saturating_sub(self.independent_classes)
+    }
+}
+
+/// Bindet den Rang an PSK-RAs Abhaengigkeitsquotienten.
+pub fn witness_rank(run: &GoldenRunReport) -> WitnessRank {
+    let d = &run.dependency_profile;
+    WitnessRank {
+        views: run.field_projections.len(),
+        independent_classes: d.quotient_classes.len(),
+        effective_rank: d.effective_rank.numerator,
+        method: d.method.0.clone(),
+        sources: d.sources.len(),
+    }
+}
+
+impl QpmRunReport {
+    /// Die Klasse, in der dieser Knoten GEZAEHLT wird - das Ergebnis
+    /// der Praezedenz aus QPM Regel 3.9.
+    pub fn census_class_of(&self, node: &IRNodeId) -> Option<MassClass> {
+        self.counted.get(node).copied()
+    }
 }
 
 /// Nur fuer den Bericht: die Klassen in kanonischer Reihenfolge mit
