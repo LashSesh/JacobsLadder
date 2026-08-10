@@ -92,7 +92,13 @@ fn undeclared_channels_are_named_never_treated_as_absent() {
     let run = psk_conformance::run_golden_run(&root, &sandbox).expect("Golden Run");
     let qpm = psk_conformance::observe_golden_run(&run, &root).expect("QPM-Beobachtung");
 
-    // QPM Struktur 3.11 nennt neun Kanaele; der Lauf deklariert vier.
+    // QPM Struktur 3.18 (SignatureAtlas) nennt neun Kanaele; der Lauf
+    // deklariert vier. Der Titel ist kein Schmuck: dieselbe Tatsache
+    // stand hier eine Runde lang OHNE ihn unter der damaligen Nummer,
+    // die v1.0.5 neu besetzte - die Stelle zeigte danach stumm auf ein
+    // fremdes Objekt, waehrend die getitelte Zwillingsstelle im
+    // Domaenenprofil laut durchfiel. Gleicher Fehler, gleiche Edition,
+    // ein Unterschied.
     assert_eq!(qpm.scope.declared_channels.len(), 4);
     // Die uebrigen fuenf stehen BENANNT und BEGRUENDET da (QPM Regel
     // 3.3) - nicht als Abwesenheit, nicht als Luecke.
