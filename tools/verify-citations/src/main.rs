@@ -50,6 +50,28 @@
 //!    MUSS der Titel dem der Quelle entsprechen (normalisiert:
 //!    Umlautschreibweisen, Gross/Klein, Leerraum).
 //!
+//! ## Warum Titel Pflicht sind und Nummern Bequemlichkeit
+//!
+//! Punkt 1 faengt VERSCHIEBUNGEN, Punkt 2 faengt NEUBESETZUNGEN - und
+//! nur Punkt 2. Der Unterschied ist der ganze Grund der Titelregel:
+//!
+//! - Eine Verschiebung meldet sich beim Aufloesen. Wandert ein Block
+//!   von 9.19 nach 9.21, loest das alte Zitat nicht mehr auf, und
+//!   Punkt 1 schlaegt an - auch ohne Titel.
+//! - Eine Neubesetzung meldet sich NICHT. QPM v1.0.3 hat drei Nummern
+//!   neu besetzt statt nur verschoben: `Struktur 3.2` war FocalProfile
+//!   und ist jetzt PanopticScope, `Struktur 3.4` war SignatureAtlas
+//!   und ist jetzt ApertureBank, `Regel 3.3` war Splitbild/Parallaxe
+//!   und ist jetzt "Scope ist explizit". Ein titelloses Zitat auf
+//!   `Struktur 3.2` loest weiterhin auf - auf den FALSCHEN Block, ohne
+//!   ein Wort. Nur der Titelvergleich sieht das.
+//!
+//! Dasselbe war in PSK-RA v1.0.35 schon real: "Regel 9.9" ueberlebte
+//! eine ganze Edition in der Bedeutung Wohlgeformtheit, weil die neue
+//! Leere-Zelle-Regel die Nummer wieder besetzte. Kosten: 42
+//! handgepruefte Korrekturen. Titel immunisieren dagegen; Nummern
+//! sind Bequemlichkeit.
+//!
 //! Nullbefund ueber nichtleerer Arbeitsliste ist Fehlschlag: findet der
 //! Scanner in einem Repo dieser Groesse keine einzige Zitierung, ist der
 //! Scanner kaputt, nicht das Repo sauber.

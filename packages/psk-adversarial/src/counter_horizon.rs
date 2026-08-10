@@ -41,13 +41,14 @@ pub struct CounterHorizon {
     /// Bekannte Fehlermuster, geprueft.
     pub pathologies: Vec<ObjectId>,
     pub trace_ref: TraceRef,
-    /// Warum keine Gegenbahn konstruierbar war. QPM Regel 3.7 verlangt
-    /// diese Begruendung GENAU DANN, wenn null_models und out_of_scope
-    /// leer sind - deshalb steht sie hier als eigenes Feld statt in
-    /// einer Prosanotiz: eine Pflicht, die kein Feld hat, ist keine.
+    /// Warum keine Gegenbahn konstruierbar war. QPM Struktur 3.6
+    /// (v1.0.4): "Pflicht gdw. null_models UND out_of_scope leer sind;
+    /// Leerraum ist keine Begruendung."
     ///
-    /// DOKUMENTBEFUND (gemeldet, nicht hier ueberspielt): QPM Struktur 3.6
-    /// fuehrt kein Feld fuer die von QPM Regel 3.7 verlangte Begruendung.
+    /// Der v1.0.3-Dokumentbefund - die Struktur kannte kein Feld fuer
+    /// die von QPM Regel 3.7 verlangte Begruendung - ist damit an der
+    /// Quelle geschlossen. Zweite Instanz derselben Klasse nach
+    /// CellReport gegen Regel 9.21: eine Pflicht ohne Feld ist keine.
     pub emptiness_justification: Option<String>,
 }
 

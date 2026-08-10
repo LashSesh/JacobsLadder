@@ -23,6 +23,15 @@ pub use corpus::{
 mod feature_evidence;
 pub use feature_evidence::collect_feature_evidence;
 
+mod qpm_profile;
+pub use qpm_profile::{load_qpm_profile, QpmProfile};
+
+mod qpm_run;
+pub use qpm_run::{
+    books_balanced, census_lines, counter_horizon_note, findings_admissible, observe_golden_run,
+    IdentityVerdict, QpmRunReport, RunGate,
+};
+
 mod ir_assembly;
 pub use ir_assembly::{
     build_node, edge, edge_census, load_closure_norms, load_port_matrix,

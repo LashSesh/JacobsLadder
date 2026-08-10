@@ -112,3 +112,94 @@ edge_conditions:
 #
 #   opens (S-GAT -> S-RES), preserves (S-TRC -> S-RES): der PASS-Lauf
 #     eroeffnet keine Residuen.
+
+# ---------------------------------------------------------------------
+# QPM-Domaenenprofil: der Referenzlauf als erster Messgegenstand
+# ---------------------------------------------------------------------
+#
+# Das Panoptische Phasenmakroskop beobachtet hier den Golden Run selbst.
+# Kein Zirkel: QPM ist read-only und traegt eine EIGENE Leiter (QPM-0 bis
+# QPM-10), die nichts zu PSK-RAs C-Klassen beitraegt - siehe die Pruefung
+# in psk-conformance/src/qpm_run.rs und den Test, der den Rueckflusspfad
+# ausschliesst.
+#
+# Alles hier ist DOMAENENGELIEFERT (QPM Regel 3.5: pass_predicate "wie
+# LensSpec"). Der Kern liest diese Datei nicht selbst - psk-conformance
+# tut es, weil die Referenzdomaene dieser Konformanzlauf IST.
+qpm:
+  # QPM Struktur 3.2, declared_channels. QPM Struktur 3.11 (SignatureAtlas)
+  # nennt neun Kanaele; der Referenzlauf instrumentiert VIER. Die
+  # uebrigen fuenf sind nicht deklariert und damit OUT_OF_SCOPE - nach
+  # QPM Regel 3.3 ausdruecklich NICHT abwesend.
+  declared_channels:
+    - topology   # jeder IR-Knoten traegt eine M13Address (Pass C4)
+    - trace      # jeder Knoten traegt einen TraceRef in den Laufledger
+    - residue    # der ResidueLedger des Laufs existiert und wird gefuehrt
+    - seam       # der Lauf erzeugt SeamReports (psk-closure)
+  undeclared_channels: # begruendet, nicht vergessen
+    spectrum: "der Lauf erzeugt kein Spektrum - keine Zerlegung in Komponenten"
+    phase: "keine Phasenhebung: der Lauf hat keine Primaer-/Gegenphase"
+    symmetry: "keine Symmetriemessung im Referenzlauf"
+    rank: "Witnessrang setzt EvidenceObjects voraus; der Lauf erzeugt keine"
+    entropy: "keine Entropiemessung im Referenzlauf"
+
+  # QPM Struktur 3.2, policies.
+  policies:
+    open_set: true
+    calibration_validity: "golden-run-window"
+    # QPM-OBL-002: KEIN Komponentenwoerterbuch registriert. Nach QPM
+    # QPM Regel 3.3 endet damit jeder Lauf in UNKNOWN - nicht in FAIL. Das
+    # Feld fehlt hier absichtlich und nicht aus Nachlaessigkeit.
+    catalog_ref: null
+
+  # QPM Struktur 3.4 (ApertureBank). Je Kanal eine Apertur.
+  #
+  # Das pass_predicate ist als SORTENMENGE deklariert, nicht als
+  # auswertbarer Ausdruck: der Kern wertet PredicateExpr nicht aus
+  # (Vertrag 27.2, "nur typisiert weitergereicht"), also erklaert die
+  # Domaene, WAS ihr Praedikat auswaehlt, und der Kern wendet genau das
+  # an. Der Text daneben ist die menschenlesbare Fassung derselben
+  # Aussage.
+  #
+  # Die Auswahl ist GEMESSEN, nicht entworfen: laut QPM Struktur 1.2
+  # bindet QPM an M08-M14, M19, M22-M24, M27. Ein Knoten, dessen Eigner
+  # KEIN gebundenes Modul ist, liegt ausserhalb dessen, was das
+  # Instrument ueberhaupt erreicht - daraus entsteht ein echter Schatten
+  # mit benanntem Grund, kein konstruierter.
+  aperture_bank:
+    version: "1.0.0"
+    apertures:
+      - id: AP-topology
+        channel_ref: topology
+        pass_predicate: "Sorteneigner ist ein QPM-gebundenes Modul (QPM Struktur 1.2)"
+        passes_sorts: [S-FLD, S-PRJ, S-DEP] # M08, M09, M10
+        declared_coverage: "IR-Knoten des Laufs, Skalenstufe m13:0"
+      - id: AP-trace
+        channel_ref: trace
+        pass_predicate: "Sorteneigner ist ein QPM-gebundenes Modul (QPM Struktur 1.2)"
+        passes_sorts: [S-FLD, S-PRJ, S-DEP]
+        declared_coverage: "IR-Knoten des Laufs, Skalenstufe m13:0"
+      - id: AP-residue
+        channel_ref: residue
+        pass_predicate: "Sorteneigner ist ein QPM-gebundenes Modul (QPM Struktur 1.2)"
+        passes_sorts: [S-FLD, S-PRJ, S-DEP]
+        declared_coverage: "IR-Knoten des Laufs, Skalenstufe m13:0"
+      - id: AP-seam
+        channel_ref: seam
+        pass_predicate: "Sorteneigner ist ein QPM-gebundenes Modul (QPM Struktur 1.2)"
+        passes_sorts: [S-FLD, S-PRJ, S-DEP]
+        declared_coverage: "IR-Knoten des Laufs, Skalenstufe m13:0"
+
+  # QPM Struktur 3.6 (CounterHorizon). Der Referenzlauf beobachtet sich
+  # selbst zum ersten Mal; die Domaene konstruiert keine Gegenbahn.
+  # QPM Regel 3.7 laesst das zu - MIT Begruendung, seit v1.0.4 im Feld.
+  counter_horizon:
+    null_models: []
+    out_of_scope: []
+    pathologies: []
+    emptiness_justification: >-
+      Der Referenzlauf ist der erste Messgegenstand dieser Domaene. Eine
+      Gegenbahn muesste ein alternativer Lauf desselben Auftrags mit
+      anderer Deutung sein; die Domaene kennt bisher genau einen Lauf,
+      und ein aus ihm selbst abgeleitetes Nullmodell waere kein
+      unabhaengiger Gegenbefund, sondern eine Umbenennung.
