@@ -16,6 +16,11 @@
 
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
+mod counter_horizon;
+pub use counter_horizon::{
+    CounterHorizon, CounterHorizonStanding, OutOfScopeRegion, RegionSpec, RejectedReading,
+};
+
 mod cra;
 pub use cra::{cra, CraInputs, ProposalInputs};
 

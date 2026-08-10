@@ -25,10 +25,17 @@ pub use registry::{
 mod lens_router;
 pub use lens_router::{route_lens, LensOutcome, ProjectionInputs};
 
+mod qpm_scope;
+pub use qpm_scope::{
+    Aperture, ApertureBank, ApertureId, BudgetSpec, CatalogRef, ChannelId, CoverageSpec,
+    DomainContractRef, HorizonSpec, PanopticScope, QuestionSpec, ScopeCeiling, ScopePolicies,
+    UndeclaredChannel,
+};
+
 mod aperture;
 pub use aperture::{
-    account_apertures, account_from_pairs, as_psk_error, incoming_mass, visible_bodies,
-    AccountingFailure, ApertureAccount, MassClass,
+    account_apertures, account_from_pairs, account_mass, as_psk_error, incoming_mass,
+    visible_bodies, AccountingFailure, ApertureAccount, MassClass, MassProducers, ShadowRecord,
 };
 
 mod morphogenesis;

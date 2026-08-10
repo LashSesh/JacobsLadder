@@ -12,31 +12,36 @@
 //! keine Auswahl unter vier Moeglichkeiten, sondern eine Buchfuehrung,
 //! die aufgehen muss.
 //!
-//! ## Warum dieses Modul nur PRUEFT und nicht KLASSIFIZIERT
+//! ## Jede Klasse hat genau einen Erzeuger
 //!
-//! Die Zuordnung selbst kann der Kern nicht leisten, und zwar aus einem
-//! benennbaren Grund je Klasse:
+//! QPM Regel 3.8 (Die vier Massenklassen und ihre Erzeuger) macht die
+//! Zuordnung ableitbar - bis v1.0.2 musste sie noch vom Aufrufer
+//! kommen, weil ApertureBank und CounterHorizon keine Struktur hatten:
 //!
-//! - `Schatten` setzt eine APERTUR voraus - "nicht durchgelassen" ist
-//!   ohne Durchlassoperator bedeutungslos. QPM fuehrt dafuer
-//!   `ApertureBank` ("versionierte Menge lokaler Durchlassoperatoren"),
-//!   gibt ihr aber KEINE Struktur (nachgezaehlt: das Werk hat 33
-//!   Struktur-Bloecke, keiner heisst ApertureBank).
-//! - `Gegenhorizont` setzt `CounterHorizon` voraus (QPM-CTH, S-RES,
-//!   Eigner M24) - ebenfalls ohne Struktur im Werk.
+//! | Klasse            | Erzeuger      | Beleg                        |
+//! |-------------------|---------------|------------------------------|
+//! | sichtbarer Koerper| M09           | Linsenroutung, `visible`     |
+//! | Schatten          | ApertureBank  | Apertur plus pass_predicate  |
+//! | Gegenhorizont     | CounterHorizon| Nullmodell/begr. Ausschluss  |
+//! | Residuum          | M19           | ResidueRecord                |
 //!
-//! Beides waere hier zu erfinden. Stattdessen kommt die Klassifikation
-//! vom Aufrufer, und dieses Modul prueft, dass sie eine Partition IST -
-//! dasselbe Muster wie Regel 10.9 bei den Kantenbedingungen: der Kern
-//! berechnet die Praedikate nicht, er prueft ihre Form.
+//! Die Klasse wird deshalb ABGELEITET: `account_mass` fragt die vier
+//! Erzeuger, statt eine Zuordnung entgegenzunehmen. Was kein Erzeuger
+//! hervorbringt, ist `dropped-occlusion` - und ein Schatten ohne
+//! benannte Apertur laesst sich gar nicht erst bauen (QPM Regel 3.5:
+//! "Ein Schatten ohne benannte Apertur ist ein stiller Ausschluss"),
+//! weil `ShadowRecord` die Apertur als Feld verlangt.
 //!
-//! ## Was `route_lens` beitraegt - und was nicht
+//! `account_from_pairs` bleibt als untere Schicht: sie prueft die
+//! Partitionseigenschaft selbst und kennt keine Erzeuger.
 //!
-//! `route_lens` teilt die Kandidaten in `visible`/`occluded`. Das ist
-//! EINE der vier Klassen plus ein Rest: `visible` ist der sichtbare
-//! Koerper, `occluded` ist ein Klumpen, den QPM Axiom 3.1 gerade weiter
-//! aufteilen will. Die Zweiteilung auf vier hochzureden waere die
-//! Erfindung, vor der gewarnt wurde.
+//! ## Was `route_lens` beitraegt
+//!
+//! `route_lens` teilt die Kandidaten in `visible`/`occluded`. `visible`
+//! IST der sichtbare Koerper - eine der vier Klassen, mit M09 als
+//! Erzeuger. `occluded` ist kein Erzeugnis, sondern die Frage: welche
+//! der drei uebrigen Klassen jeden dieser Kandidaten traegt, sagen erst
+//! ApertureBank, CounterHorizon und der Residuenledger.
 //!
 //! `classify_absence` (M12) beantwortet eine ANDERE Frage: ob EIN
 //! Ausbleiben Evidenz ist (Invariante 11.12, vier Tracebindungen). Seine
@@ -201,6 +206,92 @@ pub fn account_from_pairs(
         return Err(AccountingFailure::DoubleCounted(doubled));
     }
     account_apertures(incoming, &map)
+}
+
+/// Ein Schatten mit seinem Erzeuger (QPM Regel 3.5): "mit Verweis auf
+/// die Apertur, die es zurueckhielt, und auf ihr pass_predicate".
+///
+/// Beide Verweise sind PFLICHTFELDER, nicht Optionen - "ein Schatten
+/// ohne benannte Apertur ist ein stiller Ausschluss". Was die Regel
+/// verbietet, laesst sich hier nicht bauen.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ShadowRecord {
+    pub node: IRNodeId,
+    /// Die Apertur, die zurueckhielt.
+    pub aperture: crate::ApertureId,
+    /// Ihr pass_predicate - domaenengeliefert, mit Herkunftspflicht.
+    pub pass_predicate: psk_types::objects::PredicateExpr,
+}
+
+/// Die vier Erzeuger aus QPM Regel 3.8, als Daten.
+///
+/// Bewusst keine Modulverweise: M08 (dieses Paket) und M24
+/// (psk-adversarial) liegen beide auf L4, und eine Paketkante zwischen
+/// ihnen waere eine Abhaengigkeit, die kein Port deckt. Der Aufrufer
+/// reicht herein, was die Erzeuger hervorgebracht haben - dasselbe
+/// Muster wie `ClosureContext` bei der Zellclosure.
+#[derive(Debug, Clone)]
+pub struct MassProducers<'a> {
+    /// M09: `FieldProjection.visible` aus der Linsenroutung.
+    pub visible: &'a [IRNodeId],
+    /// ApertureBank: je zurueckgehaltenem Knoten seine Apertur.
+    pub shadows: &'a [ShadowRecord],
+    /// CounterHorizon (M24): die getragene Masse
+    /// (`CounterHorizon::carried()`, auf Knotenkennungen aufgeloest -
+    /// der Gegenhorizont fuehrt ObjectIds, die Masse einer Projektion
+    /// IRNodeIds, und diese Aufloesung ist Sache des Aufrufers).
+    pub counter_horizon: &'a [IRNodeId],
+    /// M19: was als ResidueRecord gefuehrt wird.
+    pub residues: &'a [IRNodeId],
+}
+
+impl MassProducers<'_> {
+    /// Die von den Erzeugern abgeleitete Zuordnung, als Paarliste - die
+    /// Form, in der `account_from_pairs` die Partition prueft.
+    fn classification(&self) -> Vec<(IRNodeId, MassClass)> {
+        let mut pairs = Vec::new();
+        pairs.extend(
+            self.visible
+                .iter()
+                .map(|n| (n.clone(), MassClass::VisibleBody)),
+        );
+        pairs.extend(
+            self.shadows
+                .iter()
+                .map(|s| (s.node.clone(), MassClass::Shadow)),
+        );
+        pairs.extend(
+            self.counter_horizon
+                .iter()
+                .map(|n| (n.clone(), MassClass::CounterHorizon)),
+        );
+        pairs.extend(
+            self.residues
+                .iter()
+                .map(|n| (n.clone(), MassClass::Residue)),
+        );
+        pairs
+    }
+
+    /// Welche Apertur einen Knoten zurueckhielt - der Beleg, den QPM
+    /// QPM Regel 3.5 fuer jeden Schatten verlangt.
+    pub fn shadow_of(&self, node: &IRNodeId) -> Option<&ShadowRecord> {
+        self.shadows.iter().find(|s| s.node == *node)
+    }
+}
+
+/// QPM Axiom 3.1 gegen die vier Erzeuger aus QPM Regel 3.8.
+///
+/// Die Klasse wird ABGELEITET, nicht entgegengenommen. Was kein
+/// Erzeuger hervorbringt, faellt als `Dropped` auf - der blockierende
+/// Negativtest `dropped-occlusion`. Was zwei Erzeuger beanspruchen,
+/// faellt als `DoubleCounted` auf: "ist sie zweien zugeordnet, so ist
+/// die Buchfuehrung verletzt. Beides ist blockierend."
+pub fn account_mass(
+    incoming: &[IRNodeId],
+    producers: &MassProducers,
+) -> Result<ApertureAccount, AccountingFailure> {
+    account_from_pairs(incoming, &producers.classification())
 }
 
 /// Der blockierende Negativtest `dropped-occlusion` als Fehlerwert des
@@ -380,6 +471,101 @@ mod tests {
         full.push((n("c"), MassClass::CounterHorizon));
         let account = account_from_pairs(&mass, &full).expect("jetzt vollstaendig");
         assert_eq!(account.not_passed(), 2);
+    }
+
+    /// Die angekuendigte Probe: mit einer REALEN ApertureBank muss der
+    /// Dropped-Befund kippen - nicht weil der Test weicher wuerde,
+    /// sondern weil der Schatten jetzt einen benannten Erzeuger hat.
+    ///
+    /// Derselbe Aufbau wie `route_lens_alone_cannot_satisfy_axiom_3_1`,
+    /// EIN Unterschied: die Apertur existiert.
+    #[test]
+    fn a_real_aperture_bank_turns_the_dropped_finding_into_shadows() {
+        use crate::{Aperture, ApertureBank, ApertureId, ChannelId, CoverageSpec};
+        use psk_types::objects::{PredicateExpr, SemVer, SortId};
+        use psk_types::{Digest, ObjectId, TraceRef};
+
+        let bank = ApertureBank {
+            schema: "psk.qpm.aperture-bank/1.0".to_string(),
+            id: ObjectId::new(SortId::FieldIdentity, Digest::sha256(b"bank")),
+            version: SemVer("1.0.0".into()),
+            apertures: vec![Aperture {
+                id: ApertureId("AP-topology".into()),
+                channel_ref: ChannelId("topology".into()),
+                // Aussondernd - eine Apertur, die alles durchlaesst,
+                // ist keine (QPM Regel 3.5).
+                pass_predicate: PredicateExpr("knoten liegt in m13:0".into()),
+                declared_coverage: CoverageSpec("m13:0".into()),
+            }],
+            trace_ref: TraceRef(Digest::sha256(b"t")),
+        };
+        bank.check_predicates().expect("Praedikat sondert aus");
+        let ap = &bank.apertures[0];
+
+        let mass = vec![n("a"), n("b"), n("c")];
+        // M09 laesst "a" durch; die Apertur haelt "b" und "c" zurueck.
+        let shadows = vec![
+            ShadowRecord {
+                node: n("b"),
+                aperture: ap.id.clone(),
+                pass_predicate: ap.pass_predicate.clone(),
+            },
+            ShadowRecord {
+                node: n("c"),
+                aperture: ap.id.clone(),
+                pass_predicate: ap.pass_predicate.clone(),
+            },
+        ];
+        let producers = MassProducers {
+            visible: &[n("a")],
+            shadows: &shadows,
+            counter_horizon: &[],
+            residues: &[],
+        };
+
+        // GEKIPPT: die Buchfuehrung geht auf.
+        let account = account_mass(&mass, &producers).expect("mit realer Apertur geht sie auf");
+        assert_eq!(account.class_of(&n("b")), Some(MassClass::Shadow));
+        assert_eq!(account.class_of(&n("c")), Some(MassClass::Shadow));
+        assert_eq!(account.not_passed(), 2);
+        // Und der von QPM Regel 3.5 verlangte Beleg steht bereit.
+        let s = producers.shadow_of(&n("b")).expect("Schatten hat Erzeuger");
+        assert_eq!(s.aperture, ap.id);
+        assert_eq!(s.pass_predicate, ap.pass_predicate);
+
+        // Gegenprobe, damit das Kippen nicht Nachgeben ist: nimmt man
+        // der Bank EINEN Schatten weg, faellt genau dieser Knoten
+        // wieder als dropped-occlusion auf.
+        let thin = MassProducers {
+            shadows: &shadows[..1],
+            ..producers.clone()
+        };
+        assert_eq!(
+            account_mass(&mass, &thin).expect_err("ohne Erzeuger kein Durchwinken"),
+            AccountingFailure::Dropped(vec![n("c")])
+        );
+    }
+
+    /// Zwei Erzeuger, ein Knoten: die Buchfuehrung ist verletzt, auch
+    /// wenn nichts fehlt ("ist sie zweien zugeordnet ... blockierend").
+    #[test]
+    fn two_producers_claiming_the_same_mass_break_the_books() {
+        use psk_types::objects::PredicateExpr;
+        let shadows = vec![ShadowRecord {
+            node: n("a"),
+            aperture: crate::ApertureId("AP".into()),
+            pass_predicate: PredicateExpr("p".into()),
+        }];
+        let producers = MassProducers {
+            visible: &[n("a")], // M09 sagt sichtbar ...
+            shadows: &shadows,  // ... die Apertur sagt Schatten
+            counter_horizon: &[],
+            residues: &[],
+        };
+        assert_eq!(
+            account_mass(&[n("a")], &producers).expect_err("Doppelanspruch faellt auf"),
+            AccountingFailure::DoubleCounted(vec![n("a")])
+        );
     }
 
     #[test]
