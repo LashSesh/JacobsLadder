@@ -52,6 +52,39 @@
 //! QPM Struktur 18.3 (Konformitätsstufen NRAII-0 bis NRAII-LAB)
 //! bereits die vollstaendige fuehrte. Die Zuordnung oben braucht
 //! deshalb keinen Vorbehalt mehr.
+//!
+//! ## Undefinierte Stufenbegriffe: das Verfahren, und sein Nachtrag
+//!
+//! QPM Regel 17.5 (Undefinierte Stufenbegriffe) macht seit v1.0.18 zur
+//! Regel, was hier viermal geschehen ist: ein Stufenbegriff, den das
+//! Werk nirgends definiert, ist "aus den Bloecken abzuleiten, die ihn
+//! beschraenken, und DARF NICHT frei zu waehlen". Ergibt die Ableitung
+//! nichts, "ist die Stufenanforderung nicht erfuellbar und das als
+//! Befund zu melden - nicht durch eine plausible Erfindung zu
+//! schliessen".
+//!
+//! Die zweite Haelfte der Regel bindet die Fassung dieses Pakets:
+//! "Eine so abgeleitete Lesart MUSS beim naechsten Werksstand
+//! festgeschrieben werden. Eine zweimal abgeleitete Lesart ist eine
+//! unbeschriebene Regel, und zwei Ableiter kaemen nicht notwendig zur
+//! selben."
+//!
+//! **Daraus folgt eine Pflicht an den Modulkoepfen selbst:** ist eine
+//! Lesart einmal festgeschrieben, MUSS der Kommentar das sagen, statt
+//! weiter zu behaupten, das Werk gebe nichts her. Ein Kommentar, der
+//! einen laengst geschlossenen Befund offenhaelt, ist derselbe Fehler
+//! wie eine titellose Zitierung: er zeigt auf einen Stand, den es nicht
+//! mehr gibt. Der Bestand, mit dem Werksstand der Festschreibung:
+//!
+//! | Begriff | abgeleitet in | festgeschrieben |
+//! |---|---|---|
+//! | Zykluswitness | `arms` | QPM Struktur 12.4 (Zykluswitness), v1.0.14 |
+//! | Forward/Inverse-Channel | `wish` | QPM Struktur 11.4 (Forward/Inverse-Channel), v1.0.16 |
+//! | Gate des Zyklus | `peristalsis` | QPM Regel 14.5 (Woher das Gate des Zyklus kommt), v1.0.17 |
+//! | Attraktorstack, FoldBundle | `stack_closure` | QPM Struktur 17.4 (Attraktorstack und FoldBundle), v1.0.18 |
+//!
+//! Offen ist derzeit keiner. Kommt einer hinzu, gehoert er in diese
+//! Tabelle, bevor die Schicht als fertig gemeldet wird.
 
 mod null_anchor;
 pub use null_anchor::{
@@ -103,6 +136,13 @@ pub use peristalsis::{
     assimilate, closure_degree, excalibrate, pass_gate, renew, sediment, ClosureDegree,
     CycleBreach, CycleGate, Excalibrated, Gated, Kernel, MassStage, MonodromyRatchet,
     PreservedStructure, Qsna, RatchetBreach, RawMass, RenewedBoundary, Sediment,
+};
+
+mod kernel;
+pub use kernel::{
+    c4, certify_core, revalidate, AbstractLock, C4Breach, CertificationBreach, ClosureCell,
+    EpiComponent, EpiLock, GeoComponent, GeoLock, Hypothesis, IrreducibleCore, LocalWitness,
+    LockBreach, LockOpened, OpComponent, OpLock, ProjectionTwin, Revalidated, TwinBreach, C444,
 };
 
 mod stack_closure;

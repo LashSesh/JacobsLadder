@@ -36,33 +36,52 @@
 //!
 //! L7 ist damit nicht zur Haelfte Bindung, sondern zu einem Viertel.
 //!
-//! ## Was das Werk NICHT hergibt
+//! ## Zwei undefinierte Stufenbegriffe, und wie sie normativ wurden
 //!
-//! Zwei der vier Namen sind im Werk nirgends definiert:
+//! Bis v1.0.17 waren zwei der vier Namen im Werk nirgends definiert:
+//! **Attraktorstack** kam genau einmal in einem normativen Block vor
+//! (QPM Regel 17.6 (Irreduzibler Kern)) und dort nur als das, was
+//! kondensiert wird; **FoldBundle** ausschliesslich in der
+//! Stufenanforderung und ihrem Registerecho, ebenso "Fold" und
+//! "Huelle".
 //!
-//! - **Attraktorstack** kommt genau einmal in einem normativen Block
-//!   vor, in QPM Regel 17.4 (Irreduzibler Kern), und dort nur als das,
-//!   was kondensiert wird.
-//! - **FoldBundle** kommt AUSSCHLIESSLICH in der Stufenanforderung vor
-//!   (QPM Struktur 18.3 (Konformitätsstufen NRAII-0 bis NRAII-LAB))
-//!   und im Registerlisting, das sie wiederholt. Kein definierender
-//!   Block, nirgends. "Fold" selbst steht nur in
-//!   QPM Regel 17.4 (Irreduzibler Kern), als einer von drei
-//!   Reproduzenten; "Huelle" ebenso, und ebenfalls undefiniert.
+//! Als Befund gemeldet und abgeleitet aus dem einen Block, der sie
+//! beschraenkt - nicht gewaehlt. Dasselbe Vorgehen wie beim
+//! Zykluswitness vor v1.0.14 und beim Channel vor v1.0.16.
 //!
-//! Gebaut wird deshalb, was das Werk BESCHRAENKT, und nicht, was es
-//! benennt: QPM Regel 17.4 (Irreduzibler Kern) sagt, wann ein Fixpunkt
-//! erreicht ist - "wenn Fold, Huelle und quasi-singulaere Kondensation
-//! gemeinsam denselben K* reproduzieren". Das ist eine pruefbare
-//! Aussage ueber drei Wege, und sie ist der Kern von [`FoldBundle`].
-//! Was Fold und Huelle je Domaene SIND, kommt herein - dieselbe Form
-//! wie beim GateSet und beim `origin_module`
-//! (QPM Regel 14.5 (Woher das Gate des Zyklus kommt)).
+//! **QPM Struktur 17.4 (Attraktorstack und FoldBundle) hat die Lesart
+//! in v1.0.18 festgeschrieben**, und sie deckt sich in allen drei
+//! Punkten mit dem hier Gebauten:
+//!
+//! - "Jeder Uebergang zwischen zwei Stufen MUSS zertifiziert sein, und
+//!   eine Herkunftsklasse, die beim Verdichten ganz verschwindet, MUSS
+//!   verbucht werden" - [`AttractorStack::embed`] und
+//!   [`EmbeddingCertificate::issue`].
+//! - "Ein Fixpunkt gilt genau dann als erreicht, wenn alle drei
+//!   denselben K* reproduzieren" - [`reach_fixpoint`].
+//! - "Was Fold und Huelle je Domaene konkret sind, ist domaenengeliefert
+//!   wie das GateSet" - dieselbe Form wie in
+//!   QPM Regel 14.5 (Woher das Gate des Zyklus kommt) und beim
+//!   `origin_module`.
+//!
+//! ## Warum das nicht nur eine Fussnote ist
+//!
+//! QPM Regel 17.5 (Undefinierte Stufenbegriffe) macht das Verfahren zur
+//! Regel: ein undefinierter Stufenbegriff ist "aus den Bloecken
+//! abzuleiten, die ihn beschraenken, und DARF NICHT frei zu waehlen";
+//! ergibt die Ableitung nichts, ist die Stufe nicht erfuellbar und das
+//! zu MELDEN, "nicht durch eine plausible Erfindung zu schliessen".
+//!
+//! Und die zweite Haelfte bindet uns: "Eine so abgeleitete Lesart MUSS
+//! beim naechsten Werksstand festgeschrieben werden." Daraus folgt eine
+//! Pflicht an diesem Kommentar selbst - steht die Lesart erst einmal im
+//! Werk, MUSS der Modulkopf das sagen, statt weiter zu behaupten, das
+//! Werk gebe nichts her. Genau das war hier und in `wish` faellig.
 //!
 //! ## Wo L7 aufhoert
 //!
 //! [`StackFixpoint`] ist der Fixpunkt aus
-//! QPM Regel 17.4 (Irreduzibler Kern), NICHT der "gate- und
+//! QPM Regel 17.6 (Irreduzibler Kern), NICHT der "gate- und
 //! replayzertifizierte" Kern K*. Die Zertifizierung ist NRAII-8
 //! (`C444`, Gate, Replay, PathInv), und
 //! QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis) ist genau die
@@ -232,16 +251,18 @@ pub struct StackLevel {
 
 /// Ein Einbettungszertifikat zwischen zwei benachbarten Ebenen.
 ///
-/// **Befund:** "Einbettungszertifikate" steht nur in der Rollenspalte
-/// von QPM Struktur 9.1 (Normative Schichten L0–L9); ein definierender
-/// Block fehlt. Geprueft wird deshalb die eine Eigenschaft, die das
-/// Werk an dieser Stelle wirklich fordert, und keine erfundene: der
-/// Stack VERDICHTET (QPM Regel 17.4 (Irreduzibler Kern) laesst ihn
+/// Der Wortlaut von QPM Struktur 17.4 (Attraktorstack und FoldBundle):
+/// "Jeder Uebergang zwischen zwei Stufen MUSS zertifiziert sein, und
+/// eine Herkunftsklasse, die beim Verdichten ganz verschwindet, MUSS
+/// verbucht werden - derselbe Defekt wie Boundary-Absorption ohne
+/// Residuum, eine Etage hoeher."
+///
+/// Geprueft wird deshalb genau das und nichts Erfundenes: der Stack
+/// VERDICHTET (QPM Regel 17.6 (Irreduzibler Kern) laesst ihn
 /// kondensieren), also duerfen Zahlen fallen - aber eine
 /// Herkunftsklasse, die ganz verschwindet, MUSS verbucht sein. Ein
 /// Nullmodell, das zwischen zwei Ebenen lautlos aufhoert zu existieren,
-/// ist derselbe Defekt wie Boundary-Absorption ohne Residuum, nur eine
-/// Etage hoeher.
+/// waere der Defekt, den der Satz benennt.
 ///
 /// Was eine Einbettung darueber hinaus in einer Domaene bedeutet, kommt
 /// als `accounted` herein.
@@ -346,7 +367,7 @@ impl AttractorStack {
     }
 
     /// Die oberste Ebene - das, was kondensiert wird
-    /// (QPM Regel 17.4 (Irreduzibler Kern)).
+    /// (QPM Regel 17.6 (Irreduzibler Kern)).
     pub fn top(&self) -> &StackLevel {
         self.levels.last().expect("embed verlangt zwei Ebenen")
     }
@@ -354,7 +375,7 @@ impl AttractorStack {
 
 // ------------------------------------------------------------------- Fold
 
-/// Die drei Wege, die nach QPM Regel 17.4 (Irreduzibler Kern)
+/// Die drei Wege, die nach QPM Regel 17.6 (Irreduzibler Kern)
 /// gemeinsam denselben `K*` reproduzieren muessen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Reproducer {
@@ -392,15 +413,15 @@ pub enum FixpointBreach {
 }
 
 /// Das FoldBundle: die drei Reproduzenten aus
-/// QPM Regel 17.4 (Irreduzibler Kern), zusammen vorgelegt.
+/// QPM Regel 17.6 (Irreduzibler Kern), zusammen vorgelegt.
 ///
-/// **Befund:** der Name "FoldBundle" steht ausschliesslich in der
-/// Stufenanforderung
-/// (QPM Struktur 18.3 (Konformitätsstufen NRAII-0 bis NRAII-LAB)) und
-/// in dem Registerlisting, das sie wiederholt - definiert wird er
-/// nirgends. Gebaut ist deshalb der einzige Satz, den das Werk ueber
-/// Fold ueberhaupt macht: er ist einer von dreien, die "GEMEINSAM
-/// denselben K* reproduzieren" muessen.
+/// QPM Struktur 17.4 (Attraktorstack und FoldBundle) sagt es seit
+/// v1.0.18 als eigenen Satz: "Das FoldBundle ist das Buendel der drei
+/// Reproduzenten: Fold, Huelle und quasi-singulaere Kondensation. Ein
+/// Fixpunkt gilt genau dann als erreicht, wenn alle drei denselben K*
+/// reproduzieren." Bis dahin war das aus
+/// QPM Regel 17.6 (Irreduzibler Kern) abgeleitet - dem einzigen Block,
+/// der ueber Fold ueberhaupt etwas sagt.
 ///
 /// Jeder der drei Wege legt sein Ergebnis als kanonischen Zustand vor.
 /// Verglichen werden Digests der GETEILTEN Kanonisierung - drei Wege,
@@ -432,7 +453,7 @@ impl FoldBundle {
     }
 }
 
-/// Der Fixpunkt aus QPM Regel 17.4 (Irreduzibler Kern) - und
+/// Der Fixpunkt aus QPM Regel 17.6 (Irreduzibler Kern) - und
 /// ausdruecklich noch nicht `K*`.
 ///
 /// "Ein Fixpunkt gilt als erreicht, wenn Fold, Huelle und
@@ -468,7 +489,7 @@ impl StackFixpoint {
 }
 
 /// Kondensiert den Attraktorstack ueber das FoldBundle
-/// (QPM Regel 17.4 (Irreduzibler Kern)).
+/// (QPM Regel 17.6 (Irreduzibler Kern)).
 ///
 /// Prueft ALLE drei Paare, nicht zwei: aus `Fold == Huelle` und
 /// `Fold == Kondensation` folgte die dritte Gleichheit zwar
@@ -741,7 +762,7 @@ mod tests {
         );
     }
 
-    /// QPM Regel 17.4 (Irreduzibler Kern): der Fixpunkt gilt erst, wenn
+    /// QPM Regel 17.6 (Irreduzibler Kern): der Fixpunkt gilt erst, wenn
     /// alle DREI Wege dasselbe reproduzieren.
     ///
     /// ERWARTUNG: einig ergibt einen Fixpunkt; und jeder der drei Wege

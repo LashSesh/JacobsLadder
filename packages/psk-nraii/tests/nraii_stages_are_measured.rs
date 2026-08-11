@@ -16,6 +16,8 @@
 //!   Boundary-Renewal, Monodromie-Ratchet und 4pi-Lift"
 //! - NRAII-7: "Attraktorstack, FoldBundle, Proof-Horizon und
 //!   Falsifikationsharness"
+//! - NRAII-8: "4-4-4-, Gate-, Replay-, PathInv- und
+//!   Irreduzibilitaetszertifizierter Kern"
 //!
 //! Die beiden Stufen decken sich NICHT mit den Schichten: NRAII-0 und
 //! NRAII-1 fallen beide erst mit L1, weil L0 allein nur einen der vier
@@ -388,9 +390,11 @@ fn nraii_four_the_two_wish_sides_are_strictly_separate() {
 /// NRAII-5, gemessen: "Quotientenstabiler Forward/Inverse-Channel mit
 /// Reobservation".
 ///
-/// Drei Bestandteile, einzeln geprueft. Der Channel selbst hat im
-/// NRAII-Teil keinen eigenen Block - siehe den Befund im Modulkopf von
-/// `wish`; gemessen wird deshalb, was die benachbarten Bloecke tragen.
+/// Drei Bestandteile, einzeln geprueft. Der Channel war bis v1.0.15
+/// undefiniert und wurde aus den Nachbarbloecken abgeleitet;
+/// QPM Struktur 11.4 (Forward/Inverse-Channel) hat die Lesart in
+/// v1.0.16 festgeschrieben - siehe den Modulkopf von `wish`. Gemessen
+/// wird jetzt gegen die normative Form.
 #[test]
 fn nraii_five_all_three_parts() {
     // Teil 1: Forward und Inverse - beide Richtungen stehen.
@@ -586,7 +590,7 @@ fn nraii_seven_all_four_parts() {
     assert_eq!(stack.top().id, "oben");
 
     // Teil 2: FoldBundle - drei Wege, ein Ergebnis
-    // (QPM Regel 17.4 (Irreduzibler Kern)).
+    // (QPM Regel 17.6 (Irreduzibler Kern)).
     let gleich = || zustand(r#"{"kern":"K"}"#);
     let fix = reach_fixpoint(&stack, &FoldBundle::bundle(gleich(), gleich(), gleich()))
         .expect("drei Wege, ein Ergebnis");
@@ -650,34 +654,173 @@ fn nraii_seven_all_four_parts() {
     println!("NRAII-7: Attraktorstack, FoldBundle, Proof-Horizon, Falsifikationsharness");
 }
 
+/// NRAII-8, fuenfteilig gemessen: "4-4-4-, Gate-, Replay-, PathInv-
+/// und Irreduzibilitaetszertifizierter Kern".
+///
+/// **Warum fuenf und nicht zwei.** Gate, Replay und PathInv sind drei
+/// der vier Komponenten von `C4^op`
+/// (QPM Definition 16.2 (Drei Vierfachschlösser)), stehen in der Stufe
+/// aber NEBEN dem 4-4-4. Gemessen wird deshalb jede einzeln am Kern
+/// und nicht bloss "C444 liegt vor" - sonst deckte eine Zusammenfassung
+/// genau das ab, wovor
+/// QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis) warnt.
+///
+/// Nebenbefund, gemessen: die Stufe nennt Gate, Replay und PathInv,
+/// aber NICHT `C_trace` - obwohl `C4^op` alle vier fuehrt. Die
+/// Stufenliste ist also nicht deckungsgleich mit `C4^op`. Folgenlos,
+/// weil `C444` ohnehin alle vier verlangt; hier festgehalten, damit die
+/// Ungleichheit nicht fuer eine Auslassung im Bau gehalten wird.
+#[test]
+fn nraii_eight_all_five_certifications() {
+    use psk_nraii::{
+        c4, certify_core, reach_fixpoint, AttractorStack, CertificationBreach, ClosureCell,
+        EpiComponent, EpiLock, FoldBundle, GeoComponent, GeoLock, ObligationStanding, OpComponent,
+        OpLock, ProofObligation, StackLevel, C444,
+    };
+
+    fn zustand(inhalt: &str) -> psk_nraii::CanonicalState {
+        psk_nraii::CanonicalState::canonicalize(inhalt.as_bytes(), psk_canon::Media::Json)
+            .expect("kanonisierbar")
+    }
+
+    // Teil 1: 4-4-4 - alle drei Vierfachschloesser, jedes einzeln
+    // erworben. Der lokale Zeuge darunter ist ein eigener Typ und kein
+    // Wahrheitswert (QPM Definition 16.1 (Lokales Vierfachprimitiv)).
+    let zellen = [
+        ClosureCell {
+            id: "c1".into(),
+            gate_passed: true,
+        },
+        ClosureCell {
+            id: "c2".into(),
+            gate_passed: true,
+        },
+        ClosureCell {
+            id: "c3".into(),
+            gate_passed: true,
+        },
+        ClosureCell {
+            id: "c4".into(),
+            gate_passed: true,
+        },
+    ];
+    assert_eq!(
+        c4(&zellen, |_, _| true)
+            .expect("lokal geschlossen")
+            .cells()
+            .len(),
+        4
+    );
+
+    let op = OpLock::close(&OpComponent::all()).expect("vier op");
+    let c444 = C444::certify(
+        GeoLock::close(&GeoComponent::all()).expect("vier geo"),
+        EpiLock::close(&EpiComponent::all()).expect("vier epi"),
+        op,
+    );
+
+    // Teile 2, 3 und 4: Gate, Replay und PathInv EINZELN am Kern
+    // nachgewiesen - die drei, die die Stufe neben dem 4-4-4 nennt.
+    for verlangt in ["C_gate", "C_replay", "C_pathinv"] {
+        assert!(
+            c444.op().witnessed().any(|w| *w == verlangt),
+            "{verlangt} fehlt in C4^op"
+        );
+    }
+
+    // Teil 5: Irreduzibilitaet - der Fixpunkt aus L7 wird zu K*, und
+    // zwar nur mit beiden Bedingungen aus
+    // QPM Definition 16.3 (4-4-4-Closure).
+    let stack = AttractorStack::embed(
+        vec![
+            StackLevel {
+                id: "unten".into(),
+                map: AttractorMap::triangulate(vec![Response {
+                    marker: "m".into(),
+                    value: "v".into(),
+                    origin: ResponseOrigin::Data,
+                }]),
+            },
+            StackLevel {
+                id: "oben".into(),
+                map: AttractorMap::triangulate(vec![Response {
+                    marker: "m".into(),
+                    value: "v".into(),
+                    origin: ResponseOrigin::Data,
+                }]),
+            },
+        ],
+        &[],
+    )
+    .expect("zwei Ebenen");
+    let gleich = || zustand(r#"{"kern":"K"}"#);
+    let fix = || {
+        reach_fixpoint(&stack, &FoldBundle::bundle(gleich(), gleich(), gleich())).expect("Fixpunkt")
+    };
+
+    // Die zweite Bedingung greift: ein blockierender Horizont laesst
+    // keinen Kern entstehen, auch bei vollstaendigem C444.
+    let blockiert = ProofHorizon {
+        version: "1.0.0".into(),
+        obligations: vec![ProofObligation::open("Kalibrierung steht aus")],
+    };
+    assert_eq!(
+        certify_core(fix(), &c444, &blockiert).expect_err("blockiert"),
+        CertificationBreach::ProofHorizonBlocks {
+            obligation: "Kalibrierung steht aus".into()
+        }
+    );
+
+    let offen_aber_klassifiziert = ProofHorizon {
+        version: "2.0.0".into(),
+        obligations: vec![ProofObligation {
+            text: "Nullmodellfamilie ist domaenengeliefert (NRAII-OBL-002)".into(),
+            standing: ObligationStanding::NotClosureEffective {
+                justification: "das Werk liefert sie nicht universell".into(),
+            },
+        }],
+    };
+    let kern = certify_core(fix(), &c444, &offen_aber_klassifiziert).expect("zulaessig");
+
+    // Und der Kern TRAEGT seine Zertifizierung, statt sie
+    // vorauszusetzen.
+    assert_eq!(kern.closure(), &c444);
+    assert_eq!(kern.condensed_from(), "oben");
+    assert_eq!(kern.horizon_version(), "2.0.0");
+
+    println!("NRAII-8: 4-4-4, Gate, Replay, PathInv, Irreduzibilitaet - je einzeln");
+}
+
 /// Die Gegenprobe zur Stufenmessung: was NICHT erreicht ist, ist auch
 /// nicht erreichbar behauptet.
 ///
-/// Die NAECHSTE OFFENE Stufe ist NRAII-8: "4-4-4-, Gate-, Replay-,
-/// PathInv- und Irreduzibilitaetszertifizierter Kern" - L8. Der
-/// Vorausblick steht bewusst dort und nicht auf der naechsten Nummer in
-/// der Liste: stuende er auf einer bereits erreichten, deckte er eine
-/// Luecke, statt sie zu melden.
+/// Die NAECHSTE OFFENE Stufe ist NRAII-9: "Doppelseitige read-only
+/// NRAII-QPM-Membran mit getrennten 4pi-Zyklen und Seam-Witness" - L9,
+/// und damit die Naht. Der Vorausblick steht bewusst dort und nicht auf
+/// der naechsten Nummer in der Liste: stuende er auf einer bereits
+/// erreichten, deckte er eine Luecke, statt sie zu melden.
 ///
-/// Er hat seine Aufgabe schon dreimal erfuellt: in seinen vorigen
-/// Fassungen standen NRAII-2, NRAII-3 und NRAII-7 hier, und der Bau der
-/// jeweiligen Schicht hat ihn planmaessig zu Fall gebracht.
+/// Er hat seine Aufgabe schon viermal erfuellt: in seinen vorigen
+/// Fassungen standen NRAII-2, NRAII-3, NRAII-7 und NRAII-8 hier, und
+/// der Bau der jeweiligen Schicht hat ihn planmaessig zu Fall gebracht.
+///
+/// **Diesmal darf er NICHT fallen, solange die andere Seite fehlt.**
+/// QPM Struktur 23.1 (Konformitätsstufen der Naht): SEAM-* setzt
+/// QPM >= QPM-8 UND NRAII >= NRAII-7 voraus, "die Naht DARF nicht vor
+/// ihren beiden Seiten reifen". Die NRAII-Seite steht seit L7; die
+/// QPM-Seite ruht am Katalog (QPM-OBL-002). Dieser Test ist deshalb
+/// nicht bloss ein Vorausblick, sondern die Wache davor, die Membran zu
+/// bauen, bevor sie reifen darf.
 #[test]
-fn nraii_eight_is_not_claimed() {
-    // Die Namen, die L8 einfuehren wuerde. Zeichenketten statt echter
+fn nraii_nine_is_not_claimed_and_must_not_be() {
+    // Die Namen, die L9 einfuehren wuerde. Zeichenketten statt echter
     // Bezuege: ein echter waere ein Kompilierfehler, und der Test soll
     // MESSEN, nicht selbst nicht bauen.
-    //
-    // `IrreducibleCore` ist bewusst dabei, obwohl L7 den Fixpunkt schon
-    // baut: [`psk_nraii::StackFixpoint`] heisst mit Absicht anders,
-    // weil der gate- und replayzertifizierte Kern K* zu NRAII-8 gehoert
-    // (QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis)).
-    let l8_namen = [
-        "C444",
-        "IrreducibleCore",
-        "ProjectionTwin",
-        "AbstractLock",
-        "PathInv",
+    let l9_namen = [
+        "Membrane",
+        "NraiiQpmSeam",
+        "C444JointRecord",
+        "SeamCertificate",
     ];
     let quelle = concat!(
         include_str!("../src/lib.rs"),
@@ -692,12 +835,14 @@ fn nraii_eight_is_not_claimed() {
         include_str!("../src/wish.rs"),
         include_str!("../src/peristalsis.rs"),
         include_str!("../src/stack_closure.rs"),
+        include_str!("../src/kernel.rs"),
     );
-    for name in l8_namen {
+    for name in l9_namen {
         assert!(
             !quelle.contains(&format!("pub struct {name}")),
-            "{name} ist gebaut - die Stufenmessung ist fortzuschreiben"
+            "{name} ist gebaut - aber die Naht darf nicht vor ihren beiden \
+             Seiten reifen, und die QPM-Seite ruht am Katalog"
         );
     }
-    println!("NRAII-8 und NRAII-9: nicht erreicht, nicht behauptet");
+    println!("NRAII-9: nicht erreicht, nicht behauptet - und bis QPM-8 auch nicht zulaessig");
 }

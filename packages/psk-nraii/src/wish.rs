@@ -62,11 +62,22 @@
 //!   Kapitels - deklarativ (QPM Struktur 11.1 (Deklarativer Wish)) und
 //!   rekonstruktiv (QPM Struktur 11.6 (Rekonstruktive Wish-Klasse)) -
 //!   verbunden durch den Regelkreis.
-//!   **Befund**: das Wort "Channel" hat im NRAII-Teil KEINEN eigenen
-//!   Block; es erscheint dort nur in der Stufenliste selbst. (Im
-//!   QPM-Teil bezeichnet `ChannelId` etwas anderes: die
-//!   Messkanalbuchfuehrung.) Dieselbe Lage wie beim Zykluswitness vor
-//!   v1.0.14 - abgeleitet aus den benachbarten Bloecken, nicht erfunden.
+//!
+//!   **Befund, und wie er normativ wurde.** Bis v1.0.15 hatte das Wort
+//!   "Channel" im NRAII-Teil KEINEN eigenen Block; es erschien dort nur
+//!   in der Stufenliste selbst. Als Befund gemeldet und aus den
+//!   Nachbarbloecken abgeleitet, nicht erfunden - dieselbe Lage wie
+//!   beim Zykluswitness vor v1.0.14.
+//!   QPM Struktur 11.4 (Forward/Inverse-Channel) hat die Lesart in
+//!   v1.0.16 festgeschrieben, und sie deckt sich mit der hier gebauten:
+//!   "Der Channel ist das Paar, verbunden durch die Reobservation -
+//!   ohne sie ist er offen, nicht geschlossen", und
+//!   quotientenstabil heisst quotientenvertraeglich im Sinne der
+//!   Diamant-Aequivalenz, "es gibt dafuer keinen eigenen Mechanismus".
+//!   QPM Regel 11.5 (Zwei Kanäle, ein Wort) trennt dazu die beiden
+//!   Bedeutungen: QPMs `ChannelId` wird deklariert und abgetastet, der
+//!   Forward/Inverse-Channel durchlaufen und geschlossen; eine Bindung
+//!   des einen an den anderen ist ein Konformitaetsdefekt.
 //! - **mit Reobservation**: [`reobserve`], gebaut.
 //! - **quotientenstabil**: der Channel MUSS die Klassen erhalten, also
 //!   quotientenvertraeglich sein. Das Werkzeug dafuer steht seit L1
