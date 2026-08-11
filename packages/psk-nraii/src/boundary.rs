@@ -5,7 +5,7 @@
 //! Zwei Dinge kommen hier zusammen, die auseinanderzuhalten sind:
 //!
 //! - Die Boundary-**Regel** ist Bindung.
-//!   QPM Invariante 9.6 (Boundary vor Absorption) - "Nicht integrierbare
+//!   QPM Invariante 9.7 (Boundary vor Absorption) - "Nicht integrierbare
 //!   Struktur wird an die Boundary verwiesen und als Residuum, Exklusion,
 //!   Deferred-Anteil oder Gegenbefund sichtbar. Sie wird DARF NICHT still
 //!   in den Kern geschoben" - ist PSK-RAs Residuenprinzip. Der

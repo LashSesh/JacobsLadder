@@ -81,8 +81,23 @@ struct BlockTitle {
 type Index = BTreeMap<(String, String), BlockTitle>;
 
 /// Eine Umschreibung, wie der Aufrufer sie deklariert.
+///
+/// `namespace` traegt das Praefix, auf das die Verschiebung zielt:
+/// `Some("QPM")`, `Some("CPSK")` oder `None` fuer PSK-RA. Geprueft wird
+/// es gegen das Praefix DER STELLE.
+///
+/// **Befund, der dieses Feld erzwungen hat (v1.0.15-Runde).** Ohne
+/// Namensraum schrieb eine QPM-Kaskade die Verschiebung von neun-fuenf
+/// auf neun-sechs auch in PSK-RA-Zitierungen: `psk-topology` nannte
+/// Invariante 9.5 (Exakte Kardinalität) fuer die M13-Topologie und trug
+/// danach den Titel von QPM Invariante 9.6 (Gate vor Score) - eine
+/// Invariante des anderen Werks ueber einer voellig anderen Sache. Die Differenzwache sprang NICHT an, und das
+/// war kein Versagen der Pruefung: sie vergleicht die Blockgleichheit
+/// im QPM-Werk, und dort ist die Verschiebung korrekt. Der blinde Fleck
+/// lag davor - das Werkzeug wusste nicht, WESSEN Nummer es verschiebt.
 #[derive(Debug, Clone)]
 struct Shift {
+    namespace: Option<String>,
     kind: String,
     from: String,
     to: String,
@@ -245,7 +260,17 @@ fn migrate(
                 continue;
             };
 
-            let Some(shift) = shifts.iter().find(|s| s.kind == *kind && s.from == number) else {
+            // Das Praefix DER STELLE: steht unmittelbar vor der
+            // Blockart ein `QPM ` oder `CPSK `?
+            let here: Option<&str> = ["QPM", "CPSK"].into_iter().find(|ns| {
+                let need = ns.len() + 1;
+                i >= need && c[i - need..i].iter().collect::<String>() == format!("{ns} ")
+            });
+
+            let Some(shift) = shifts
+                .iter()
+                .find(|s| s.kind == *kind && s.from == number && s.namespace.as_deref() == here)
+            else {
                 // Nicht Gegenstand dieser Kaskade - unveraendert
                 // uebernehmen, aber pruefen, ob die Nummer neu besetzt
                 // wurde: dann meint sie jetzt etwas anderes.
@@ -386,9 +411,15 @@ fn read_citation(c: &[char], i: usize, kind: &str) -> Option<(String, String, us
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.len() < 4 || args.len() % 3 != 2 {
+    if args.len() < 6 || !(args.len() - 2).is_multiple_of(4) {
         eprintln!(
-            "migrate-citations <alter-auszug> <neuer-auszug> [<Art> <von> <nach>]...\n\
+            "migrate-citations <alter-auszug> <neuer-auszug> \
+             [<Namensraum> <Art> <von> <nach>]...\n\
+             \n\
+             <Namensraum>: QPM, CPSK oder - (fuer PSK-RA). Eine\n\
+             Verschiebung fasst NUR Stellen mit genau diesem Praefix an;\n\
+             ohne diese Angabe schriebe eine QPM-Kaskade auch\n\
+             gleichnumerierte PSK-RA-Zitierungen um (siehe `Shift`).\n\
              \n\
              Prueft je Stelle, dass die Umschreibung denselben Block meint\n\
              (ueber den Titel, vorher und nachher verglichen), und schreibt\n\
@@ -399,11 +430,16 @@ fn main() -> ExitCode {
     let before = index_of(&fs::read_to_string(&args[0]).expect("alter Auszug lesbar"));
     let after = index_of(&fs::read_to_string(&args[1]).expect("neuer Auszug lesbar"));
     let shifts: Vec<Shift> = args[2..]
-        .chunks(3)
+        .chunks(4)
         .map(|c| Shift {
-            kind: c[0].clone(),
-            from: c[1].clone(),
-            to: c[2].clone(),
+            namespace: if c[0] == "-" {
+                None
+            } else {
+                Some(c[0].clone())
+            },
+            kind: c[1].clone(),
+            from: c[2].clone(),
+            to: c[3].clone(),
         })
         .collect();
 
@@ -493,6 +529,7 @@ mod tests {
         let out = migrate(
             std::slice::from_ref(&f),
             &[Shift {
+                namespace: None,
                 kind: "Algorithmus".into(),
                 from: "99.4".into(),
                 to: "99.5".into(),
@@ -533,6 +570,7 @@ mod tests {
         let out = migrate(
             std::slice::from_ref(&f),
             &[Shift {
+                namespace: None,
                 kind: "Algorithmus".into(),
                 from: "99.4".into(),
                 to: "99.5".into(),
@@ -604,6 +642,7 @@ mod tests {
         let out = migrate(
             std::slice::from_ref(&f),
             &[Shift {
+                namespace: None,
                 kind: "Regel".into(),
                 from: "99.7".into(),
                 to: "99.8".into(),
@@ -653,6 +692,7 @@ mod tests {
         let out = migrate(
             std::slice::from_ref(&f),
             &[Shift {
+                namespace: None,
                 kind: "Regel".into(),
                 from: "99.7".into(),
                 to: "99.8".into(),

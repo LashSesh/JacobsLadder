@@ -8,7 +8,7 @@
 //! Identifikation, Spiegelung, Quotientierung oder Synchronisation
 //! relativ zu N_0."
 //!
-//! QPM Invariante 9.10 (Nullanker-Statelessness) nennt drei Verbote;
+//! QPM Invariante 9.11 (Nullanker-Statelessness) nennt drei Verbote;
 //! jedes hat hier eine eigene Traegerform, keine Zusicherung:
 //!
 //! | "kein Speicher"            | `NullAnchor` hat keine Felder - es gibt nichts, worin etwas stehen koennte |
@@ -138,7 +138,7 @@ impl<A: Traversable, B: Traversable> Step<A, B> {
     ///
     /// `B` verschwindet aus dem Ergebnis - es ist der durchlaufene
     /// Zustand. Genau diese Position verbietet
-    /// QPM Invariante 9.10 (Nullanker-Statelessness) dem Nullanker.
+    /// QPM Invariante 9.11 (Nullanker-Statelessness) dem Nullanker.
     pub fn then<C: Traversable>(self, next: Step<B, C>) -> Step<A, C> {
         Step {
             from: self.from,
@@ -274,7 +274,7 @@ mod tests {
         assert_eq!(vier.len(), 4);
     }
 
-    /// QPM Invariante 9.10 (Nullanker-Statelessness), erste Haelfte
+    /// QPM Invariante 9.11 (Nullanker-Statelessness), erste Haelfte
     /// ("kein Speicher"): der Anker vergroessert das, was ihn fuehrt,
     /// um kein einziges Byte. Eine Ordnungsreferenz, die Platz
     /// beanspruchte, waere Datenhaltung.

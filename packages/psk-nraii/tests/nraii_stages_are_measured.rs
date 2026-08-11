@@ -10,6 +10,7 @@
 //! - NRAII-2: "Reflexive Boundary, Projektorzerlegung, Residuenvertrag,
 //!   nullverankerter Closure-Modus"
 //! - NRAII-3: "Radiale Arme, Armtypen, Wing-Mesh, Zykluswitness"
+//! - NRAII-4: "Deklarativer und rekonstruktiver Wish strikt getrennt"
 //!
 //! Die beiden Stufen decken sich NICHT mit den Schichten: NRAII-0 und
 //! NRAII-1 fallen beide erst mit L1, weil L0 allein nur einen der vier
@@ -24,9 +25,11 @@ use psk_nraii::{
     accept_arm, claim_is_complete, decompose, diamond_equivalent, lift,
     missing_counter_horizon_reason, residue_for_residual_part, seal_mode, witness_cycle,
     witness_seam, ArmType, AttractorMap, ClaimStatus, ContractComponent, Contraction, DiamondClass,
-    DomainContract, FalsificationCheck, HorizonPair, Involution, ProofHorizon, ReciprocityWitness,
-    ResidualPart, Response, ResponseOrigin, Signed, WingMesh, N0,
+    DomainContract, Facet, FalsificationCheck, HorizonPair, Involution, Materialization,
+    ProofHorizon, ReciprocityWitness, ResidualPart, Response, ResponseOrigin, Signed, WingMesh,
+    Wish, WishDistance, WishOutcome, N0,
 };
+use psk_nraii::{narrow_class, reobserve};
 use psk_types::{Digest, DualTime, ModuleId, ObjectId};
 
 /// Ein Zustand des Referenzgegenstands, an dem sich die Stufen messen
@@ -292,11 +295,78 @@ fn l4_is_built_without_claiming_a_stage() {
     println!("NRAII-4 bleibt offen - die Stufe verlangt L5 (Wunschkalkuel)");
 }
 
+/// NRAII-4, gemessen: "Deklarativer und rekonstruktiver Wish strikt
+/// getrennt".
+///
+/// Die Stufe nennt EINE Bedingung, und sie ist eine Trennung. Gemessen
+/// wird deshalb beides: dass die deklarative Seite steht, dass die
+/// rekonstruktive steht - und dass die eine der anderen nichts
+/// zugesteht.
+#[test]
+fn nraii_four_the_two_wish_sides_are_strictly_separate() {
+    // Deklarative Seite: ein Wish mit geprueften Gewichten und eine
+    // Distanz, die ordnet.
+    let wish = Wish::declare(vec![
+        Facet {
+            id: "a".into(),
+            weight: 2,
+            evidence: "a-evidenz".into(),
+            gate: "N-WISH".into(),
+        },
+        Facet {
+            id: "b".into(),
+            weight: 1,
+            evidence: "b-evidenz".into(),
+            gate: "N-WISH".into(),
+        },
+    ])
+    .expect("deklarierbar");
+    let nah = WishDistance::measure(
+        &wish,
+        &[
+            (
+                "a".into(),
+                psk_types::objects::Scaled {
+                    schema: "psk.scaled/1.0".into(),
+                    numerator: 100,
+                    scale: 2,
+                },
+            ),
+            (
+                "b".into(),
+                psk_types::objects::Scaled {
+                    schema: "psk.scaled/1.0".into(),
+                    numerator: 100,
+                    scale: 2,
+                },
+            ),
+        ],
+    )
+    .expect("messbar");
+    assert_eq!(nah.as_fraction().0, 0, "die Distanz ist exakt null");
+
+    // Rekonstruktive Seite: eine Klasse, die sich einschraenkt, ohne
+    // Eindeutigkeit zu erzwingen.
+    let mehrdeutig = narrow_class(vec!["h1".into(), "h2".into()], true, true);
+    assert!(matches!(mehrdeutig, WishOutcome::FinitelyAmbiguous { .. }));
+
+    // Die Trennung: die Distanz - auch die kleinstmoegliche - erzeugt
+    // keine Berechtigung. Der Kreis schliesst erst bei der
+    // Reobservation, und `Materialization::is_closed` verneint es.
+    let materialisiert = Materialization::after_full_pass();
+    assert!(!materialisiert.is_closed());
+    let geschlossen =
+        reobserve(materialisiert, "erneut gemessen").expect("Reobservation liegt vor");
+    assert!(geschlossen.was_reobserved());
+
+    println!("NRAII-4: deklarativer Wish, rekonstruktive Klasse, Distanz ohne Berechtigung");
+}
+
 /// Die Gegenprobe zur Stufenmessung: was NICHT erreicht ist, ist auch
 /// nicht erreichbar behauptet.
 ///
-/// NRAII-4 verlangt "Deklarativer und rekonstruktiver Wish strikt
-/// getrennt" - L5 (die Stufen laufen nicht parallel zu den Schichten).
+/// NRAII-5 verlangt "Quotientenstabiler Forward/Inverse-Channel mit
+/// Reobservation" und NRAII-6 die peristaltische Assimilation - L6.
 /// Nichts davon existiert, und dieser Test haelt fest, dass das Paket
 /// auch nichts davon exportiert.
 ///
@@ -304,11 +374,11 @@ fn l4_is_built_without_claiming_a_stage() {
 /// Fassungen standen NRAII-2 und NRAII-3 hier, und der Bau der
 /// jeweiligen Schicht hat ihn planmaessig zu Fall gebracht.
 #[test]
-fn nraii_four_is_not_claimed() {
-    // Die Namen, die L5 einfuehren wuerde. Zeichenketten statt echter
+fn nraii_six_is_not_claimed() {
+    // Die Namen, die L6 einfuehren wuerde. Zeichenketten statt echter
     // Bezuege: ein echter waere ein Kompilierfehler, und der Test soll
     // MESSEN, nicht selbst nicht bauen.
-    let l5_namen = ["Wish", "WishClass", "FacetSpec", "WishDistance"];
+    let l6_namen = ["RawMass", "Sediment", "MonodromyRatchet", "PhaseLift"];
     let quelle = concat!(
         include_str!("../src/lib.rs"),
         include_str!("../src/null_anchor.rs"),
@@ -319,12 +389,13 @@ fn nraii_four_is_not_claimed() {
         include_str!("../src/closure_mode.rs"),
         include_str!("../src/arms.rs"),
         include_str!("../src/diagnostic_field.rs"),
+        include_str!("../src/wish.rs"),
     );
-    for name in l5_namen {
+    for name in l6_namen {
         assert!(
             !quelle.contains(&format!("pub struct {name}")),
             "{name} ist gebaut - die Stufenmessung ist fortzuschreiben"
         );
     }
-    println!("NRAII-4 bis NRAII-9: nicht erreicht, nicht behauptet");
+    println!("NRAII-5 bis NRAII-9: nicht erreicht, nicht behauptet");
 }

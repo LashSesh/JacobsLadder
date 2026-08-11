@@ -89,3 +89,9 @@ pub use diagnostic_field::{
     claim_is_complete, missing_counter_horizon_reason, AttractorMap, FalsificationCheck,
     HorizonPair, Marker, ProofHorizon, Response, ResponseOrigin,
 };
+
+mod wish;
+pub use wish::{
+    narrow_class, reobserve, ClosureBreach, Facet, LoopClosure, LoopStage, Materialization, Wish,
+    WishBreach, WishDistance, WishOutcome,
+};
