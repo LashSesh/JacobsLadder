@@ -66,10 +66,26 @@ pub trait Traversable {}
 /// waere keine.
 ///
 /// Ein Pfad DURCH ihn ist ein Kompilierfehler, kein Laufzeitbefund.
-/// Die Fehlercodes stehen dabei, weil ein `compile_fail` ohne sie schon
-/// gruen ist, wenn IRGENDETWAS nicht kompiliert - ein Tippfehler im
-/// Beispiel bewiese dann nichts. Gemessen, nicht geraten: E0277 ist die
-/// unerfuellte Traitschranke.
+///
+/// ## Was der Fehlercode leistet - und was nicht
+///
+/// Ein `compile_fail` ohne Code ist schon gruen, wenn IRGENDETWAS nicht
+/// kompiliert; ein Tippfehler im Beispiel bewiese dann nichts. Der Code
+/// daneben sagt, WELCHER Fehler gemeint ist.
+///
+/// **Gemessen (L3-Runde): rustdoc ERZWINGT ihn nicht.** Ein Doctest mit
+/// `compile_fail,E0451`, dessen tatsaechlicher Fehler E0308 war, lief
+/// gruen durch, ohne Warnung. Der Code ist damit ein MESSPROTOKOLL -
+/// er haelt fest, was beim Schreiben an einem echten Pruefpaket
+/// gemessen wurde -, aber keine fortlaufende Wache: ein spaeterer
+/// Umbau, der einen anderen Fehler ausloest, faellt hier nicht auf.
+///
+/// Die Wache ist deshalb zweiteilig: der Doctest haelt fest, DASS es
+/// nicht kompiliert (das prueft rustdoc wirklich), und die Messung
+/// gegen ein Pruefpaket haelt fest, WARUM. Wer eine dieser Schranken
+/// umbaut, misst neu.
+///
+/// Hier gemessen: E0277 ist die unerfuellte Traitschranke.
 ///
 /// ```compile_fail,E0277
 /// struct Zustand;

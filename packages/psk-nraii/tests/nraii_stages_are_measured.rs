@@ -9,6 +9,7 @@
 //!   Nullanker"
 //! - NRAII-2: "Reflexive Boundary, Projektorzerlegung, Residuenvertrag,
 //!   nullverankerter Closure-Modus"
+//! - NRAII-3: "Radiale Arme, Armtypen, Wing-Mesh, Zykluswitness"
 //!
 //! Die beiden Stufen decken sich NICHT mit den Schichten: NRAII-0 und
 //! NRAII-1 fallen beide erst mit L1, weil L0 allein nur einen der vier
@@ -20,9 +21,10 @@
 //! Ueberlegung wie bei der feldweisen Nachweispflicht am Zertifikat.
 
 use psk_nraii::{
-    decompose, diamond_equivalent, lift, residue_for_residual_part, seal_mode, witness_seam,
-    ClaimStatus, ContractComponent, DiamondClass, DomainContract, Involution, ReciprocityWitness,
-    ResidualPart, Signed, N0,
+    accept_arm, decompose, diamond_equivalent, lift, residue_for_residual_part, seal_mode,
+    witness_cycle, witness_seam, ArmType, ClaimStatus, ContractComponent, Contraction,
+    DiamondClass, DomainContract, Involution, ReciprocityWitness, ResidualPart, Signed, WingMesh,
+    N0,
 };
 use psk_types::{Digest, DualTime, ModuleId, ObjectId};
 
@@ -181,24 +183,85 @@ fn nraii_two_all_four_parts() {
     println!("NRAII-2: Boundary, Zerlegung, Residuenvertrag, Closure-Modus");
 }
 
+/// NRAII-3, vierteilig gemessen: radiale Arme, Armtypen, Wing-Mesh,
+/// Zykluswitness.
+#[test]
+fn nraii_three_all_four_parts() {
+    // Teil 2 zuerst, weil Teil 1 ihn braucht: die zehn Armtypen,
+    // geschlossen - und neun davon mit Erzeuger auf dieser Schicht.
+    assert_eq!(ArmType::all().len(), 10);
+    let ohne_erzeuger: Vec<ArmType> = ArmType::all()
+        .into_iter()
+        .filter(|t| !t.has_producer_at_l3())
+        .collect();
+    assert_eq!(
+        ohne_erzeuger,
+        vec![ArmType::Qpm],
+        "der QPMArm gehoert zu L9 - erklaerter Nullstand, kein fehlender Arm"
+    );
+
+    // Teil 1: ein angenommener Arm mit belegter Kontraktion.
+    let arm = accept_arm(
+        ArmType::Mirror,
+        Contraction::RelativeDimensionDecreased {
+            before: 8,
+            after: 3,
+        },
+    )
+    .expect("Erzeuger vorhanden");
+    assert!(arm.contraction().contracts());
+    assert_eq!(arm.stages().len(), 5);
+
+    // Teil 3: das Wing-Mesh mit scope-relativer Deckung.
+    let deklariert = [ArmType::Mirror, ArmType::Probe];
+    let mesh = WingMesh::over(
+        &deklariert,
+        vec![
+            arm.clone(),
+            accept_arm(
+                ArmType::Probe,
+                Contraction::DimensionNotIncreased {
+                    before: 4,
+                    after: 4,
+                },
+            )
+            .expect("Erzeuger vorhanden"),
+        ],
+    );
+    assert!(mesh.coverage_is_complete());
+    assert_eq!(
+        mesh.out_of_scope().len(),
+        8,
+        "acht Typen ausserhalb, benannt"
+    );
+
+    // Teil 4: der Zykluswitness - und er traegt den L2-Beleg.
+    let r = Involution::check(|x: &i64| -x, &[1i64, 0]).expect("R^2 = I");
+    let seam = witness_seam(&r, &|x: &i64| 10 - x, &1i64, &N0);
+    let zyklus = witness_cycle(&arm, &4i64, &4i64, seam);
+    assert!(zyklus.closed);
+    assert_eq!(zyklus.arm, ArmType::Mirror);
+
+    println!("NRAII-3: Arme, zehn Armtypen (9 mit Erzeuger), Wing-Mesh, Zykluswitness");
+}
+
 /// Die Gegenprobe zur Stufenmessung: was NICHT erreicht ist, ist auch
 /// nicht erreichbar behauptet.
 ///
-/// NRAII-3 verlangt "Radiale Arme, Armtypen, Wing-Mesh, Zykluswitness" -
-/// L3. Nichts davon existiert, und dieser Test haelt fest, dass das
-/// Paket auch nichts davon exportiert. Faellt er, weil ein Name
-/// auftaucht, ist die Stufenmessung fortzuschreiben statt
-/// stillschweigend zu veralten.
+/// NRAII-4 verlangt "Deklarativer und rekonstruktiver Wish strikt
+/// getrennt" - L5 (die Stufen laufen nicht parallel zu den Schichten).
+/// Nichts davon existiert, und dieser Test haelt fest, dass das Paket
+/// auch nichts davon exportiert.
 ///
-/// Er hat das schon einmal getan: in seiner vorigen Fassung stand
-/// NRAII-2 hier, und der Bau von L2 hat ihn planmaessig zu Fall
-/// gebracht.
+/// Er hat seine Aufgabe schon zweimal erfuellt: in seinen vorigen
+/// Fassungen standen NRAII-2 und NRAII-3 hier, und der Bau der
+/// jeweiligen Schicht hat ihn planmaessig zu Fall gebracht.
 #[test]
-fn nraii_three_is_not_claimed() {
-    // Die Namen, die L3 einfuehren wuerde. Zeichenketten statt echter
+fn nraii_four_is_not_claimed() {
+    // Die Namen, die L5 einfuehren wuerde. Zeichenketten statt echter
     // Bezuege: ein echter waere ein Kompilierfehler, und der Test soll
     // MESSEN, nicht selbst nicht bauen.
-    let l3_namen = ["RadialArm", "ArmType", "WingMesh", "CycleWitness"];
+    let l5_namen = ["Wish", "WishClass", "FacetSpec", "WishDistance"];
     let quelle = concat!(
         include_str!("../src/lib.rs"),
         include_str!("../src/null_anchor.rs"),
@@ -207,12 +270,13 @@ fn nraii_three_is_not_claimed() {
         include_str!("../src/domain_contract.rs"),
         include_str!("../src/boundary.rs"),
         include_str!("../src/closure_mode.rs"),
+        include_str!("../src/arms.rs"),
     );
-    for name in l3_namen {
+    for name in l5_namen {
         assert!(
             !quelle.contains(&format!("pub struct {name}")),
             "{name} ist gebaut - die Stufenmessung ist fortzuschreiben"
         );
     }
-    println!("NRAII-3 bis NRAII-9: nicht erreicht, nicht behauptet");
+    println!("NRAII-4 bis NRAII-9: nicht erreicht, nicht behauptet");
 }

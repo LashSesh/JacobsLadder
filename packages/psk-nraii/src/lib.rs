@@ -77,3 +77,9 @@ pub use boundary::{
 
 mod closure_mode;
 pub use closure_mode::{chi, seal_mode, ClosureMode, ModeBreach, ReciprocityWitness};
+
+mod arms;
+pub use arms::{
+    accept_arm, witness_cycle, ArmBreach, ArmType, Contraction, CycleWitness, PrivateJustification,
+    RadialArm, WingMesh,
+};
