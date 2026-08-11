@@ -52,6 +52,31 @@
 //! [`Materialization`] fuehrt kein Weg zu einer [`LoopClosure`] ausser
 //! ueber [`reobserve`]. Ein Durchlauf ohne Reobservation kann keine
 //! Closure behaupten, weil es den Typ dafuer nicht gibt.
+//!
+//! ## Was NRAII-5 verlangt - gemessen
+//!
+//! Die Stufe heisst "Quotientenstabiler Forward/Inverse-Channel mit
+//! Reobservation". Gemessen, woran sie haengt:
+//!
+//! - **Forward/Inverse-Channel**: die beiden Wish-Richtungen dieses
+//!   Kapitels - deklarativ (QPM Struktur 11.1 (Deklarativer Wish)) und
+//!   rekonstruktiv (QPM Struktur 11.4 (Rekonstruktive Wish-Klasse)) -
+//!   verbunden durch den Regelkreis.
+//!   **Befund**: das Wort "Channel" hat im NRAII-Teil KEINEN eigenen
+//!   Block; es erscheint dort nur in der Stufenliste selbst. (Im
+//!   QPM-Teil bezeichnet `ChannelId` etwas anderes: die
+//!   Messkanalbuchfuehrung.) Dieselbe Lage wie beim Zykluswitness vor
+//!   v1.0.14 - abgeleitet aus den benachbarten Bloecken, nicht erfunden.
+//! - **mit Reobservation**: [`reobserve`], gebaut.
+//! - **quotientenstabil**: der Channel MUSS die Klassen erhalten, also
+//!   quotientenvertraeglich sein. Das Werkzeug dafuer steht seit L1
+//!   (`crate::lift`); [`lift_channel`] wendet es auf den Channel an.
+//!
+//! Und der lose Faden aus L1: QPM Definition 11.5 (Abhängigkeitsquotient, zweite Instanz)
+//! gehoert zu diesem Kapitel und war im ersten Zug nicht gebaut. Er ist
+//! unten nachgetragen - als BEFUND nach
+//! QPM Regel 9.3 (Was NRAII feststellt, ordnet der Eigner ein), weil die
+//! Quotientenbildung selbst M10 gehoert.
 
 use psk_types::objects::Scaled;
 
@@ -505,5 +530,252 @@ mod tests {
             WishOutcome::OutOfScope { reason } => assert!(reason.contains("epsilon")),
             other => panic!("{other:?}"),
         }
+    }
+}
+
+// ---------------------------------------------------------------------
+// Nachtrag: der Abhaengigkeitsquotient und die Quotientenstabilitaet des
+// Forward/Inverse-Channels. Beides gehoert zu L5 und fehlte im ersten
+// Zug - siehe den Abschnitt "Was NRAII-5 verlangt" im Modulkopf.
+// ---------------------------------------------------------------------
+
+/// Eine Perspektive im Sinne von
+/// QPM Definition 11.5 (Abhängigkeitsquotient, zweite Instanz), mit den
+/// vier Merkmalen, die sie abhaengig machen: "Quelle, Kalibrierung,
+/// Heuristik oder Vorverarbeitung".
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WishPerspective {
+    pub hypothesis: String,
+    pub source: String,
+    pub calibration: String,
+    pub heuristic: String,
+    pub preprocessing: String,
+}
+
+/// Warum zwei Perspektiven nicht doppelt zaehlen - benannt, nicht als
+/// blosses `true`.
+///
+/// Der BEFUND, den NRAII liefert. Die Einordnung in ein
+/// `DependencyProfile` gehoert M10 (`psk-dependency`), und nach
+/// QPM Regel 9.3 (Was NRAII feststellt, ordnet der Eigner ein) wird sie
+/// hier nicht getroffen: eine Abhaengigkeit auf ein Modulpaket waere die
+/// Architekturbindung, die QPM Regel 9.2 (Eigenständig in der Architektur, nicht in den Grundlagen)
+/// ausschliesst, ein eigener Quotient die Parallelstruktur, die
+/// QPM Definition 11.5 (Abhängigkeitsquotient, zweite Instanz)
+/// ausschliesst ("dieselbe Konstruktion wie PSK-RAs
+/// DependencyProfile").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum SharedDependency {
+    Source,
+    Calibration,
+    Heuristic,
+    Preprocessing,
+}
+
+impl SharedDependency {
+    pub fn label(&self) -> &'static str {
+        match self {
+            SharedDependency::Source => "Quelle",
+            SharedDependency::Calibration => "Kalibrierung",
+            SharedDependency::Heuristic => "Heuristik",
+            SharedDependency::Preprocessing => "Vorverarbeitung",
+        }
+    }
+}
+
+/// Stellt fest, WAS zwei Perspektiven teilen - leer heisst unabhaengig.
+///
+/// Der Befund ist eine Liste, kein Wahrheitswert: wer die effektive
+/// Evidenz zaehlt, muss wissen, WORAN die Abhaengigkeit haengt. Ein
+/// blosses `true` liesse offen, ob eine Kalibrierung oder eine ganze
+/// Quelle geteilt wird.
+pub fn shared_dependencies(a: &WishPerspective, b: &WishPerspective) -> Vec<SharedDependency> {
+    let mut out = Vec::new();
+    if a.source == b.source {
+        out.push(SharedDependency::Source);
+    }
+    if a.calibration == b.calibration {
+        out.push(SharedDependency::Calibration);
+    }
+    if a.heuristic == b.heuristic {
+        out.push(SharedDependency::Heuristic);
+    }
+    if a.preprocessing == b.preprocessing {
+        out.push(SharedDependency::Preprocessing);
+    }
+    out
+}
+
+/// Die Perspektivenpaare, die nach QPM Definition 11.5 (Abhängigkeitsquotient, zweite Instanz)
+/// NICHT doppelt zaehlen duerfen - als Befund fuer den Eigner.
+///
+/// Gibt Indexpaare mit dem geteilten Merkmal zurueck. Was daraus an
+/// effektiver Evidenz folgt, rechnet M10.
+pub fn dependent_pairs(
+    perspectives: &[WishPerspective],
+) -> Vec<(usize, usize, Vec<SharedDependency>)> {
+    let mut out = Vec::new();
+    for i in 0..perspectives.len() {
+        for j in (i + 1)..perspectives.len() {
+            let shared = shared_dependencies(&perspectives[i], &perspectives[j]);
+            if !shared.is_empty() {
+                out.push((i, j, shared));
+            }
+        }
+    }
+    out
+}
+
+/// Hebt den Forward/Inverse-Channel auf die Diamant-Klassen - die
+/// "Quotientenstabilitaet" aus NRAII-5.
+///
+/// BINDUNG an das Werkzeug aus L1, kein zweiter Mechanismus:
+/// [`crate::lift`] prueft `x ~diamant y => T(x) ~diamant T(y)` an
+/// vorgelegten Zeugen und weist eine vakuoese Zeugenmenge zurueck. Ein
+/// Channel, der die Klassen zerreisst, wird nicht gehoben - und ohne
+/// Hebung gibt es keine Wirkung auf Klassen.
+///
+/// Der Name sagt, was geprueft wird, nicht was gehofft wird: stabil
+/// heisst hier gemessen.
+pub fn lift_channel<X, F>(
+    channel: F,
+    witnesses: &[(X, X)],
+) -> Result<crate::QuotientOperator<X, F>, crate::CompatibilityBreach>
+where
+    X: crate::Signed,
+    F: Fn(&X) -> X,
+{
+    crate::lift(channel, witnesses)
+}
+
+#[cfg(test)]
+mod nachtrag_tests {
+    use super::*;
+
+    fn perspektive(h: &str, quelle: &str, kal: &str) -> WishPerspective {
+        WishPerspective {
+            hypothesis: h.to_string(),
+            source: quelle.to_string(),
+            calibration: kal.to_string(),
+            heuristic: "h-std".to_string(),
+            preprocessing: "p-std".to_string(),
+        }
+    }
+
+    /// QPM Definition 11.5 (Abhängigkeitsquotient, zweite Instanz): der
+    /// Befund nennt das geteilte Merkmal, nicht nur die Tatsache.
+    ///
+    /// ERWARTUNG, vor der Messung ausgesprochen: zwei Perspektiven mit
+    /// derselben Quelle teilen mindestens `Quelle`, und der Befund sagt
+    /// welches Merkmal. Zwei mit verschiedenen Quellen UND verschiedener
+    /// Kalibrierung teilen nur noch die Standardwerte - ohne diesen
+    /// zweiten Fall bliebe offen, ob die Funktion immer alles meldet.
+    #[test]
+    fn the_dependency_finding_names_what_is_shared() {
+        let a = perspektive("h1", "q1", "k1");
+        let b = perspektive("h2", "q1", "k2");
+        let geteilt = shared_dependencies(&a, &b);
+        assert!(geteilt.contains(&SharedDependency::Source));
+        assert!(!geteilt.contains(&SharedDependency::Calibration));
+
+        // Die Standardwerte fuer Heuristik und Vorverarbeitung sind
+        // gleich - der Befund meldet auch sie, denn sie SIND geteilt.
+        assert!(geteilt.contains(&SharedDependency::Heuristic));
+
+        // Paare ueber einer Menge.
+        let paare = dependent_pairs(&[a, b, perspektive("h3", "q9", "k9")]);
+        assert_eq!(paare.len(), 3, "jedes Paar teilt mindestens die Standards");
+        assert!(paare.iter().all(|(_, _, s)| !s.is_empty()));
+    }
+
+    /// Die zweite Haelfte des Nachweises nach
+    /// QPM Regel 9.3 (Was NRAII feststellt, ordnet der Eigner ein): der
+    /// Befund bleibt unter zwei verschiedenen Einordnungen derselbe.
+    ///
+    /// ERWARTUNG: dieselbe Perspektivenmenge, zweimal von verschiedenen
+    /// Eignern eingeordnet, ergibt DENSELBEN Befund - weil NRAII gar
+    /// nicht einordnet. Waere die Herkunft heimlich konstant, koennte
+    /// dieser Test es nicht sehen; deshalb ordnen die beiden
+    /// Einordnungen wirklich verschieden.
+    #[test]
+    fn the_finding_survives_two_different_classifications() {
+        let menge = [perspektive("h1", "q1", "k1"), perspektive("h2", "q1", "k2")];
+        let befund = dependent_pairs(&menge);
+
+        // Einordnung A: der Eigner zaehlt geteilte Quellen als eine
+        // Klasse.
+        let klassen_a = if befund
+            .iter()
+            .any(|(_, _, s)| s.contains(&SharedDependency::Source))
+        {
+            1
+        } else {
+            2
+        };
+        // Einordnung B: der Eigner zaehlt nur geteilte KALIBRIERUNG.
+        let klassen_b = if befund
+            .iter()
+            .any(|(_, _, s)| s.contains(&SharedDependency::Calibration))
+        {
+            1
+        } else {
+            2
+        };
+
+        assert_ne!(
+            klassen_a, klassen_b,
+            "die beiden Einordnungen sind wirklich verschieden"
+        );
+        // Und der BEFUND ist beide Male derselbe.
+        assert_eq!(befund, dependent_pairs(&menge));
+    }
+
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct Hypothese {
+        klasse: &'static str,
+        text: &'static str,
+    }
+
+    impl crate::Signed for Hypothese {
+        type Sig = &'static str;
+        fn signature(&self) -> &'static str {
+            self.klasse
+        }
+    }
+
+    /// Die Quotientenstabilitaet des Channels - GEPRUEFT, nicht
+    /// behauptet.
+    ///
+    /// ERWARTUNG: ein Channel, der nur den Text aendert, ist stabil und
+    /// laesst sich heben; einer, der die Klasse quellabhaengig aendert,
+    /// wird zurueckgewiesen. Ohne den zweiten Fall sagte der erste nur,
+    /// dass `lift_channel` etwas zurueckgibt.
+    #[test]
+    fn a_quotient_stable_channel_lifts_an_unstable_one_does_not() {
+        let stabil = |h: &Hypothese| Hypothese {
+            text: "rekonstruiert",
+            ..h.clone()
+        };
+        let zeugen = [(
+            Hypothese {
+                klasse: "A",
+                text: "eins",
+            },
+            Hypothese {
+                klasse: "A",
+                text: "zwei",
+            },
+        )];
+        let gehoben = lift_channel(stabil, &zeugen).expect("quotientenstabil");
+        assert_eq!(gehoben.checked_pairs(), 1);
+
+        let instabil = |h: &Hypothese| Hypothese {
+            klasse: if h.text == "eins" { "A" } else { "B" },
+            ..h.clone()
+        };
+        assert!(
+            lift_channel(instabil, &zeugen).is_err(),
+            "ein Channel, der die Klasse zerreisst, wird nicht gehoben"
+        );
     }
 }

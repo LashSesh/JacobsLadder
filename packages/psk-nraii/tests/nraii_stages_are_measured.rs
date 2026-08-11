@@ -11,6 +11,7 @@
 //!   nullverankerter Closure-Modus"
 //! - NRAII-3: "Radiale Arme, Armtypen, Wing-Mesh, Zykluswitness"
 //! - NRAII-4: "Deklarativer und rekonstruktiver Wish strikt getrennt"
+//! - NRAII-5: "Quotientenstabiler Forward/Inverse-Channel mit Reobservation"
 //!
 //! Die beiden Stufen decken sich NICHT mit den Schichten: NRAII-0 und
 //! NRAII-1 fallen beide erst mit L1, weil L0 allein nur einen der vier
@@ -360,6 +361,84 @@ fn nraii_four_the_two_wish_sides_are_strictly_separate() {
     assert!(geschlossen.was_reobserved());
 
     println!("NRAII-4: deklarativer Wish, rekonstruktive Klasse, Distanz ohne Berechtigung");
+}
+
+/// NRAII-5, gemessen: "Quotientenstabiler Forward/Inverse-Channel mit
+/// Reobservation".
+///
+/// Drei Bestandteile, einzeln geprueft. Der Channel selbst hat im
+/// NRAII-Teil keinen eigenen Block - siehe den Befund im Modulkopf von
+/// `wish`; gemessen wird deshalb, was die benachbarten Bloecke tragen.
+#[test]
+fn nraii_five_all_three_parts() {
+    // Teil 1: Forward und Inverse - beide Richtungen stehen.
+    let wish = Wish::declare(vec![Facet {
+        id: "f".into(),
+        weight: 1,
+        evidence: "e".into(),
+        gate: "N-WISH".into(),
+    }])
+    .expect("deklarierbar");
+    assert_eq!(wish.facets().len(), 1, "Forward: der deklarative Wish");
+    let inverse = narrow_class(vec!["h1".into()], true, true);
+    assert!(
+        matches!(inverse, WishOutcome::Unique { .. }),
+        "Inverse: die rekonstruktive Klasse"
+    );
+
+    // Teil 2: quotientenstabil - der Channel wird GEHOBEN, und ein
+    // klassenzerreissender wird zurueckgewiesen.
+    let stabil = |h: &Referenzzustand| Referenzzustand {
+        inhalt: "durchgelaufen",
+        ..h.clone()
+    };
+    let zeugen = [(
+        Referenzzustand {
+            art: "A",
+            inhalt: "eins",
+        },
+        Referenzzustand {
+            art: "A",
+            inhalt: "zwei",
+        },
+    )];
+    let gehoben = psk_nraii::lift_channel(stabil, &zeugen).expect("quotientenstabil");
+    assert_eq!(gehoben.checked_pairs(), 1);
+    let instabil = |h: &Referenzzustand| Referenzzustand {
+        art: if h.inhalt == "eins" { "A" } else { "B" },
+        ..h.clone()
+    };
+    assert!(psk_nraii::lift_channel(instabil, &zeugen).is_err());
+
+    // Teil 3: mit Reobservation - der Kreis schliesst dort und nirgends
+    // sonst.
+    let m = Materialization::after_full_pass();
+    assert!(!m.is_closed());
+    assert!(reobserve(m, "erneut gemessen")
+        .expect("Reobservation")
+        .was_reobserved());
+
+    // Und der Abhaengigkeitsquotient als BEFUND, nicht als Einordnung.
+    let paare = psk_nraii::dependent_pairs(&[
+        psk_nraii::WishPerspective {
+            hypothesis: "h1".into(),
+            source: "q1".into(),
+            calibration: "k1".into(),
+            heuristic: "x".into(),
+            preprocessing: "y".into(),
+        },
+        psk_nraii::WishPerspective {
+            hypothesis: "h2".into(),
+            source: "q1".into(),
+            calibration: "k2".into(),
+            heuristic: "z".into(),
+            preprocessing: "w".into(),
+        },
+    ]);
+    assert_eq!(paare.len(), 1);
+    assert!(paare[0].2.contains(&psk_nraii::SharedDependency::Source));
+
+    println!("NRAII-5: Forward/Inverse, quotientenstabil gehoben, Reobservation");
 }
 
 /// Die Gegenprobe zur Stufenmessung: was NICHT erreicht ist, ist auch

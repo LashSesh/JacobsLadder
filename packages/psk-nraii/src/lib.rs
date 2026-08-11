@@ -92,6 +92,7 @@ pub use diagnostic_field::{
 
 mod wish;
 pub use wish::{
-    narrow_class, reobserve, ClosureBreach, Facet, LoopClosure, LoopStage, Materialization, Wish,
-    WishBreach, WishDistance, WishOutcome,
+    dependent_pairs, lift_channel, narrow_class, reobserve, shared_dependencies, ClosureBreach,
+    Facet, LoopClosure, LoopStage, Materialization, SharedDependency, Wish, WishBreach,
+    WishDistance, WishOutcome, WishPerspective,
 };
