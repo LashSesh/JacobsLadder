@@ -155,7 +155,7 @@ closed_vocabularies:
     source: "Regel 23.1 (Eine Konformanzleiter): 'Die Merkmalsstufen der
       Gesamtspezifikation werden als abgeleiteter Deckungsvektor
       FC = (FC0, ..., FC8) gefuehrt.'"
-    note: "Steht in Struktur 7.49 (MachineCertificate) als 'type: [FC0..FC8]'.
+    note: "Steht in Struktur 7.50 (MachineCertificate) als 'type: [FC0..FC8]'.
       Diese Notation ist kein Listentyp ueber einem Bezeichner, sondern ein
       Bereich; der Codegen las sie als Bezeichner 'FC0..FC8' und erzeugte
       Vec<FC0FC8> ueber freien Zeichenketten - einen Vektor beliebiger

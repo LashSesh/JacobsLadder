@@ -16,7 +16,7 @@
 //! und er weist jede leere Komponente zurueck, mit ihrem Namen.
 //!
 //! Das ist NICHT dasselbe wie ein erklaerter Nullstand nach
-//! Regel 7.52 (Erklärter Nullstand): dort ist die Leere die Aussage und
+//! Regel 7.53 (Erklärter Nullstand): dort ist die Leere die Aussage und
 //! traegt Bedingung, Nachweis und Sichtbarkeit. Hier gibt es nichts zu
 //! erklaeren - eine Domaene ohne Observablen ist keine Domaene, und der
 //! Vertrag ist der Ort, an dem das auffallen muss.

@@ -40,7 +40,7 @@
 //! gate_registry.yaml) folgen demselben Muster wie `psk_certify::
 //! evaluate_release_gate` fuer G-RELEASE (siehe psk-gate/evaluate.rs
 //! Modulkopf: `seam_compatible` ist ein von aussen bestimmtes Urteil, kein
-//! interner `M11.seam_report`-Aufruf, da SeamReport (Struktur 7.30 (SeamReport / ObstructionRecord)) M13-
+//! interner `M11.seam_report`-Aufruf, da SeamReport (Struktur 7.31 (SeamReport / ObstructionRecord)) M13-
 //! zellenfoermig ist und G-BOOT keinen M13-Zellbezug hat) - beides wird
 //! jetzt innerhalb von `psk_contract::boot` selbst gesetzt, siehe dort.
 
@@ -205,7 +205,7 @@ pub struct GoldenRunReport {
     /// Jede nicht gebaute Kante mit Grund.
     pub ir_omissions: Vec<psk_ir::EdgeOmission>,
     /// Die Residuensaetze selbst, nicht nur ihre Anzahl - Eingabe des
-    /// `residue_report_digest`, das Struktur 7.49 (MachineCertificate) als einen der vier
+    /// `residue_report_digest`, das Struktur 7.50 (MachineCertificate) als einen der vier
     /// Berichtsdigests verlangt. Ein Bericht ueber eine Zahl waere keiner.
     pub residues: Vec<psk_types::objects::ResidueRecord>,
     /// Vertrag 9.7 (Zellclosure) ueber dem finalen Graphen: alle 18 Zellberichte
@@ -771,7 +771,7 @@ impl psk_effect::ExclusiveLine for HeldChild {
 /// zweier Laeufe folgt (Definition 22.1 (Replayklassen): keine Eigenschaft eines
 /// einzelnen Laufs).
 /// Schritt 13, Zertifikatsteil. **Jedes Feld kommt vom Aufrufer, keines
-/// entsteht hier** - Regel 7.55 (Plattformgebundene Verpflichtungsauflösung im Zertifikat):
+/// entsteht hier** - Regel 7.56 (Plattformgebundene Verpflichtungsauflösung im Zertifikat):
 /// "Kein Feld eines MachineCertificate DARF einen Wert tragen, der nicht
 /// aus einem Artefakt des zertifizierten Laufes stammt."
 ///
@@ -824,7 +824,7 @@ fn issue_golden_run_certificate(
         negative_test_report_digest: reports.negative_test_report.digest,
         scope: ScopeExpr("golden-run".into()),
         issued_at: run_time(),
-        // Regel 7.53 (Unsignierte Ausstellung unterhalbC4), seit
+        // Regel 7.54 (Unsignierte Ausstellung unterhalb C4), seit
         // v1.0.42 normativ und woertlich die Lesart, die dieser Lauf
         // gemeldet hatte: "signature ist ein Pflichtfeld; ein leerer
         // Wert ist kein Verfahren. Er ist dennoch zulaessig, solange die
@@ -840,7 +840,7 @@ fn issue_golden_run_certificate(
         // Bedingung, unter der der Nullstand zulaessig bleibt, und faellt
         // bei C4. Der Lauf steht heute auf C3 - eine Stufe darunter.
         signature: psk_types::Signature(vec![]),
-        // Regel 7.55 (Plattformgebundene Verpflichtungsauflösung im Zertifikat): der abgeleitete Vektor haelt diesen Lauf
+        // Regel 7.56 (Plattformgebundene Verpflichtungsauflösung im Zertifikat): der abgeleitete Vektor haelt diesen Lauf
         // unterhalb jeder Klasse, die OBL-010 (blocking_from: C4)
         // betrifft - siehe `is_relevant` in
         // `check_platform_bound_obligations`. Ein leerer Vektor ist hier
@@ -1048,8 +1048,10 @@ fn deposit_program(
         replay: ReplayDescriptor("golden-run/1".into()),
         boundary: ScopeExpr("jacobs-ladder-reference".into()),
         // Der eine Aenderungsvorschlag, ueber seinen realen Plandigest
-        // benannt - die groesste Nachfolgemenge, die diese Kapsel je
-        // haben wird (Invariante 12.6 (Monotone Kontraktion)).
+        // benannt - das laufweite ANGEBOT. `capsulate` (Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse))
+        // entscheidet je Quotientenklasse, ob es hineinkommt; erst DAS
+        // Ergebnis ist die groesste Nachfolgemenge, die eine einzelne
+        // Kapsel je haben wird (Invariante 12.6 (Monotone Kontraktion)).
         allowed_next: vec![psk_types::objects::CapsuleId(
             Digest::sha256(b"golden-run-patch-plan").to_string(),
         )],
@@ -1498,7 +1500,7 @@ pub fn run_golden_run_with_certificate(
 
     // Der Selbstkompilationsvorschlag steht JETZT vor dem Zertifikat, und
     // das ist keine Umsortierung aus Bequemlichkeit: sein GateReport ist
-    // FC7s Beleg, und Regel 7.55 (Plattformgebundene Verpflichtungsauflösung im Zertifikat)
+    // FC7s Beleg, und Regel 7.56 (Plattformgebundene Verpflichtungsauflösung im Zertifikat)
     // verlangt `feature_coverage` als abgeleiteten Wert. Solange das
     // Zertifikat zuerst entstand, konnte der Vektor nicht abgeleitet
     // werden - er wurde behauptet. Das Zertifikat ist das LETZTE Artefakt
@@ -1801,20 +1803,34 @@ mod tests {
             "spec und inline-contract fallen ueber den auditor transitiv zusammen"
         );
 
-        // ERWARTUNG vor der Messung (Auftraggeber): mit zwei Kapseln
-        // KOENNTE der Ratchet verschiedene Ergebnisse je Klasse liefern.
-        // GEMESSEN: er tut es in diesem Lauf NICHT - beide Kapseln
-        // konvergieren identisch. Das ist kein Fehlschlag der
-        // Vermutung, sondern ein eigener Befund: `allowed_next`,
-        // `countermodels` und `patch_artifact` sind LAUFgroessen
-        // (`spec.allowed_next`, `state.contradictions`,
-        // `state.program.patch_plan` - siehe `psk_scheduler::dispatch`,
-        // `ChallengeCapsulate` und `ChallengeResolve`), nicht
-        // klassenabhaengige. Der Ratchet liest nirgends `witnesses`; er
-        // kann deshalb strukturell nicht divergieren, solange beide
-        // Kapseln dieselbe Nachfolgemenge und dieselben Gegenmodelle
-        // erhalten - und das tun sie, weil `CapsuleSpec` EIN Wert je
-        // Lauf ist, nicht einer je Quotientenklasse.
+        // ERWARTUNG vor der Messung (Auftraggeber, v1.0.46): mit zwei
+        // Kapseln KOENNTE der Ratchet verschiedene Ergebnisse je Klasse
+        // liefern. GEMESSEN (v1.0.46): er tat es NICHT, aus einem
+        // Codedefekt - `allowed_next`/`countermodels` waren Laufgroessen,
+        // `capsulate` las `witnesses` nie. v1.0.47 (Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse))
+        // behob das: `psk_adversarial::capsulate` bildet `allowed_next`
+        // jetzt AUS der Klasse (`source_provenance` gegen das Artefakt
+        // des Angebots), `ChallengeResolve` filtert `countermodels` ueber
+        // `psk_adversarial::contradictions_of_class` auf dieselben
+        // Quellen. Divergenzfaehigkeit ist bewiesen -
+        // `psk_adversarial::kernel::tests::allowed_next_can_differ_when_class_sources_differ`
+        // zeigt eine Klasse mit leerer und eine mit voller
+        // Nachfolgemenge aus identischem Angebot.
+        //
+        // GEMESSEN (v1.0.47, NACH der Reparatur): der Referenzlauf
+        // konvergiert IMMER NOCH - jetzt aus einem Korpusbefund, nicht
+        // aus einem Codedefekt. Alle drei Quellen (`spec`,
+        // `inline-contract`, `release-note`) fuehren eine Anforderung zu
+        // GENAU DEMSELBEN Artefakt (`GOLDEN_RUN_PATCH_TARGET`,
+        // "golden-run-patch.txt"); das Angebot dieses Laufs nennt
+        // dasselbe Artefakt. Beide Quotientenklassen tragen deshalb eine
+        // Quelle, die es traegt, und beide Klassen stehen auf der
+        // "eigenen Seite" jedes der drei quellenuebergreifenden
+        // Widersprueche (Regel: eine Seite genuegt, `contradictions_of_class`).
+        // Ein Korpus, in dem eine Quelle ein ANDERES Artefakt bestreitet,
+        // wuerde hier eine Klasse mit leerer Nachfolgemenge zeigen - das
+        // ist Punkt 3 der Domaenenzerlegung (alternative Lesarten als
+        // eigene Objekte), nicht dieser Umbau.
         for outcome in [klein, gross] {
             assert_eq!(
                 outcome.ratchet_rounds,
@@ -1964,8 +1980,8 @@ mod tests {
         // Hier stand bis v1.0.40:
         //   assert_eq!(result.certificate.I_C, Digest::sha256(b"golden-run-i-c"));
         // Ein Test, der die KONSTANTE festnagelte - er hat die Erfindung
-        // nicht verhindert, sondern bewacht. Jetzt die Ableitung (Regel
-        // 7.50 (Jedes Zertifikatsfeld ist abgeleitet), Punkt 1); die
+        // nicht verhindert, sondern bewacht. Jetzt die Ableitung (Regel 7.55
+        // (Jedes Zertifikatsfeld ist abgeleitet), Punkt 1); die
         // feldweise Pflicht selbst liegt in
         // tests/every_certificate_field_is_derived.rs.
         assert_eq!(

@@ -61,7 +61,7 @@ pub fn independence_class_of(profile: &DependencyProfile, facet: &ObjectId) -> O
 fn compute_evidence_identity(draft: &EvidenceObject) -> Result<(ObjectId, Digest), PskError> {
     // `id` und `hash` sind beide selbstreferenziell und bleiben im Vorbild
     // aussen vor - dasselbe Muster wie AnchorSnapshot.digest (Struktur 7.4)
-    // und TraceSegment.segment_digest (Struktur 7.40).
+    // und TraceSegment.segment_digest (Struktur 7.41 (TraceSegment)).
     let mut value = serde_json::to_value(draft).map_err(|_| PskError::CanonicalizationFailed)?;
     let obj = value
         .as_object_mut()

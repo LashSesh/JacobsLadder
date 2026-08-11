@@ -94,7 +94,7 @@ edge_conditions:
 # BEWUSST NICHT deklariert, mit Grund - damit die Auslassung selbst
 # nachlesbar ist und nicht als Vergesslichkeit erscheint:
 #
-#   observed_by (S-EFF -> S-RCP): ExternalReceipt traegt per Struktur 7.35
+#   observed_by (S-EFF -> S-RCP): ExternalReceipt traegt per Struktur 7.36 (EffectAttempt / ExternalReceipt)
 #     KEINE ObjectId-Referenz auf den Versuch - der Beobachter ist
 #     unabhaengig und sieht den Versuch nie. Eine Kante hier waere eine
 #     Verknuepfung, die kein Objekt festhaelt: dieselbe Sorte Erfindung,

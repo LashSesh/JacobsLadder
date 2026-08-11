@@ -364,7 +364,7 @@ impl ProofHorizon {
     }
 
     /// Wieviele Pflichten noch offenstehen - klassifizierte
-    /// eingeschlossen. Regel 7.52 (Erklärter Nullstand) verlangt
+    /// eingeschlossen. Regel 7.53 (Erklärter Nullstand) verlangt
     /// Sichtbarkeit im Artefakt: eine Klassifikation verschwindet
     /// nicht aus dieser Zahl.
     pub fn open_count(&self) -> usize {
@@ -558,7 +558,7 @@ mod tests {
         assert_eq!(
             klassifiziert.open_count(),
             1,
-            "Regel 7.52 (Erklärter Nullstand): sichtbar im Artefakt, nicht verschwunden"
+            "Regel 7.53 (Erklärter Nullstand): sichtbar im Artefakt, nicht verschwunden"
         );
 
         // Erfuellt ist der andere Weg - und der leert den Horizont.

@@ -78,6 +78,8 @@
 //! - `Reconcile`: residualisiert (`reconcile` nimmt den Ledger).
 //! - `ArchiveGatherResidues`: liest den Residuenstand reihenfolgeabhaengig.
 
+use std::collections::BTreeSet;
+
 use psk_canon::Media;
 use psk_effect::EffectLines;
 use psk_trace::SegmentInputs;
@@ -909,32 +911,33 @@ pub fn dispatch_readonly(
             // richtigen Form nicht zu unterscheiden. Seit die Domaene
             // drei Quellen fuehrt, sind es zwei Klassen - derselbe
             // Fehlerform wie ein Bodenwert
-            // (Regel 7.51 (Ein Bodenwert ist keine Messung)): ein
+            // (Regel 7.52 (Ein Bodenwert ist keine Messung)): ein
             // Ausdruck, der ueber der alten Eingabe korrekt aussah und
             // es ueber der neuen nicht mehr war.
             //
             // Kein Nachfilter auf leere Klassen: eine Quotientenklasse
             // ohne aufloesbare Projektionen waere ein Defekt im Profil,
             // kein Fall, den dieser Schritt still ausblenden darf - No
-            // Silent Loss (Axiom 7.44 (No Silent Loss)).
+            // Silent Loss (Axiom 7.45 (No Silent Loss)).
             //
-            // **Befund, gemessen nach dem Umbau:** `allowed_next`
-            // (unten) ist fuer JEDE Kapsel `spec.allowed_next.clone()` -
-            // derselbe Wert, weil `CapsuleSpec` EIN Wert je Lauf ist,
-            // keiner je Quotientenklasse. `ChallengeResolve` liest fuer
-            // `survivors` ebenfalls nur laufglobale Groessen
-            // (`state.contradictions`, `state.program.patch_plan`), nie
-            // `witnesses`. Der Ratchet KANN deshalb strukturell nicht
-            // zwischen Kapseln divergieren, solange dieser Zustand
-            // steht - gemessen an der Referenzdomaene: zwei Kapseln (2
-            // und 4 Zeugen), beide Runde 2, beide RESIDUAL, beide nicht
-            // adversarial geschlossen. Ob `allowed_next` je Klasse
-            // verschieden sein SOLLTE, ist eine Werksfrage, die dieser
-            // Umbau nicht beantwortet - siehe den Testkommentar in
-            // `psk_conformance::golden_run`.
+            // Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse): `spec.allowed_next` ist seit v1.0.47 nicht
+            // mehr der Wert, der in die Kapsel geht - es ist das
+            // laufweite ANGEBOT. `capsulate` entscheidet je Klasse, ob
+            // sie es aufnimmt (ueber `source_provenance` gegen das
+            // Artefakt des Angebots). `offered` ist hier EIN Angebot,
+            // weil der Lauf genau einen Aenderungsvorschlag fuehrt
+            // (`state.program.patch_plan`) - mehrere waeren mehrere
+            // Eintraege, keine Konzeptaenderung.
             if profile.quotient_classes.is_empty() {
                 return Err(PskError::CorrelatedWitnessOvercount);
             }
+            let offered = match (spec.allowed_next.first(), state.program.patch_plan.as_ref()) {
+                (Some(id), Some(plan)) => Some(psk_adversarial::OfferedCandidate {
+                    id: id.clone(),
+                    artifact: plan.scope.0.clone(),
+                }),
+                _ => None,
+            };
             let mut capsules = Vec::with_capacity(profile.quotient_classes.len());
             for class_ids in &profile.quotient_classes {
                 let class: Vec<psk_types::objects::FieldProjection> = state
@@ -945,6 +948,7 @@ pub fn dispatch_readonly(
                     .collect();
                 capsules.push(psk_adversarial::capsulate(
                     &class,
+                    &state.program.requirements,
                     psk_adversarial::CapsuleInputs {
                         // Die behauptete Rolle IST der formale Claim des
                         // Gedankens - ein Laufwert, kein Etikett. Fuer
@@ -956,7 +960,7 @@ pub fn dispatch_readonly(
                         boundary: spec.boundary.clone(),
                         trace_ref: TraceRef(state.trace.head()),
                         coupling: vec![],
-                        allowed_next: spec.allowed_next.clone(),
+                        offered: offered.clone(),
                     },
                 )?);
             }
@@ -990,9 +994,24 @@ pub fn dispatch_readonly(
                 .as_ref()
                 .map(|p| p.scope.0.as_str())
                 .unwrap_or("");
-            let countermodels = psk_adversarial::falsifier_countermodels(
+            // Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse): die Gegenmodellmenge gilt nur fuer
+            // Widersprueche, die eine Quelle DIESER Kapsel beruehren - nicht
+            // fuer den ganzen Lauf. `sealed.witnesses` sind die
+            // Projektions-IDs der Klasse, die `capsulate` gesiegelt hat
+            // (siehe dort); ihre `source_provenance` ist die Quellenmenge
+            // der Klasse.
+            let class_sources: BTreeSet<String> = state
+                .projections
+                .iter()
+                .filter(|p| sealed.witnesses.contains(&p.id))
+                .flat_map(|p| p.source_provenance.iter().map(|s| s.0.clone()))
+                .collect();
+            let scoped_contradictions = psk_adversarial::contradictions_of_class(
                 state.contradictions.as_deref().unwrap_or(&[]),
+                &state.program.requirements,
+                &class_sources,
             );
+            let countermodels = psk_adversarial::falsifier_countermodels(&scoped_contradictions);
             // `survivors` = die Nachfolgemenge OHNE die vom Falsifikator
             // widerlegten Kandidaten.
             let survivors: Vec<psk_types::objects::CapsuleId> = sealed

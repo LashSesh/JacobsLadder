@@ -99,7 +99,7 @@ pub struct QpmRunReport {
     /// Warum das Verdikt so ausfiel - benannt, nicht zu erraten.
     pub verdict_reason: String,
     /// Das Ergebnis der Pipelinestufe QueryVersionedTemplateCatalog,
-    /// im Artefakt sichtbar (Regel 7.52 (Erklärter Nullstand), dritte
+    /// im Artefakt sichtbar (Regel 7.53 (Erklärter Nullstand), dritte
     /// Pflicht): die Leerform steht HIER, nicht nur im Grundtext des
     /// Verdikts.
     pub catalog_query: crate::qpm_query::CatalogQuery,
@@ -301,7 +301,7 @@ pub fn scope_contract_breaks(
 /// PSK-RA bereits hat.
 ///
 /// - Trace-Bruch: die Segmentkette des Laufs, geprueft mit
-///   `psk_trace::verify_chain_detailed` (Regel 7.41 (Zwei Digests je Segment),
+///   `psk_trace::verify_chain_detailed` (Regel 7.42 (Zwei Digests je Segment),
 ///   Kettenfortschreibung) - und der Taktabgleich: so viele
 ///   `tick.closed`-Siegel wie Takte.
 /// - Provenienz-Bruch: dieselbe Pruefung, zweite Haelfte - die
@@ -406,13 +406,13 @@ impl WitnessRank {
     }
 
     /// Ob dieser Rang eine MESSUNG ist
-    /// (Regel 7.51 (Ein Bodenwert ist keine Messung)).
+    /// (Regel 7.52 (Ein Bodenwert ist keine Messung)).
     ///
     /// **Gemessen, und der Befund ist gegenlaeufig zur Vermutung:** die
     /// Zahl hier ist keine Bodenzahl. `psk_dependency::quotient` gibt
     /// ueber einer leeren Projektionsmenge `effective_rank = 0` und
     /// leere `quotient_classes` zurueck, nicht eins - der Boden, den
-    /// Regel 7.51 (Ein Bodenwert ist keine Messung) benennt, sass in
+    /// Regel 7.52 (Ein Bodenwert ist keine Messung) benennt, sass in
     /// `psk_adversarial::effective_rank_of`
     /// und nicht hier. Der Referenzlauf misst wirklich: sechs Sichten,
     /// eine Quotientenklasse, Rang eins.

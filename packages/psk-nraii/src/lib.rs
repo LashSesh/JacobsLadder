@@ -20,7 +20,7 @@
 //! waere eine zweite Antwort auf dieselbe Frage."
 //!
 //! L0 uebernahm davon nichts, als erklaerter Nullstand nach
-//! Regel 7.52 (Erklärter Nullstand) mit benannter Bedingung: sobald
+//! Regel 7.53 (Erklärter Nullstand) mit benannter Bedingung: sobald
 //! eine Struktur dieses Pakets einen Payload traegt, ist eine
 //! Kanonisierung faellig, und sie MUSS die geteilte sein. Die
 //! Ersatzfuellung, die dieselbe Regel verbietet, waere gewesen,

@@ -34,7 +34,7 @@ fn i_t_is_deterministic_for_the_identical_state() {
 }
 
 /// Regel 6.10 (Vier Identitäten) + Invariante 6.14 (Replayneutralität der Wanduhr), erfuellbar seit PSK-RA v1.0.20
-/// (Fehlerkorrektur 24, Regel 7.41 (Zwei Digests je Segment)): `segment_digest` wendet `pi_vol` an,
+/// (Fehlerkorrektur 24, Regel 7.42 (Zwei Digests je Segment)): `segment_digest` wendet `pi_vol` an,
 /// `segment_record_digest` traegt die vollstaendigen Bytes.
 #[test]
 fn same_run_descriptor_and_inputs_yield_the_same_i_t_despite_a_different_wall_clock() {
@@ -69,7 +69,7 @@ fn the_record_digests_of_those_same_two_runs_do_differ() {
     );
 }
 
-/// Regel 7.41 (Zwei Digests je Segment), beide Haelften an EINEM Segment gemessen - der Test, der
+/// Regel 7.42 (Zwei Digests je Segment), beide Haelften an EINEM Segment gemessen - der Test, der
 /// eine Rueckkehr zum alten Verhalten auffallen laesst: `segment_digest`
 /// DARF `tau_e` nicht enthalten, `segment_record_digest` MUSS es. Ein
 /// Test, der nur die erste Haelfte prueft, wuerde eine Implementierung
@@ -86,11 +86,11 @@ fn segment_digest_excludes_the_wall_clock_and_segment_record_digest_includes_it(
     for (x, y) in sa.iter().zip(sb.iter()) {
         assert_eq!(
             x.segment_digest, y.segment_digest,
-            "segment_digest ist identitaetsbildend und DARF tau_e nicht tragen (Regel 7.41 (Zwei Digests je Segment))"
+            "segment_digest ist identitaetsbildend und DARF tau_e nicht tragen (Regel 7.42 (Zwei Digests je Segment))"
         );
         assert_ne!(
             x.segment_record_digest, y.segment_record_digest,
-            "segment_record_digest sichert die vollstaendigen Bytes und MUSS tau_e tragen (Regel 7.41 (Zwei Digests je Segment))"
+            "segment_record_digest sichert die vollstaendigen Bytes und MUSS tau_e tragen (Regel 7.42 (Zwei Digests je Segment))"
         );
     }
 

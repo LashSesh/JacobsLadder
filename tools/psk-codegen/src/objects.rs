@@ -532,7 +532,7 @@ impl TypeGen<'_> {
 
             // Eine Alternative kann selbst ein Typverweis sein statt eines
             // weiteren literalen Tags - z.B. "RollbackSpec |
-            // NO_ROLLBACK_JUSTIFIED" (EffectToken.rollback, Struktur 7.33).
+            // NO_ROLLBACK_JUSTIFIED" (EffectToken.rollback, Struktur 7.34 (EffectToken)).
             // Erkennbar an gemischter Gross-/Kleinschreibung ohne
             // Unterstrich (anders als "PASS" oder "NO_ROLLBACK_JUSTIFIED").
             // Vor dieser Korrektur erzeugte eine solche Alternative nur

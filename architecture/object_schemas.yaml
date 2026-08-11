@@ -352,7 +352,7 @@ objects:
 
   - id: OBJ-SEA
     name: SeamReport
-    struktur: "7.30"
+    struktur: "7.31"
     fields:
       - {name: id, type: ObjectId}
       - {name: overlap, type: "[ObjectId, ObjectId]"}
@@ -364,7 +364,7 @@ objects:
 
   - id: OBJ-OBS
     name: ObstructionRecord
-    struktur: "7.30"
+    struktur: "7.31"
     fields:
       - {name: id, type: ObjectId}
       - {name: kind, type: "seam | order | identity | time | resource | capability | calibration"}
@@ -376,7 +376,7 @@ objects:
 
   - id: OBJ-GAT
     name: GateReport
-    struktur: "7.32"
+    struktur: "7.33"
     schema_id: psk.gate-report/1.0
     fields:
       - {name: schema, type: "psk.gate-report/1.0"}
@@ -395,7 +395,7 @@ objects:
 
   - id: OBJ-TOK
     name: EffectToken
-    struktur: "7.33"
+    struktur: "7.34"
     schema_id: psk.effect-token/1.0
     fields:
       - {name: schema, type: "psk.effect-token/1.0"}
@@ -417,7 +417,7 @@ objects:
 
   - id: OBJ-ATT
     name: EffectAttempt
-    struktur: "7.35"
+    struktur: "7.36"
     fields:
       - {name: id, type: ObjectId}
       - {name: token_ref, type: ObjectId}
@@ -432,7 +432,7 @@ objects:
 
   - id: OBJ-RCP
     name: ExternalReceipt
-    struktur: "7.35"
+    struktur: "7.36"
     fields:
       - {name: id, type: ObjectId}
       - {name: observer_adapter, type: AdapterId, note: "MUSS != EffectAttempt.adapter"}
@@ -445,7 +445,7 @@ objects:
 
   - id: OBJ-RCN
     name: ReconciliationReport
-    struktur: "7.37"
+    struktur: "7.38"
     schema_id: psk.reconciliation/1.0
     fields:
       - {name: schema, type: "psk.reconciliation/1.0"}
@@ -541,10 +541,10 @@ objects:
 
   - id: OBJ-TRC
     name: TraceSegment
-    struktur: "7.40"
+    struktur: "7.41"
     schema_id: psk.trace-segment/1.0
     rules:
-      - {id: "Regel 7.41", title: "Zwei Digests je Segment",
+      - {id: "Regel 7.42 (Zwei Digests je Segment)", title: "Zwei Digests je Segment",
           statement: "segment_digest ist identitaetsbildend: es bildet die
             Hashkette, geht ueber L_t in I_t ein und MUSS daher pi_vol
             anwenden. Andernfalls ginge tau_e entgegen der blockierenden
@@ -574,7 +574,7 @@ objects:
 
   - id: OBJ-RES
     name: ResidueRecord
-    struktur: "7.43"
+    struktur: "7.44"
     schema_id: psk.residue/1.0
     fields:
       - {name: schema, type: "psk.residue/1.0"}
@@ -592,7 +592,7 @@ objects:
 
   - id: OBJ-RUN
     name: RunDescriptor
-    struktur: "7.45"
+    struktur: "7.46"
     schema_id: psk.run-descriptor/1.0
     fields:
       - {name: schema, type: "psk.run-descriptor/1.0"}
@@ -616,7 +616,7 @@ objects:
 
   - id: OBJ-EXC
     name: ExcisionCertificate
-    struktur: "7.47"
+    struktur: "7.48"
     schema_id: psk.excision/1.0
     fields:
       - {name: schema, type: "psk.excision/1.0"}
@@ -633,7 +633,7 @@ objects:
 
   - id: OBJ-CRT
     name: MachineCertificate
-    struktur: "7.49"
+    struktur: "7.50"
     schema_id: psk.machine-certificate/1.0
     fields:
       - {name: schema, type: "psk.machine-certificate/1.0"}

@@ -18,8 +18,8 @@ include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
 mod corpus;
 pub use corpus::{
-    falsifier_countermodels, identify_contradictions, integrator_obstruction, open_obligation_for,
-    refutes, Contradiction, Geltung, Requirement,
+    contradictions_of_class, falsifier_countermodels, identify_contradictions,
+    integrator_obstruction, open_obligation_for, refutes, Contradiction, Geltung, Requirement,
 };
 
 mod counter_horizon;
@@ -35,5 +35,6 @@ pub use kernel::{
     capsulate, check_adversarial_closure, check_closure_state, check_hardening_permitted,
     check_monotone_contraction, check_repair_is_a_branch, check_support, contract,
     effective_rank_of, is_capsule_fixpoint, is_capsule_resolved, ratchet, residue_flow_next, split,
-    support, CapsuleInputs, EffectiveRank, HardeningClass, SplitResult, SupportPaths,
+    support, CapsuleInputs, EffectiveRank, HardeningClass, OfferedCandidate, SplitResult,
+    SupportPaths,
 };

@@ -15,7 +15,7 @@ use psk_conformance::{IdentityVerdict, RunGate};
 /// "Provenienz-, Gate-, Trace- oder Replaybruch").
 ///
 /// Die beiden Bruecharten sind VERSCHIEDEN und werden verschieden
-/// benannt - dieselbe Trennung, die Regel 7.41 (Zwei Digests je Segment)
+/// benannt - dieselbe Trennung, die Regel 7.42 (Zwei Digests je Segment)
 /// in die Segmentdigests legt: eine inhaltliche Aenderung bricht die
 /// Kette (Trace), eine Aenderung an tau_e bricht die
 /// Aufzeichnungsintegritaet (Provenienz), ohne die Kette zu beruehren.

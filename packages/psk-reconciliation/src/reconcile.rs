@@ -46,7 +46,7 @@
 //! Berichtskonstruktion, es gibt nichts zu berichten.
 //!
 //! Befund gegen die eigene v1.0.10-Implementierung (gefunden beim
-//! Nachpruefen von Invariante 7.36 auf Anfrage): "Beobachterunabhaengigkeit"
+//! Nachpruefen von Invariante 7.37 (Beobachtertrennung) auf Anfrage): "Beobachterunabhaengigkeit"
 //! ist im Text KEIN einzelner Vergleich, sondern zwei UND-verknuepfte:
 //! "ExternalReceipt.observer_adapter != EffectAttempt.adapter UND
 //! observer_identity != issuer_digest. Verletzung erzeugt PSK-E009." Die
@@ -95,18 +95,18 @@ pub struct ReconcileInputs {
     pub attempt: EffectAttempt,
     pub token_plan_digest: Digest,
     /// `EffectToken.issuer_digest` ("I_M von M15") des Tokens, unter dem
-    /// `attempt` lief - zweite Haelfte von Invariante 7.36, siehe Modulkopf.
+    /// `attempt` lief - zweite Haelfte von Invariante 7.37 (Beobachtertrennung), siehe Modulkopf.
     pub token_issuer_digest: Digest,
     pub receipts: Vec<ExternalReceipt>,
     pub anchor_ref: ObjectId,
     pub diff: DiffOutcome,
-    /// Struktur 7.37 fuehrt `finality` ohne Berechnungsvorschrift - der
+    /// Struktur 7.38 (ReconciliationReport) fuehrt `finality` ohne Berechnungsvorschrift - der
     /// Text setzt es nur als Ergebnisfeld, leitet es nirgends her (anders
     /// als `promotion`, das Algorithmus 20.9 vollstaendig festlegt).
     /// Befund: von aussen entgegengenommen, nicht erfunden.
     pub finality: Finality,
     /// "ActualizationWitness bei ACTUALIZED" - kein Kapitel-7-Objekt
-    /// dieses Namens registriert. Das Feld ist in Struktur 7.37 nicht
+    /// dieses Namens registriert. Das Feld ist in Struktur 7.38 (ReconciliationReport) nicht
     /// optional; ausserhalb von ACTUALIZED bleibt sein Inhalt hier dem
     /// Aufrufer ueberlassen.
     pub witness_ref: ObjectId,
@@ -142,7 +142,7 @@ fn compute_identity(draft: &ReconciliationReport) -> Result<ObjectId, PskError> 
 }
 
 /// M18: Algorithmus 20.9. `residues` ist das laufende Residuenledger
-/// (Regel 8.2 / Axiom 7.44 ueber P28, `from: "*"` - M18 ist keine
+/// (Regel 8.2 / Axiom 7.45 (No Silent Loss) ueber P28, `from: "*"` - M18 ist keine
 /// Ausnahme); `residualize(diff)` (Explicable/Contradictory) oeffnet dort
 /// ein Residuum des Typs `reconciliation`.
 pub fn reconcile(
@@ -165,7 +165,7 @@ pub fn reconcile(
     {
         return Err(PskError::ActualizationWithoutReconciliation);
     }
-    // Invariante 7.36, zweite Haelfte: observer_identity != issuer_digest.
+    // Invariante 7.37 (Beobachtertrennung), zweite Haelfte: observer_identity != issuer_digest.
     // Wiederverwendet aus WP05 statt neu geschrieben - derselbe Vergleich,
     // dieselbe Fehlerursache (siehe Modulkopf).
     for r in &inputs.receipts {
@@ -442,7 +442,7 @@ mod tests {
 
     #[test]
     fn a_receipt_from_the_effect_adapter_itself_fails() {
-        // Beobachterunabhaengigkeit, erste Haelfte von Invariante 7.36:
+        // Beobachterunabhaengigkeit, erste Haelfte von Invariante 7.37 (Beobachtertrennung):
         // derselbe Adapterbezeichner darf nicht sein eigener Zeuge sein.
         let mut inputs = base_inputs(DiffOutcome::Empty);
         inputs.receipts = vec![sample_receipt("r1", "effect-local-fs")];
@@ -455,7 +455,7 @@ mod tests {
 
     #[test]
     fn a_receipt_sharing_the_issuers_identity_digest_fails() {
-        // Beobachterunabhaengigkeit, zweite Haelfte von Invariante 7.36:
+        // Beobachterunabhaengigkeit, zweite Haelfte von Invariante 7.37 (Beobachtertrennung):
         // "observer_identity != issuer_digest" - unabhaengig vom
         // Adapterbezeichner. Das ist die staerkere Schranke: zwei
         // verschiedene AdapterId-Bezeichner koennten sich denselben

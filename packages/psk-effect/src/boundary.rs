@@ -50,7 +50,7 @@ use psk_types::{Digest, DualTime, PskError};
 /// `apply` nimmt `started_at` als Parameter statt es selbst zu bestimmen:
 /// "M16 fuehrt keine eigene Uhr" (`consume::check_not_expired`s
 /// Modulkommentar) gilt fuer Adapter genauso wie fuer die Grenze selbst -
-/// `EffectAttempt.started_at` MUSS gesetzt sein (Struktur 7.35 (EffectAttempt / ExternalReceipt), kein
+/// `EffectAttempt.started_at` MUSS gesetzt sein (Struktur 7.36 (EffectAttempt / ExternalReceipt), kein
 /// optionales Feld), aber woher der Zeitwert stammt, ist Sache des
 /// Aufrufers von `execute_effect`, nicht des Adapters.
 /// ## Warum `prestate` und `apply` `&mut self` nehmen

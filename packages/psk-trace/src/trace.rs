@@ -1,4 +1,4 @@
-//! M19 TraceReplayResidueStore, Trace-Teil (Struktur 7.40, OBJ-TRC).
+//! M19 TraceReplayResidueStore, Trace-Teil (Struktur 7.41 (TraceSegment), OBJ-TRC).
 //!
 //! Regel 8.2 (Erzeugung), dritte Pflicht: "ein TraceSegment ueber P28
 //! schreiben." Invariante 4.8 (Trace vor Wirkung): "der TraceSegment-
@@ -9,7 +9,7 @@
 //! weitergibt, kann das strukturell nicht, weil es vorher nicht existiert.
 //!
 //! `run_id` steht im Feldkommentar ("seq: uint64 # global monoton je
-//! run_id"), ist aber KEIN Feld von TraceSegment selbst (Struktur 7.40).
+//! run_id"), ist aber KEIN Feld von TraceSegment selbst (Struktur 7.41 (TraceSegment)).
 //! Ein `TraceStore` ist deshalb hier je Lauf instanziiert - die Bindung an
 //! run_id ist Sache des Aufrufers (M26 haelt genau einen TraceStore pro
 //! offenem Lauf), nicht der Struktur.
@@ -20,7 +20,7 @@ use psk_types::{Digest, DualTime, ModuleId, ObjectId, PortId, PskError, Signatur
 
 pub use psk_types::objects::TraceSegment;
 
-/// "Genesis = 64x\"0\"" (Struktur 7.40): der Vorgaenger des allerersten
+/// "Genesis = 64x\"0\"" (Struktur 7.41 (TraceSegment)): der Vorgaenger des allerersten
 /// Segments ist der Nulldigest, kein SHA-256 von irgendetwas.
 pub const GENESIS_DIGEST: Digest = Digest::from_bytes([0u8; 32]);
 
@@ -36,7 +36,7 @@ pub struct SegmentInputs {
     pub attestation: Option<Signature>,
 }
 
-/// Die beiden Digests eines Segments (Struktur 7.40 / Regel 7.41,
+/// Die beiden Digests eines Segments (Struktur 7.41 (TraceSegment) / Regel 7.42 (Zwei Digests je Segment),
 /// PSK-RA v1.0.20) ueber DIESELBE Feldmenge - alle Felder ausser den
 /// beiden Digests selbst -, aber mit verschiedener Projektion:
 ///
@@ -45,7 +45,7 @@ pub struct SegmentInputs {
 /// - `segment_record_digest = H(Can(...))` - mit `tau_e`, sichert die
 ///   Integritaet der gespeicherten Bytes.
 ///
-/// Regel 7.41 nennt fuer `segment_record_digest` "dieselben Felder
+/// Regel 7.42 (Zwei Digests je Segment) nennt fuer `segment_record_digest` "dieselben Felder
 /// einschliesslich tau_e" - deshalb hier eine Funktion, die beide aus
 /// einem Vorbild bildet, statt zweier, die auseinanderlaufen koennten.
 ///
@@ -136,7 +136,7 @@ impl TraceStore {
     }
 }
 
-/// Welche der Pruefungen aus Regel 7.41 gebrochen ist - und an welchem
+/// Welche der Pruefungen aus Regel 7.42 (Zwei Digests je Segment) gebrochen ist - und an welchem
 /// Segment. Alle Faelle bilden auf denselben Fehlercode ab
 /// (`PSK-E014 trace_or_residue_violation`, das geschlossene
 /// Fehlervokabular kennt keinen zweiten fuer diesen Bereich); die
@@ -164,7 +164,7 @@ pub enum ChainViolation {
 /// Algorithmus 22.5: `require verify_chain(M19.trace(run_id)) else
 /// FAIL(PSK-E014)`.
 ///
-/// Regel 7.41 (v1.0.20): "verify_chain MUSS beides pruefen: die
+/// Regel 7.42 (Zwei Digests je Segment): "verify_chain MUSS beides pruefen: die
 /// Kettenfortschreibung ueber segment_digest und je Segment die
 /// Aufzeichnungsintegritaet ueber segment_record_digest. Eine
 /// nachtraegliche Aenderung an tau_e bricht damit die zweite Pruefung,
@@ -268,7 +268,7 @@ mod tests {
 
     #[test]
     fn changing_the_wall_clock_breaks_the_record_check_not_the_chain() {
-        // Regel 7.41, der eigentliche Zweck der Zweiteilung: "Eine
+        // Regel 7.42 (Zwei Digests je Segment), der eigentliche Zweck der Zweiteilung: "Eine
         // nachtraegliche Aenderung an tau_e bricht damit die zweite
         // Pruefung, ohne die erste zu beruehren." Die
         // Manipulationssicherheit geht nicht verloren - sie wandert in die

@@ -3,7 +3,7 @@
 //! Kapitel 23: "Die Merkmalsstufen der Gesamtspezifikation werden als
 //! abgeleiteter Deckungsvektor FC = (FC0, ..., FC8) gefuehrt. FC ist keine
 //! Klassifikation, sondern eine Pflichtangabe im Maschinenzertifikat und
-//! eine Vorbedingung bestimmter C-Klassen." Struktur 7.49 fuehrt das Feld
+//! eine Vorbedingung bestimmter C-Klassen." Struktur 7.50 (MachineCertificate) fuehrt das Feld
 //! woertlich als `feature_coverage: [FC0..FC8] # abgeleiteter
 //! Deckungsvektor`.
 //!

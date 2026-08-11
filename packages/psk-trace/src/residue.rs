@@ -1,6 +1,6 @@
-//! M19 TraceReplayResidueStore, Residuenteil (Struktur 7.43, OBJ-RES).
+//! M19 TraceReplayResidueStore, Residuenteil (Struktur 7.44 (ResidueRecord), OBJ-RES).
 //!
-//! Axiom 7.44 (No Silent Loss), woertlich: "Jede Nichtclosure erzeugt
+//! Axiom 7.45 (No Silent Loss), woertlich: "Jede Nichtclosure erzeugt
 //! HOLD, FAIL, Quarantaene, Fork, Reanalyseauftrag oder ein sichtbares
 //! Residuum. Stilles Verwerfen ist nicht konform. Ein ResidueRecord DARF
 //! NICHT geloescht werden; er wird ausschliesslich in einen Folgezustand
@@ -71,7 +71,7 @@ fn compute_identity(draft: &ResidueInputs) -> Result<ObjectId, PskError> {
 }
 
 /// Das Residuenledger eines Laufs. Es gibt bewusst keine `remove`-Methode:
-/// Loeschung ist mit dieser API nicht ausdrueckbar (Axiom 7.44).
+/// Loeschung ist mit dieser API nicht ausdrueckbar (Axiom 7.45 (No Silent Loss)).
 ///
 /// T-TRACE-001 (`drop_previous_residue -> FAIL`): die Zusicherung IST die
 /// Abwesenheit der Methode, und die folgenden Doctests machen sie
@@ -125,7 +125,7 @@ fn compute_identity(draft: &ResidueInputs) -> Result<ObjectId, PskError> {
 /// H(Can(Sigma_t))` ein - siehe `psk_scheduler::sigma_digest`. Die
 /// Gegenrichtung fehlt bewusst: ein Residuum entsteht ueber `open` und
 /// wandert ueber `transition`, nie durch Deserialisierung - sonst liesse
-/// sich Axiom 7.44 (No Silent Loss) durch das Einspielen eines
+/// sich Axiom 7.45 (No Silent Loss) durch das Einspielen eines
 /// gekuerzten Ledgers umgehen.
 #[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct ResidueLedger {
@@ -213,7 +213,7 @@ impl ResidueLedger {
 
 /// H(Can(ResidueRecord)) als Einzelsatz-Integritaetsdigest, z.B. fuer
 /// `residue_ref` in ObstructionRecord - dieselbe Rolle wie
-/// `segment_record_digest` (Regel 7.41): `can()` ohne pi_vol, `opened_at`
+/// `segment_record_digest` (Regel 7.42 (Zwei Digests je Segment)): `can()` ohne pi_vol, `opened_at`
 /// samt Wanduhr geht ein.
 ///
 /// NICHT fuer Zertifikatsfelder. Invariante 6.8 (Trennung von Inhalt und
@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn there_is_no_way_to_remove_a_residue() {
-        // Axiom 7.44: strukturelle Abwesenheit einer Loeschmethode ist der
+        // Axiom 7.45 (No Silent Loss): strukturelle Abwesenheit einer Loeschmethode ist der
         // Test hier selbst - er kompiliert nur, weil `remove` nicht existiert.
         let mut ledger = ResidueLedger::new();
         ledger.open(inputs("s1")).unwrap();

@@ -109,7 +109,7 @@ pub enum CheckOutcome {
     /// Die Pruefung lief und schlug nicht an.
     Held { evidence: String },
     /// Die Pruefung lief NICHT - mit benanntem Grund
-    /// (Regel 7.52 (Erklärter Nullstand): die Leere traegt Bedingung
+    /// (Regel 7.53 (Erklärter Nullstand): die Leere traegt Bedingung
     /// und Sichtbarkeit, sie wird nicht ersatzgefuellt).
     NotProbed { reason: String },
 }

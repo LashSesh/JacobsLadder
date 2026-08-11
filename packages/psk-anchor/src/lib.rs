@@ -6,8 +6,8 @@
 //! WP05: `external_record` (der Aussenrecord-Typ, Regel 32.7), `anchor`
 //! (M05: Versiegelung zu AnchorSnapshot), `ingress` (M17: Provenienzbindung).
 //!
-//! WP15 (I7): `receipt` (M17 - ExternalReceipt/ObserverAdapter, Struktur
-//! 7.35; P24-Ingress nach Vertrag 20.2, Herkunftsbeglaubigung an der
+//! WP15 (I7): `receipt` (M17 - ExternalReceipt/ObserverAdapter, Struktur 7.36
+//! (EffectAttempt / ExternalReceipt); P24-Ingress nach Vertrag 20.2, Herkunftsbeglaubigung an der
 //! Prozessgrenze VOR jeder Deserialisierung).
 //!
 //! P24a (Prozesstopologie-Realisierung): `observe_protocol` - P06/P24

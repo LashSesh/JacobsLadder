@@ -240,7 +240,7 @@ fn workspace_root() -> std::path::PathBuf {
 /// Bis v1.0.45 trugen alle sechs dieselbe feste Quelle
 /// `sandbox-observation`, und der Quotient sagte eins - gerechnet und
 /// richtig, aber ueber einem Gegenstand ohne Uneinigkeit. Der Wert war
-/// nie ein Bodenwert (Regel 7.51 (Ein Bodenwert ist keine Messung));
+/// nie ein Bodenwert (Regel 7.52 (Ein Bodenwert ist keine Messung));
 /// `psk_dependency::quotient` gibt ueber leerer Eingabe null. Der
 /// Bodenwert sass in `psk_adversarial::effective_rank_of`, und der
 /// hatte keinen Aufrufer.
@@ -286,7 +286,7 @@ fn correlated_views_are_not_counted_as_independent() {
     );
 
     // Der Rang IST jetzt eine Messung, und der Bericht sagt es
-    // (Regel 7.51 (Ein Bodenwert ist keine Messung)).
+    // (Regel 7.52 (Ein Bodenwert ist keine Messung)).
     assert!(rank.is_measured());
     assert!(
         rank.labelled().contains("gemessen"),

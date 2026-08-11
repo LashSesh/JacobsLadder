@@ -33,7 +33,7 @@
 //! Ratchet ohne Gegenmodelle; eine Zitatmigration, die "0 ersetzt"
 //! meldete. Jedes Mal meldete etwas Erfolg, waehrend es nichts tat.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use psk_types::objects::{
     CapsuleId, M13Address, ObligationExpr, ObstructionRecord, ObstructionRecordKindKind,
@@ -200,6 +200,47 @@ fn statements_conflict(a: &str, b: &str) -> bool {
     let restricts = |s: &str| s.contains("ausschliesslich innerhalb");
     let extends = |s: &str| s.contains("ausserhalb") && s.contains("MUSS");
     (restricts(a) && extends(b)) || (restricts(b) && extends(a))
+}
+
+/// Beschraenkt Widersprueche auf eine Quotientenklasse (Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse)):
+/// ein Widerspruch gehoert zu einer Klasse, wenn WENIGSTENS eine seiner
+/// beiden Seiten aus einer Quelle stammt, die diese Klasse traegt - die
+/// Klasse hat dann eigene Evidenz, gegen die der Widerspruch spricht. Eine
+/// Seite ganz ausserhalb bindet die Klasse nicht dazu, die andere zu
+/// ignorieren: sie ist Gegenstand des Widerspruchs, nicht Aussenstehende.
+///
+/// `UnresolvableWithoutExternalRecord` fuehrt nur Anforderungs-IDs, keine
+/// Quelle - beide Seiten teilen ohnehin dieselbe (so entsteht diese
+/// Geltungsart in `identify_contradictions`); die Quelle kommt ueber die
+/// ID aus `requirements` zurueck.
+pub fn contradictions_of_class(
+    contradictions: &[Contradiction],
+    requirements: &[Requirement],
+    class_sources: &BTreeSet<String>,
+) -> Vec<Contradiction> {
+    let source_of: BTreeMap<&str, &str> = requirements
+        .iter()
+        .map(|r| (r.id.as_str(), r.source.as_str()))
+        .collect();
+    contradictions
+        .iter()
+        .filter(|c| match &c.geltung {
+            Geltung::UnresolvableAcrossSources {
+                left_source,
+                right_source,
+                ..
+            } => {
+                class_sources.contains(left_source.as_str())
+                    || class_sources.contains(right_source.as_str())
+            }
+            Geltung::UnresolvableWithoutExternalRecord { left, right } => source_of
+                .get(left.as_str())
+                .or_else(|| source_of.get(right.as_str()))
+                .is_some_and(|s| class_sources.contains(*s)),
+            Geltung::ResolvedByPrecedence { .. } => false,
+        })
+        .cloned()
+        .collect()
 }
 
 /// Der **Falsifikator** ("sucht Gegenbelege"): jeder Widerspruch, den die

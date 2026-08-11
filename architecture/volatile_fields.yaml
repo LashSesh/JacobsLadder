@@ -13,7 +13,7 @@ volatile: # nicht reproduzierbar zwischen Laeufen
   - path: "DualTime.tau_e"          # Wanduhr, Invariante Replayneutralitaet
   - path: "DualTime.clock_ref"      # Identitaet/Kalibrierstatus der Uhr
   - path: "DualTime.uncertainty_ns" # deklarierte Messunsicherheit
-  # Regel 7.41 (Zwei Digests je Segment): segment_record_digest deckt
+  # Regel 7.42 (Zwei Digests je Segment): segment_record_digest deckt
   # dieselben Felder MIT tau_e ab und "DARF NICHT Eingabe von I_t und
   # DARF NICHT Eingabe einer Gate-Entscheidung" sein. pi_vol ist der
   # einzige Ausschlusspfad (siehe purpose oben); der Eintrag erfuellt

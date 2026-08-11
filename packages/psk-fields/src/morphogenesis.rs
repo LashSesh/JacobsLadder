@@ -1,4 +1,4 @@
-//! M20 MorphogenesisController (Kapitel 12.5, Struktur 7.49).
+//! M20 MorphogenesisController (Kapitel 12.5, Struktur 7.50 (MachineCertificate)).
 //!
 //! Anders als M14/M15 (wo M14 das Gate besitzt und M15 nur das Ergebnis
 //! entgegennimmt) besitzt M20 G-MORPH UND G-EXCISION selbst
@@ -123,7 +123,7 @@ pub struct ExcisionInputs {
     pub difference: psk_types::objects::DiffTree,
     pub residues: Vec<ObjectId>,
     pub identity_effect: ExcisionCertificateIdentityEffectKind,
-    /// Pflicht bei `identity_effect == DeclaredSuccessor` (Struktur 7.49).
+    /// Pflicht bei `identity_effect == DeclaredSuccessor` (Struktur 7.50 (MachineCertificate)).
     pub successor_id: Option<Digest>,
     pub trace_ref: TraceRef,
 }
@@ -145,7 +145,7 @@ fn compute_excision_identity(draft: &ExcisionCertificate) -> Result<ObjectId, Ps
         .map_err(|_| PskError::CanonicalizationFailed)
 }
 
-/// Struktur 7.49: "successor_id ... Pflicht bei DECLARED_SUCCESSOR."
+/// Struktur 7.50 (MachineCertificate): "successor_id ... Pflicht bei DECLARED_SUCCESSOR."
 fn check_successor_id(inputs: &ExcisionInputs) -> Result<(), PskError> {
     let declared_without_successor = inputs.identity_effect
         == ExcisionCertificateIdentityEffectKind::DeclaredSuccessor
@@ -402,7 +402,7 @@ mod tests {
 
     #[test]
     fn declared_successor_without_successor_id_is_rejected() {
-        // Struktur 7.49: successor_id ist Pflicht bei DECLARED_SUCCESSOR.
+        // Struktur 7.50 (MachineCertificate): successor_id ist Pflicht bei DECLARED_SUCCESSOR.
         let field = sample_field();
         let (mut trace, mut residues) = stores();
         let result = decide_excision(

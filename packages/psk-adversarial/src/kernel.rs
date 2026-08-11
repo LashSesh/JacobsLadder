@@ -13,6 +13,9 @@
 //! unimplementiert statt vorgetaeuscht - die Neunerliste ist damit nicht
 //! erweitert, nur teilweise realisiert.
 
+use std::collections::BTreeSet;
+
+use crate::corpus::Requirement;
 use psk_canon::{identity_projection, object_id, Media};
 use psk_types::objects::{
     CandidateCapsule, CandidateCapsulePhaseKind as Phase, CandidateCapsuleStatusKind as Status,
@@ -23,6 +26,17 @@ use psk_types::{Digest, ObjectId, PskError, TraceRef};
 
 const CAPSULE_SORT: SortId = SortId::Branch;
 
+/// Ein im Lauf angebotener Kandidat: seine Kapsel-ID und das Artefakt, auf
+/// das er sich bezieht. `capsulate` (Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse)) nimmt ihn nur in
+/// `allowed_next` auf, wenn die Quellen DIESER Klasse eine Anforderung zu
+/// genau diesem Artefakt tragen - sonst ist er fuer diese Klasse kein
+/// Kandidat.
+#[derive(Debug, Clone)]
+pub struct OfferedCandidate {
+    pub id: CapsuleId,
+    pub artifact: String,
+}
+
 /// Eingaben fuer `capsulate`. `phase`, `status` und `id` fehlen: die Phase
 /// beginnt bei SEALED, der Status bei OPEN, die ID folgt aus dem Inhalt.
 pub struct CapsuleInputs {
@@ -31,9 +45,10 @@ pub struct CapsuleInputs {
     pub boundary: ScopeExpr,
     pub trace_ref: TraceRef,
     pub coupling: Vec<ObjectId>,
-    /// Die Ratchet-Restmenge zu Beginn - die groesste, die diese Kapsel je
-    /// haben wird (Invariante 12.6 (Monotone Kontraktion)).
-    pub allowed_next: Vec<CapsuleId>,
+    /// Das laufweite Angebot, falls der Lauf einen Aenderungsvorschlag
+    /// fuehrt. `capsulate` entscheidet je Klasse, ob es hineinkommt -
+    /// `None` heisst kein Angebot, nicht ein leeres.
+    pub offered: Option<OfferedCandidate>,
 }
 
 fn compute_identity(draft: &CandidateCapsule) -> Result<ObjectId, PskError> {
@@ -62,10 +77,34 @@ fn seal(draft: CandidateCapsule) -> Result<CandidateCapsule, PskError> {
 /// profile.quotient_classes)`) - nicht eine beliebige Projektionsmenge.
 /// `invariant_core` beginnt leer: Invarianten treten nur ueber `split` ein,
 /// und nur mit unabhaengiger Evidenz (Regel 12.4 (Splitoperator)).
+///
+/// Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse): `allowed_next` wird HIER aus `class` gebildet,
+/// nicht aus `inputs` durchgereicht. `class` traegt ueber
+/// `source_provenance` seine eigenen Quellen; `inputs.offered` kommt nur
+/// dann in `allowed_next`, wenn eine Anforderung EINER dieser Quellen sein
+/// Artefakt nennt. Zwei Klassen mit verschiedenen Quellen KOENNEN deshalb
+/// verschiedene `allowed_next` ergeben - siehe
+/// `allowed_next_can_differ_when_class_sources_differ` fuer den Nachweis,
+/// dass sie es nicht nur koennten, sondern es unter konstruierten
+/// Eingaben tatsaechlich tun.
 pub fn capsulate(
     class: &[FieldProjection],
+    requirements: &[Requirement],
     inputs: CapsuleInputs,
 ) -> Result<CandidateCapsule, PskError> {
+    let class_sources: BTreeSet<&str> = class
+        .iter()
+        .flat_map(|p| p.source_provenance.iter().map(|s| s.0.as_str()))
+        .collect();
+    let class_artifacts: BTreeSet<&str> = requirements
+        .iter()
+        .filter(|r| class_sources.contains(r.source.as_str()))
+        .map(|r| r.artifact.as_str())
+        .collect();
+    let allowed_next = match &inputs.offered {
+        Some(offer) if class_artifacts.contains(offer.artifact.as_str()) => vec![offer.id.clone()],
+        _ => Vec::new(),
+    };
     seal(CandidateCapsule {
         schema: "psk.candidate-capsule/1.0".to_string(),
         id: ObjectId::new(CAPSULE_SORT, Digest::sha256(b"")), // Platzhalter
@@ -77,7 +116,7 @@ pub fn capsulate(
         boundary: inputs.boundary,
         trace_ref: inputs.trace_ref,
         coupling: inputs.coupling,
-        allowed_next: inputs.allowed_next,
+        allowed_next,
         status: Status::Open,
     })
 }
@@ -89,7 +128,7 @@ pub struct SplitResult {
     pub surface: SurfaceDescriptor,
     pub invariant_core: Vec<InvariantId>,
     /// Die Invarianten, die NICHT eintreten durften, weil ihnen unabhaengige
-    /// Evidenz fehlt. Sie verschwinden nicht still (Axiom 7.44 (No Silent Loss), No Silent Loss).
+    /// Evidenz fehlt. Sie verschwinden nicht still (Axiom 7.45 (No Silent Loss), No Silent Loss).
     pub rejected: Vec<InvariantId>,
 }
 
@@ -267,7 +306,7 @@ pub fn check_adversarial_closure(
 /// Das Ergebnis von [`effective_rank_of`] - und der Grund, warum es kein
 /// `usize` ist.
 ///
-/// Regel 7.51 (Ein Bodenwert ist keine Messung): "Gibt eine Groesse bei
+/// Regel 7.52 (Ein Bodenwert ist keine Messung): "Gibt eine Groesse bei
 /// fehlender Eingabe einen Vorgabe- oder Bodenwert zurueck - etwa einen
 /// Rang von eins ueber einer leeren Evidenzmenge -, so DARF NICHT dieser
 /// Wert als Messergebnis gelesen oder berichtet werden. Er ist von einem
@@ -324,7 +363,7 @@ impl EffectiveRank {
     }
 
     /// Die Kennzeichnung fuer einen Bericht.
-    /// Regel 7.51 (Ein Bodenwert ist keine Messung): "Ein Bericht,
+    /// Regel 7.52 (Ein Bodenwert ist keine Messung): "Ein Bericht,
     /// der den Bodenwert neben gemessenen Werten fuehrt, ohne ihn zu
     /// kennzeichnen, behauptet eine Messung, die nicht stattfand."
     pub fn label(self) -> String {
@@ -343,7 +382,7 @@ impl EffectiveRank {
 /// Die Invariante spricht ueber Kapselbewertungen MIT Evidenz. Ueber den
 /// Fall ohne jede Evidenz sagt sie nichts - und die frueher hier
 /// stehende `.max(1)` legte ihn still auf eins fest. Seit v1.0.45 ist er
-/// ein eigener Ausgang (Regel 7.51 (Ein Bodenwert ist keine Messung));
+/// ein eigener Ausgang (Regel 7.52 (Ein Bodenwert ist keine Messung));
 /// siehe [`EffectiveRank`].
 pub fn effective_rank_of(evidence: &[EvidenceObject]) -> EffectiveRank {
     if evidence.is_empty() {
@@ -498,19 +537,47 @@ mod tests {
         }
     }
 
-    fn inputs(next: &[&str]) -> CapsuleInputs {
-        CapsuleInputs {
+    fn projection_with_source(id: &str, source: &str) -> FieldProjection {
+        FieldProjection {
+            source_provenance: vec![SourceRef(source.into())],
+            ..projection(id)
+        }
+    }
+
+    fn requirement(id: &str, artifact: &str, source: &str) -> Requirement {
+        Requirement {
+            id: id.into(),
+            severity: "MUST".into(),
+            artifact: artifact.into(),
+            precedence: 1,
+            statement: "s".into(),
+            source: source.into(),
+        }
+    }
+
+    /// Direktes Struct-Literal statt eines Laufs durch `capsulate`: seit
+    /// Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse) entscheidet `capsulate` SELBST, was in
+    /// `allowed_next` kommt (siehe unten) - die Tests hier (Ratchet,
+    /// Split, Support, Kontraktion, Fixpunkt) pruefen andere Operatoren
+    /// und brauchen nur EINE Kapsel mit frei wählbarem `allowed_next`,
+    /// keinen Beleg fuer capsulate's eigene Ableitung. Dieselbe
+    /// Rechtfertigung wie bei den EvidenceObject-Fixtures oben: die reale
+    /// Herkunft spielt fuer diese Tests keine Rolle.
+    fn capsule(next: &[&str]) -> CandidateCapsule {
+        CandidateCapsule {
+            schema: "psk.candidate-capsule/1.0".to_string(),
+            id: ObjectId::new(CAPSULE_SORT, Digest::sha256(b"test-capsule")),
             surface: SurfaceDescriptor("behauptete Rolle".into()),
+            invariant_core: Vec::new(),
+            phase: Phase::Sealed,
+            witnesses: vec![projection("p1").id],
             replay: ReplayDescriptor("replay/1".into()),
             boundary: ScopeExpr("lokal".into()),
             trace_ref: TraceRef(Digest::sha256(b"trace")),
             coupling: vec![],
             allowed_next: next.iter().map(|c| CapsuleId((*c).into())).collect(),
+            status: Status::Open,
         }
-    }
-
-    fn capsule(next: &[&str]) -> CandidateCapsule {
-        capsulate(&[projection("p1")], inputs(next)).unwrap()
     }
 
     /// Direktes Struct-Literal statt `psk_witness::make_evidence`: die
@@ -721,7 +788,7 @@ mod tests {
         );
     }
 
-    /// Regel 7.51 (Ein Bodenwert ist keine Messung), der Fall, der die
+    /// Regel 7.52 (Ein Bodenwert ist keine Messung), der Fall, der die
     /// Regel ausgeloest hat.
     ///
     /// ERWARTUNG, vor der Messung ausgesprochen: eine leere Evidenzmenge
@@ -835,10 +902,88 @@ mod tests {
         assert_eq!(check_closure_state(&done), Ok(()));
     }
 
+    fn base_inputs(offered: Option<OfferedCandidate>) -> CapsuleInputs {
+        CapsuleInputs {
+            surface: SurfaceDescriptor("behauptete Rolle".into()),
+            replay: ReplayDescriptor("replay/1".into()),
+            boundary: ScopeExpr("lokal".into()),
+            trace_ref: TraceRef(Digest::sha256(b"trace")),
+            coupling: vec![],
+            offered,
+        }
+    }
+
     #[test]
     fn capsulation_is_deterministic() {
-        let a = capsulate(&[projection("p1")], inputs(&["c1"])).unwrap();
-        let b = capsulate(&[projection("p1")], inputs(&["c1"])).unwrap();
+        let reqs = vec![requirement("R1", "artifact-a", "q1")];
+        let offered = Some(OfferedCandidate {
+            id: CapsuleId("c1".into()),
+            artifact: "artifact-a".into(),
+        });
+        let a = capsulate(&[projection("p1")], &reqs, base_inputs(offered.clone())).unwrap();
+        let b = capsulate(&[projection("p1")], &reqs, base_inputs(offered)).unwrap();
         assert_eq!(a.id, b.id);
+    }
+
+    /// Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse), der Nachweis, den die Regel verlangt:
+    /// nicht dass zwei Klassen im Referenzlauf verschieden ausfallen -
+    /// das ist danach eine Messung -, sondern dass verschiedene
+    /// Klasseninhalte verschiedene Kapseln ergeben KOENNEN. Zwei Klassen
+    /// mit verschiedenen Quellen, dasselbe Angebot: nur die Klasse, deren
+    /// Quelle eine Anforderung zum angebotenen Artefakt traegt, nimmt es
+    /// in `allowed_next` auf.
+    #[test]
+    fn allowed_next_can_differ_when_class_sources_differ() {
+        let reqs = vec![requirement("R1", "artifact-a", "source-a")];
+        let offered = Some(OfferedCandidate {
+            id: CapsuleId("candidate-1".into()),
+            artifact: "artifact-a".into(),
+        });
+        let class_a = [projection_with_source("p1", "source-a")];
+        let class_b = [projection_with_source("p2", "source-b")];
+
+        let capsule_a = capsulate(&class_a, &reqs, base_inputs(offered.clone())).unwrap();
+        let capsule_b = capsulate(&class_b, &reqs, base_inputs(offered)).unwrap();
+
+        assert_eq!(
+            capsule_a.allowed_next,
+            vec![CapsuleId("candidate-1".into())],
+            "Klasse A traegt die Quelle des Angebots - es kommt in ihre Nachfolgemenge"
+        );
+        assert!(
+            capsule_b.allowed_next.is_empty(),
+            "Klasse B traegt sie nicht - das Angebot bleibt draussen, kein stiller Ersatz"
+        );
+        assert_ne!(
+            capsule_a.id, capsule_b.id,
+            "verschiedene allowed_next -> verschiedene Kapseln, nicht nur verschiedene witnesses"
+        );
+    }
+
+    /// Die Kehrseite, ausdruecklich getestet: konvergieren zwei Klassen,
+    /// weil BEIDE die Quelle tragen, ist das ein Messwert - konvergieren
+    /// sie, weil `capsulate` die Klasse gar nicht liest, waere ein Defekt.
+    /// Dieser Test unterscheidet die beiden Faelle: source_provenance mit
+    /// ZWEI Quellen traegt beide Anforderungen, also kommt das Angebot
+    /// bei beiden Klassen an, und das ist hier die geprueft e, gewollte
+    /// Konvergenz.
+    #[test]
+    fn convergence_when_both_classes_share_the_offered_source_is_not_a_defect() {
+        let reqs = vec![requirement("R1", "artifact-a", "source-a")];
+        let offered = Some(OfferedCandidate {
+            id: CapsuleId("candidate-1".into()),
+            artifact: "artifact-a".into(),
+        });
+        let class_a = [projection_with_source("p1", "source-a")];
+        let class_b = [projection_with_source("p2", "source-a")];
+
+        let capsule_a = capsulate(&class_a, &reqs, base_inputs(offered.clone())).unwrap();
+        let capsule_b = capsulate(&class_b, &reqs, base_inputs(offered)).unwrap();
+
+        assert_eq!(capsule_a.allowed_next, capsule_b.allowed_next);
+        assert_eq!(
+            capsule_a.allowed_next,
+            vec![CapsuleId("candidate-1".into())]
+        );
     }
 }

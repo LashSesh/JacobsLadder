@@ -147,9 +147,13 @@ pub struct FieldFamilyEntry {
 }
 
 /// Die Kapseldeklaration des Laufs (Challenge-Phase): Replay- und
-/// Bereichsbindung, die groesste Nachfolgemenge (Invariante 12.6 (Monotone Kontraktion)) und das
-/// Rundenbudget (Regel 12.7 (Selektionsdruck) - derselbe Wert steht im RunDescriptor; EINE
-/// deklarierte Quelle speist beide, der Deponierende buergt dafuer).
+/// Bereichsbindung, das Rundenbudget (Regel 12.7 (Selektionsdruck) - derselbe Wert steht im
+/// RunDescriptor; EINE deklarierte Quelle speist beide, der Deponierende
+/// buergt dafuer). `allowed_next` ist das im LAUF angebotene
+/// Kandidatenset, nicht schon die Nachfolgemenge selbst: `capsulate`
+/// (Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse)) entscheidet je Quotientenklasse, welche
+/// Kandidaten deren eigene Quellen tragen, und ERST das Ergebnis ist
+/// Invariante 12.6s groesste Nachfolgemenge - je Kapsel, nicht laufweit.
 /// `support` sind die drei DEKLARIERTEN Supportpfade aus Definition
 /// 11.11 (gate/replay/resource); witness und coupling werden in der
 /// Phase BERECHNET, nicht deklariert.
