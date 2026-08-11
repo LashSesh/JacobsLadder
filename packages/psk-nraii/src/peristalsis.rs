@@ -7,7 +7,7 @@
 //!  --Renew--> Sigma_{n+1}`, "sofern alle erforderlichen Gates
 //! bestehen".
 //!
-//! QPM Invariante 14.5 (Kein Assimilationssprung): "Kein Schritt DARF
+//! QPM Invariante 14.6 (Kein Assimilationssprung): "Kein Schritt DARF
 //! uebersprungen werden, und Assim DARF NICHT Masse aufnehmen, die
 //! ExCal nicht passiert oder das Gate nicht bestanden hat."
 //!
@@ -19,30 +19,49 @@
 //! [`crate::Materialization`], aus der kein Weg zur Closure fuehrt
 //! ausser ueber `reobserve`.
 //!
-//! ## Welche Gates - gemessen, und der Befund
+//! ## Welche Gates - gemessen, dann entschieden
 //!
-//! **Kapitel 14 nennt KEIN Gate namentlich.** Gemessen: von den acht
-//! Bezeichnern der Gatefamilie
+//! Der Befund dieser Schicht war: **Kapitel 14 nennt KEIN Gate
+//! namentlich.** Gemessen an den acht Bezeichnern der Gatefamilie
 //! (QPM Struktur 18.1 (Gatefamilie NRAII)) kommt keiner im Kapitel vor.
-//! Ableitbar ist nur:
+//! Der Bezeichner wurde deshalb durchgereicht statt gewaehlt.
 //!
-//! - QPM Invariante 14.5 (Kein Assimilationssprung) verweist woertlich
-//!   auf QPM Invariante 9.7 (Boundary vor Absorption) ("gilt hier
-//!   woertlich"). Deren Gate ist `N-BOUNDARY` - im Gate-Register aber
-//!   der Schicht **L2** zugeordnet, nicht L6. Es ist also die
-//!   Bedingung, die `Assim` einhalten MUSS, und kein Gate dieses
-//!   Zyklus.
-//! - `N-RATCHET` ist im Register L6 zugeordnet und zielt auf
-//!   `monotone_lift_no_silent_reset`. Das ist
-//!   QPM Algorithmus 15.9 (Monodromie-Ratchet) aus Kapitel **15** -
-//!   dieselbe Schicht, aber nicht derselbe Gegenstand wie der Zyklus.
-//! - Die Gatestufe IM Zyklus (`K'_n --Gate--> G_n`) bleibt **unbenannt**.
+//! **v1.0.17 sagt, warum er fehlte.**
+//! QPM Regel 14.5 (Woher das Gate des Zyklus kommt): die Gatestufe
+//! "traegt keinen Namen, und das ist keine Luecke: welches Gate ueber
+//! die Aufnahme entscheidet, ist eine Domaenenfrage. Der Domain-Vertrag
+//! fuehrt GateSet als eine seiner zehn Komponenten; von dort kommt der
+//! Bezeichner, als Parameter hereingereicht und nie festverdrahtet."
 //!
-//! Deshalb wird der Gatebezeichner hier DURCHGEREICHT und nicht
-//! gewaehlt - dasselbe Vorgehen wie beim `origin_module` des
-//! Residuenvertrags, und aus demselben Grund: was das Werk nicht
-//! hergibt, erfindet diese Schicht nicht.
+//! Das Durchreichen bleibt also, bekommt aber eine Quelle: der Name
+//! kommt nicht mehr aus irgendeiner Zeichenkette des Aufrufers, sondern
+//! aus [`crate::ContractComponent::Gates`] des gebundenen Vertrags.
+//! [`CycleGate`] ist der Typ, der das traegt - konstruierbar nur ueber
+//! [`CycleGate::from_gate_set`], dasselbe Muster wie beim
+//! [`crate::DomainContract`] selbst.
+//!
+//! **Und die Folge, die dieselbe Regel zieht:** "Ein Zyklus, dessen
+//! GateSet kein Gate fuer diese Stufe deklariert, MUSS anhalten: ohne
+//! benanntes Gate gibt es keine bestandene Pruefung, und ohne
+//! bestandene Pruefung nimmt Assim nichts auf." Der Halt ist hier keine
+//! Pruefung in [`assimilate`], sondern die Kette selbst: ohne
+//! [`CycleGate`] kein [`Gated`], ohne [`Gated`] kein [`Sediment`], ohne
+//! [`Sediment`] kein Aufruf von [`assimilate`].
+//!
+//! ## Die zwei Nachbargates, die hier NICHT stehen
+//!
+//! Dieselbe Regel grenzt sie ab, und zwar so, wie die Messung sie
+//! gefunden hatte:
+//!
+//! - `N-BOUNDARY` ist der Schicht **L2** zugeordnet und "die Bedingung,
+//!   die Assim einzuhalten hat - daher die Schichtabhaengigkeit L6 ->
+//!   L2". Nicht das Gate dieses Zyklus.
+//! - `N-RATCHET` gehoert zu L6, "zielt aber auf den Monodromie-Ratchet
+//!   und nicht auf den Zyklus; beide stehen nebeneinander, nicht
+//!   ineinander" - QPM Algorithmus 15.9 (Monodromie-Ratchet) aus
+//!   Kapitel 15.
 
+use crate::{ContractComponent, DomainContract};
 use psk_types::Digest;
 
 /// `RawMass` nach QPM Definition 14.1 (RawMass): "jede heterogene
@@ -153,10 +172,71 @@ pub enum CycleBreach {
     /// Kondensation singulaer, nicht quasi-singulaer.
     SingularCondensation { lost: &'static str },
     /// Das Gate steht nicht auf PASS. `Assim` darf solche Masse nach
-    /// QPM Invariante 14.5 (Kein Assimilationssprung) nicht aufnehmen.
+    /// QPM Invariante 14.6 (Kein Assimilationssprung) nicht aufnehmen.
     GateNotPassed { gate: String },
+    /// Das GateSet des Domain-Vertrags deklariert diesen Bezeichner
+    /// nicht - der Zyklus MUSS anhalten
+    /// (QPM Regel 14.5 (Woher das Gate des Zyklus kommt)).
+    ///
+    /// `declared` nennt, was das GateSet stattdessen fuehrt. Ein Halt
+    /// ohne diese Angabe sagte nur, dass etwas fehlt, nicht was zur
+    /// Verfuegung stand - und der haeufige Fall ist ein Tippfehler im
+    /// Bezeichner, nicht ein leeres GateSet.
+    GateNotInGateSet { gate: String, declared: Vec<String> },
+    /// Fuer diese Stufe wurde ueberhaupt kein Bezeichner gestellt.
+    /// Derselbe Halt, andere Ursache: nicht ein unbekanntes Gate,
+    /// sondern gar keines.
+    NoGateForStage,
     /// Die Boundary-Erneuerung trug die neue Last nicht nach innen.
     RenewalDidNotEnclose,
+}
+
+/// Ein Gatebezeichner, der im GateSet des Domain-Vertrags steht.
+///
+/// QPM Regel 14.5 (Woher das Gate des Zyklus kommt): der Bezeichner
+/// kommt "als Parameter hereingereicht und nie festverdrahtet" aus
+/// GateSet. Dieser Typ ist die Stelle, an der das nachpruefbar wird -
+/// wer ein `CycleGate` in der Hand haelt, haelt einen Bezeichner, der
+/// in einem gebundenen Vertrag deklariert ist. Dasselbe Muster wie bei
+/// [`crate::QuotientOperator`] und [`crate::DomainContract`]: der
+/// geprueft Konstruktor ist der einzige Weg.
+///
+/// Von aussen ist das Feld unerreichbar:
+///
+/// ```compile_fail,E0451
+/// let _ = psk_nraii::CycleGate { name: "N-FREI".to_string() };
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CycleGate {
+    name: String,
+}
+
+impl CycleGate {
+    /// Der einzige Weg zu einem Zyklusgate.
+    ///
+    /// Haelt sich an beide Haelften der Regel: der Name kommt von
+    /// aussen (Domaenenfrage), und er MUSS im GateSet stehen
+    /// (Vertragsbindung). Steht er nicht darin, ist das der Halt -
+    /// nicht ein Nachlassen auf einen Ersatznamen.
+    pub fn from_gate_set(contract: &DomainContract, name: &str) -> Result<Self, CycleBreach> {
+        if name.trim().is_empty() {
+            return Err(CycleBreach::NoGateForStage);
+        }
+        let declared = contract.component(ContractComponent::Gates);
+        if !declared.iter().any(|g| g == name) {
+            return Err(CycleBreach::GateNotInGateSet {
+                gate: name.to_string(),
+                declared: declared.to_vec(),
+            });
+        }
+        Ok(CycleGate {
+            name: name.to_string(),
+        })
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 /// `K'_n` - was ExCal ueberstanden hat, mit dem, was es abtrennte.
@@ -184,13 +264,17 @@ impl Excalibrated {
 
 /// `G_n` - was das Gate bestanden hat.
 ///
-/// Der Bezeichner des Gates steht darin, weil das Werk ihn nicht nennt
-/// (siehe Modulkopf): wer den Zyklus fuehrt, sagt, welches Gate er
-/// gestellt hat. Ein festverdrahteter Name waere hier eine Erfindung.
+/// Der Bezeichner des Gates steht darin, und zwar als [`CycleGate`]:
+/// wer diesen Wert liest, liest einen Namen, der im GateSet des
+/// Vertrags deklariert war
+/// (QPM Regel 14.5 (Woher das Gate des Zyklus kommt)).
+/// Eine freie Zeichenkette waere hier wieder die
+/// Festverdrahtung, die dieselbe Regel ausschliesst - nur vom
+/// Aufrufer statt vom Werk.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Gated {
     passed: Vec<RawMass>,
-    gate: String,
+    gate: CycleGate,
 }
 
 impl Gated {
@@ -198,7 +282,7 @@ impl Gated {
         &self.passed
     }
 
-    pub fn gate(&self) -> &str {
+    pub fn gate(&self) -> &CycleGate {
         &self.gate
     }
 }
@@ -207,11 +291,12 @@ impl Gated {
 ///
 /// "Sed bildet aus den akzeptierten Einheiten ein evidenzgebundenes
 /// Sediment." Evidenzgebunden heisst hier: jede Einheit traegt den
-/// Gatebezeichner, unter dem sie durchkam.
+/// Gatebezeichner, unter dem sie durchkam - und zwar den vertraglich
+/// deklarierten, nicht einen nachtraeglich angehefteten.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Sediment {
     units: Vec<RawMass>,
-    gate: String,
+    gate: CycleGate,
 }
 
 impl Sediment {
@@ -219,7 +304,7 @@ impl Sediment {
         &self.units
     }
 
-    pub fn gate(&self) -> &str {
+    pub fn gate(&self) -> &CycleGate {
         &self.gate
     }
 }
@@ -284,23 +369,34 @@ pub fn excalibrate(mass: Vec<RawMass>, separate: &[String]) -> Excalibrated {
 
 /// Schritt 2: `K'_n --Gate--> G_n`.
 ///
-/// `gate` ist der Bezeichner, den der Aufrufer stellt - siehe den
-/// Befund im Modulkopf. `passed` sagt, ob er bestand; ein Nicht-PASS
-/// erzeugt kein `Gated`, und damit ist die Masse fuer `Assim`
-/// unerreichbar.
+/// `gate` ist ein [`CycleGate`] und keine Zeichenkette: der Bezeichner
+/// hat das GateSet des Domain-Vertrags schon passiert, bevor dieser
+/// Aufruf zustande kommt
+/// (QPM Regel 14.5 (Woher das Gate des Zyklus kommt)).
+/// `passed` sagt, ob er bestand; ein Nicht-PASS erzeugt kein
+/// `Gated`, und damit ist die Masse fuer `Assim` unerreichbar.
+///
+/// Ein freier Name kommt hier nicht mehr durch - die Stufe MUSS dann
+/// anhalten, und "anhalten" heisst: der Aufruf existiert nicht.
+///
+/// ```compile_fail,E0308
+/// # use psk_nraii::{excalibrate, pass_gate};
+/// let x = excalibrate(vec![], &[]);
+/// let _ = pass_gate(x, "N-ERFUNDEN", true);
+/// ```
 pub fn pass_gate(
     excalibrated: Excalibrated,
-    gate: &str,
+    gate: &CycleGate,
     passed: bool,
 ) -> Result<Gated, CycleBreach> {
     if !passed {
         return Err(CycleBreach::GateNotPassed {
-            gate: gate.to_string(),
+            gate: gate.name().to_string(),
         });
     }
     Ok(Gated {
         passed: excalibrated.accepted,
-        gate: gate.to_string(),
+        gate: gate.clone(),
     })
 }
 
@@ -316,7 +412,7 @@ pub fn sediment(gated: Gated) -> Sediment {
 ///
 /// Nimmt AUSSCHLIESSLICH ein [`Sediment`] entgegen, das seinerseits nur
 /// aus einem [`Gated`] entsteht, das nur aus einem [`Excalibrated`]
-/// entsteht. QPM Invariante 14.5 (Kein Assimilationssprung) - "Assim
+/// entsteht. QPM Invariante 14.6 (Kein Assimilationssprung) - "Assim
 /// DARF NICHT Masse aufnehmen, die ExCal nicht passiert oder das Gate
 /// nicht bestanden hat" - ist damit keine Pruefung, sondern die Form
 /// der Signatur.
@@ -493,7 +589,26 @@ mod tests {
         }
     }
 
-    /// QPM Invariante 14.5 (Kein Assimilationssprung), erste Haelfte:
+    /// Ein gebundener Vertrag, dessen GateSet genau die genannten
+    /// Bezeichner fuehrt. Die neun uebrigen Komponenten sind belegt,
+    /// weil [`DomainContract::bind`] sonst gar nicht bindet - hier
+    /// interessiert nur die achte.
+    fn vertrag_mit_gates(gates: &[&str]) -> DomainContract {
+        let entries: Vec<(ContractComponent, Vec<String>)> = ContractComponent::all()
+            .into_iter()
+            .map(|c| {
+                if c == ContractComponent::Gates {
+                    (c, gates.iter().map(|g| g.to_string()).collect())
+                } else {
+                    (c, vec![format!("{}-eintrag", c.label())])
+                }
+            })
+            .collect();
+        DomainContract::bind(&entries, crate::ClaimStatus::N, "zyklus-domaene")
+            .expect("zehn Komponenten belegt")
+    }
+
+    /// QPM Invariante 14.6 (Kein Assimilationssprung), erste Haelfte:
     /// die fuenf Schritte laufen in ihrer Reihenfolge, und der Kern
     /// traegt den Nachweis.
     ///
@@ -512,8 +627,10 @@ mod tests {
         assert_eq!(x.separated().len(), 1, "die Fremdmasse ist ein Residuum");
         assert!(x.separated()[0].reason.contains("Fremdmasse"));
 
-        let g = pass_gate(x, "N-BOUNDARY", true).expect("Gate bestanden");
-        assert_eq!(g.gate(), "N-BOUNDARY");
+        let vertrag = vertrag_mit_gates(&["N-AUFNAHME"]);
+        let gate = CycleGate::from_gate_set(&vertrag, "N-AUFNAHME").expect("im GateSet");
+        let g = pass_gate(x, &gate, true).expect("Gate bestanden");
+        assert_eq!(g.gate().name(), "N-AUFNAHME");
         let s = sediment(g);
         assert_eq!(s.units().len(), 2);
         let k = assimilate(s);
@@ -527,7 +644,7 @@ mod tests {
         );
     }
 
-    /// QPM Invariante 14.5 (Kein Assimilationssprung), zweite Haelfte:
+    /// QPM Invariante 14.6 (Kein Assimilationssprung), zweite Haelfte:
     /// Masse, die das Gate nicht bestand, erreicht `Assim` nicht.
     ///
     /// ERWARTUNG: ein Nicht-PASS erzeugt KEIN `Gated`, und der Befund
@@ -535,8 +652,11 @@ mod tests {
     /// die Kette bricht an der Stelle, an der sie brechen muss.
     #[test]
     fn mass_that_failed_the_gate_never_reaches_assimilation() {
+        let vertrag = vertrag_mit_gates(&["ein-gate"]);
+        let gate = CycleGate::from_gate_set(&vertrag, "ein-gate").expect("im GateSet");
+
         let x = excalibrate(vec![masse("a")], &[]);
-        let versuch = pass_gate(x, "ein-gate", false);
+        let versuch = pass_gate(x, &gate, false);
         assert_eq!(
             versuch.expect_err("darf nicht durchgehen"),
             CycleBreach::GateNotPassed {
@@ -545,7 +665,74 @@ mod tests {
         );
         // Und die Gegenprobe: mit PASS geht es.
         let x2 = excalibrate(vec![masse("a")], &[]);
-        assert!(pass_gate(x2, "ein-gate", true).is_ok());
+        assert!(pass_gate(x2, &gate, true).is_ok());
+    }
+
+    /// QPM Regel 14.5 (Woher das Gate des Zyklus kommt): der Bezeichner
+    /// kommt aus GateSet, und ein Zyklus ohne deklariertes Gate MUSS
+    /// anhalten.
+    ///
+    /// ERWARTUNG, vor der Messung ausgesprochen: ein Name, den das
+    /// GateSet nicht fuehrt, ergibt KEIN [`CycleGate`] - und der Befund
+    /// nennt beides, den verlangten Namen und was stattdessen
+    /// deklariert ist. Die Gegenprobe daneben ist die tragende: ein
+    /// Name, den dasselbe GateSet fuehrt, geht durch. Ohne sie sagte
+    /// der erste Fall nur, dass der Konstruktor manchmal scheitert.
+    ///
+    /// Der Halt selbst ist nicht als Fehlerfall messbar, sondern an der
+    /// Form: [`pass_gate`] nimmt kein `&str` mehr an, also gibt es
+    /// keinen Weg von einem undeklarierten Namen zu einem [`Gated`].
+    /// Der Nachweis dafuer steht im `compile_fail`-Doctest dort.
+    #[test]
+    fn a_gate_the_contract_does_not_declare_stops_the_cycle() {
+        let vertrag = vertrag_mit_gates(&["N-AUFNAHME", "N-BOUNDARY"]);
+
+        let halt = CycleGate::from_gate_set(&vertrag, "N-ERFUNDEN")
+            .expect_err("nicht im GateSet, also kein Gate");
+        assert_eq!(
+            halt,
+            CycleBreach::GateNotInGateSet {
+                gate: "N-ERFUNDEN".to_string(),
+                declared: vec!["N-AUFNAHME".to_string(), "N-BOUNDARY".to_string()],
+            },
+            "der Halt muss sagen, was das GateSet stattdessen fuehrt"
+        );
+
+        // Gar kein Bezeichner ist derselbe Halt aus anderem Grund - und
+        // die beiden Ursachen bleiben unterscheidbar.
+        assert_eq!(
+            CycleGate::from_gate_set(&vertrag, "   ").expect_err("kein Bezeichner"),
+            CycleBreach::NoGateForStage
+        );
+
+        // Die Gegenprobe: was das GateSet fuehrt, geht durch.
+        let gate = CycleGate::from_gate_set(&vertrag, "N-AUFNAHME").expect("deklariert");
+        assert_eq!(gate.name(), "N-AUFNAHME");
+    }
+
+    /// Die zwei Nachbargates, die
+    /// QPM Regel 14.5 (Woher das Gate des Zyklus kommt) ausdruecklich
+    /// NICHT an diese Stelle laesst, sind dennoch ganz normale
+    /// GateSet-Eintraege - die Regel verbietet ihre Verwendung als
+    /// Zyklusgate, nicht ihre Existenz.
+    ///
+    /// Gemessen wird deshalb die Grenze, die das Werkzeug ziehen KANN:
+    /// dass der Bezeichner aus dem Vertrag stammt und nicht aus diesem
+    /// Modul. Welches der deklarierten Gates die Domaene an die
+    /// Zyklusstufe stellt, ist ihre Entscheidung und keine dieser
+    /// Schicht - dasselbe Verhaeltnis wie beim `origin_module`.
+    #[test]
+    fn the_gate_identifier_comes_from_the_contract_not_from_this_module() {
+        let eine_domaene = vertrag_mit_gates(&["N-AUFNAHME"]);
+        let andere_domaene = vertrag_mit_gates(&["G-EINGANG"]);
+
+        assert!(CycleGate::from_gate_set(&eine_domaene, "N-AUFNAHME").is_ok());
+        assert!(CycleGate::from_gate_set(&andere_domaene, "G-EINGANG").is_ok());
+
+        // Und ueber Kreuz gilt keines von beiden: es gibt keinen Namen,
+        // den dieses Modul allen Domaenen zugestuende.
+        assert!(CycleGate::from_gate_set(&eine_domaene, "G-EINGANG").is_err());
+        assert!(CycleGate::from_gate_set(&andere_domaene, "N-AUFNAHME").is_err());
     }
 
     /// QPM Definition 14.3 (QSNA): alle vier Strukturen, sonst ist die

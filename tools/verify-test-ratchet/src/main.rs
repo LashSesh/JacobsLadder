@@ -58,15 +58,16 @@ const FLOORS: &[(&str, usize)] = &[
     ("psk-conformance", 89),
     ("psk-cli", 1),
     ("psk-ipc", 5),
-    // NRAII-RA, L0 bis L6. Von den 68 sind sechs
-    // `compile_fail`-Doctests: die Nichttraversalschranke (L0) und die
-    // Konstruktionsschranke des kanonischen Zustands (L1) SIND die
-    // Nachweise, und sie zaehlen hier mit, weil `cargo test -- --list`
-    // sie auffuehrt. Faellt einer weg - etwa weil jemand `Traversable`
-    // fuer den Nullanker implementiert oder das Feld von
-    // `CanonicalState` oeffentlich macht -, sinkt die Zahl, und diese
-    // Grenze meldet es.
-    ("psk-nraii", 68),
+    // NRAII-RA, L0 bis L7. Von den 83 sind zehn
+    // `compile_fail`-Doctests: die Nichttraversalschranke (L0), die
+    // Konstruktionsschranke des kanonischen Zustands (L1) und die
+    // Unfaelschbarkeit von `CycleGate`, `HarnessReport` und
+    // `StackFixpoint` SIND die Nachweise, und sie zaehlen hier mit,
+    // weil `cargo test -- --list` sie auffuehrt. Faellt einer weg -
+    // etwa weil jemand `Traversable` fuer den Nullanker implementiert
+    // oder ein privates Feld oeffentlich macht -, sinkt die Zahl, und
+    // diese Grenze meldet es.
+    ("psk-nraii", 83),
 ];
 
 /// Zaehlt die von `cargo test -- --list` gemeldeten Tests eines Pakets.

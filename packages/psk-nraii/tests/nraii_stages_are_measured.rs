@@ -14,6 +14,8 @@
 //! - NRAII-5: "Quotientenstabiler Forward/Inverse-Channel mit Reobservation"
 //! - NRAII-6: "Peristaltische Assimilation, Support-Akkretion,
 //!   Boundary-Renewal, Monodromie-Ratchet und 4pi-Lift"
+//! - NRAII-7: "Attraktorstack, FoldBundle, Proof-Horizon und
+//!   Falsifikationsharness"
 //!
 //! Die beiden Stufen decken sich NICHT mit den Schichten: NRAII-0 und
 //! NRAII-1 fallen beide erst mit L1, weil L0 allein nur einen der vier
@@ -29,8 +31,8 @@ use psk_nraii::{
     missing_counter_horizon_reason, residue_for_residual_part, seal_mode, witness_cycle,
     witness_seam, ArmType, AttractorMap, ClaimStatus, ContractComponent, Contraction, DiamondClass,
     DomainContract, Facet, FalsificationCheck, HorizonPair, Involution, Materialization,
-    ProofHorizon, ReciprocityWitness, ResidualPart, Response, ResponseOrigin, Signed, WingMesh,
-    Wish, WishDistance, WishOutcome, N0,
+    ProofHorizon, ProofObligation, ReciprocityWitness, ResidualPart, Response, ResponseOrigin,
+    Signed, WingMesh, Wish, WishDistance, WishOutcome, N0,
 };
 use psk_nraii::{narrow_class, reobserve};
 use psk_types::{Digest, DualTime, ModuleId, ObjectId};
@@ -55,6 +57,24 @@ fn vertrag() -> Vec<(ContractComponent, Vec<String>)> {
         .into_iter()
         .map(|c| (c, vec![format!("{}: Referenzdomaene", c.label())]))
         .collect()
+}
+
+/// Ein gebundener Vertrag, dessen GateSet genau die genannten
+/// Bezeichner fuehrt - die Quelle des Zyklusgates nach
+/// QPM Regel 14.5 (Woher das Gate des Zyklus kommt).
+fn vertrag_mit_gates(gates: &[&str]) -> DomainContract {
+    let entries: Vec<(ContractComponent, Vec<String>)> = vertrag()
+        .into_iter()
+        .map(|(c, v)| {
+            if c == ContractComponent::Gates {
+                (c, gates.iter().map(|g| g.to_string()).collect())
+            } else {
+                (c, v)
+            }
+        })
+        .collect();
+    DomainContract::bind(&entries, ClaimStatus::N, "jacobs-ladder-reference")
+        .expect("zehn Komponenten belegt")
 }
 
 /// NRAII-0, dreiteilig gemessen: Zielidentitaet, Domain-Vertrag,
@@ -285,16 +305,16 @@ fn l4_is_built_without_claiming_a_stage() {
     assert!(!claim_is_complete(&unbegruendet));
     assert!(missing_counter_horizon_reason(&unbegruendet).is_some());
 
-    // Der Harness fuehrt zehn Pruefungen, der Proof-Horizon trennt
-    // stabil von geschlossen.
+    // Das VOKABULAR des Harness steht - zehn Pruefungen - und der
+    // Proof-Horizon trennt stabil von geschlossen.
     assert_eq!(FalsificationCheck::all().len(), 10);
     let offen = ProofHorizon {
         version: "1.0.0".into(),
-        obligations: vec!["offen".into()],
+        obligations: vec![ProofObligation::open("offen")],
     };
     assert!(!offen.is_closed());
 
-    println!("L4 gebaut: Attraktorkarte, Gegenhorizontpflicht, Harness, Proof-Horizon");
+    println!("L4 gebaut: Attraktorkarte, Gegenhorizontpflicht, Pruefungsvokabular, Proof-Horizon");
     println!("NRAII-4 bleibt offen - die Stufe verlangt L5 (Wunschkalkuel)");
 }
 
@@ -449,7 +469,7 @@ fn nraii_five_all_three_parts() {
 fn nraii_six_all_parts() {
     use psk_nraii::{
         assimilate, closure_degree, excalibrate, pass_gate, renew, sediment, ClosureDegree,
-        MonodromyRatchet, RawMass,
+        CycleGate, MonodromyRatchet, RawMass,
     };
 
     // Peristaltische Assimilation mit Akkretion: die Kette laeuft
@@ -468,8 +488,14 @@ fn nraii_six_all_parts() {
         &["fremd".into()],
     );
     assert_eq!(x.separated().len(), 1, "kein Verlust, ein Residuum");
+
+    // Der Gatebezeichner kommt aus dem GateSet des Vertrags
+    // (QPM Regel 14.5 (Woher das Gate des Zyklus kommt)), nicht aus
+    // diesem Test.
+    let vertrag = vertrag_mit_gates(&["N-AUFNAHME"]);
+    let gate = CycleGate::from_gate_set(&vertrag, "N-AUFNAHME").expect("im GateSet deklariert");
     let sigma = renew(assimilate(sediment(
-        pass_gate(x, "N-BOUNDARY", true).expect("Gate"),
+        pass_gate(x, &gate, true).expect("Gate"),
     )))
     .expect("Boundary-Renewal");
 
@@ -494,30 +520,164 @@ fn nraii_six_all_parts() {
     println!("NRAII-6: Assimilation, Akkretion, Renewal, Ratchet, 4pi-Lift");
 }
 
+/// NRAII-7, vierteilig gemessen: "Attraktorstack, FoldBundle,
+/// Proof-Horizon und Falsifikationsharness".
+///
+/// Zwei der vier Namen trug L4 schon. Die Vormessung hat gefragt, ob
+/// sie dieselbe Sache sind oder nur gleich heissen - dieselbe Frage wie
+/// bei der Wish-Fuenfermenge, und mit zwei verschiedenen Antworten:
+///
+/// - **Proof-Horizon: dieselbe Sache, aber zu klein.** L4 setzte
+///   QPM Definition 13.5 (Proof-Horizon) woertlich um; der Gebrauch in
+///   QPM Definition 16.3 (4-4-4-Closure) verlangt einen zweiten Weg
+///   ("explizit als nichtclosurewirksam klassifiziert"), den L4 nicht
+///   ausdruecken konnte. Nachgetragen, nicht neu gebaut.
+/// - **Falsifikationsharness: nur der Name.** L4 baute das Vokabular
+///   der zehn Pruefungen; der Harness PRUEFT
+///   (QPM Struktur 13.4 (Nullmodelle und Falsifikationsharness)).
+///
+/// Gemessen wird deshalb jedes der vier Stuecke an dem, was es TUT.
+#[test]
+fn nraii_seven_all_four_parts() {
+    use psk_nraii::{
+        reach_fixpoint, run_harness, AttractorStack, CanonicalState, CheckOutcome, FoldBundle,
+        ObligationStanding, Probe, ProofObligation, Reproducer, StackLevel,
+    };
+
+    fn zustand(inhalt: &str) -> CanonicalState {
+        CanonicalState::canonicalize(inhalt.as_bytes(), psk_canon::Media::Json)
+            .expect("kanonisierbar")
+    }
+    fn stufe(id: &str, origins: &[ResponseOrigin]) -> StackLevel {
+        StackLevel {
+            id: id.to_string(),
+            map: AttractorMap::triangulate(
+                origins
+                    .iter()
+                    .enumerate()
+                    .map(|(i, o)| Response {
+                        marker: format!("m{i}"),
+                        value: "v".into(),
+                        origin: *o,
+                    })
+                    .collect(),
+            ),
+        }
+    }
+
+    // Teil 1: Attraktorstack - Ebenen mit zertifizierten Uebergaengen.
+    // Ein Uebergang, der eine Herkunftsklasse unverbucht verliert,
+    // ergibt keinen Stack.
+    let unten = stufe("unten", &[ResponseOrigin::Data, ResponseOrigin::NullModel]);
+    let oben = stufe("oben", &[ResponseOrigin::Data]);
+    assert!(
+        AttractorStack::embed(vec![unten.clone(), oben.clone()], &[]).is_err(),
+        "das Nullmodell verschwaende unverbucht"
+    );
+    let stack = AttractorStack::embed(
+        vec![unten, oben],
+        &[(
+            ResponseOrigin::NullModel,
+            "in die Kondensation eingegangen, Residuum R-1".into(),
+        )],
+    )
+    .expect("verbucht");
+    assert_eq!(stack.certificates().len(), 1);
+    assert_eq!(stack.top().id, "oben");
+
+    // Teil 2: FoldBundle - drei Wege, ein Ergebnis
+    // (QPM Regel 17.4 (Irreduzibler Kern)).
+    let gleich = || zustand(r#"{"kern":"K"}"#);
+    let fix = reach_fixpoint(&stack, &FoldBundle::bundle(gleich(), gleich(), gleich()))
+        .expect("drei Wege, ein Ergebnis");
+    assert_eq!(fix.condensed_from(), "oben");
+    let uneinig = FoldBundle::bundle(gleich(), zustand(r#"{"kern":"X"}"#), gleich());
+    assert!(
+        reach_fixpoint(&stack, &uneinig).is_err(),
+        "ein abweichender Weg laesst den Fixpunkt fallen"
+    );
+
+    // Teil 3: Proof-Horizon - und zwar mit der Unterscheidung, die
+    // QPM Definition 16.3 (4-4-4-Closure) braucht.
+    let horizont = ProofHorizon {
+        version: "1.0.0".into(),
+        obligations: vec![ProofObligation {
+            text: "Nullmodellfamilie ist domaenengeliefert (NRAII-OBL-002)".into(),
+            standing: ObligationStanding::NotClosureEffective {
+                justification: "das Werk liefert sie nicht universell".into(),
+            },
+        }],
+    };
+    assert!(
+        horizont.closure_admissible(),
+        "klassifiziert blockiert nicht"
+    );
+    assert!(!horizont.is_closed(), "und bleibt trotzdem offen");
+
+    // Teil 4: Falsifikationsharness - er PRUEFT, und eine ungelaufene
+    // Pruefung ist kein Freispruch.
+    struct Sonde(FalsificationCheck, bool);
+    impl Probe for Sonde {
+        fn check(&self) -> FalsificationCheck {
+            self.0
+        }
+        fn run(&self, _s: &CanonicalState) -> CheckOutcome {
+            if self.1 {
+                CheckOutcome::Held {
+                    evidence: "geprueft".into(),
+                }
+            } else {
+                CheckOutcome::Falsified {
+                    evidence: "schlug an".into(),
+                }
+            }
+        }
+    }
+    let subjekt = zustand(r#"{"k":1}"#);
+    let alle: Vec<Sonde> = FalsificationCheck::all()
+        .into_iter()
+        .map(|c| Sonde(c, true))
+        .collect();
+    let refs: Vec<&dyn Probe> = alle.iter().map(|s| s as &dyn Probe).collect();
+    assert!(run_harness(&subjekt, &refs).is_clean(), "zehn liefen");
+    assert!(
+        !run_harness(&subjekt, &refs[..9]).is_clean(),
+        "neun gelaufene Pruefungen ergeben keinen sauberen Bericht"
+    );
+    assert_eq!(run_harness(&subjekt, &[]).unprobed().len(), 10);
+
+    assert_eq!(Reproducer::all().len(), 3);
+    println!("NRAII-7: Attraktorstack, FoldBundle, Proof-Horizon, Falsifikationsharness");
+}
+
 /// Die Gegenprobe zur Stufenmessung: was NICHT erreicht ist, ist auch
 /// nicht erreichbar behauptet.
 ///
-/// Die NAECHSTE OFFENE Stufe ist NRAII-7: "Attraktorstack, FoldBundle,
-/// Proof-Horizon und Falsifikationsharness" - L7. Der Vorausblick steht
-/// bewusst dort und nicht auf der naechsten Nummer in der Liste: stuende
-/// er auf einer bereits erreichten, deckte er eine Luecke, statt sie zu
-/// melden.
-/// Nichts davon existiert, und dieser Test haelt fest, dass das Paket
-/// auch nichts davon exportiert.
+/// Die NAECHSTE OFFENE Stufe ist NRAII-8: "4-4-4-, Gate-, Replay-,
+/// PathInv- und Irreduzibilitaetszertifizierter Kern" - L8. Der
+/// Vorausblick steht bewusst dort und nicht auf der naechsten Nummer in
+/// der Liste: stuende er auf einer bereits erreichten, deckte er eine
+/// Luecke, statt sie zu melden.
 ///
-/// Er hat seine Aufgabe schon zweimal erfuellt: in seinen vorigen
-/// Fassungen standen NRAII-2 und NRAII-3 hier, und der Bau der
+/// Er hat seine Aufgabe schon dreimal erfuellt: in seinen vorigen
+/// Fassungen standen NRAII-2, NRAII-3 und NRAII-7 hier, und der Bau der
 /// jeweiligen Schicht hat ihn planmaessig zu Fall gebracht.
 #[test]
-fn nraii_seven_is_not_claimed() {
-    // Die Namen, die L7 einfuehren wuerde. Zeichenketten statt echter
+fn nraii_eight_is_not_claimed() {
+    // Die Namen, die L8 einfuehren wuerde. Zeichenketten statt echter
     // Bezuege: ein echter waere ein Kompilierfehler, und der Test soll
     // MESSEN, nicht selbst nicht bauen.
-    let l7_namen = [
-        "AttractorStack",
-        "FoldBundle",
-        "EmbeddingCertificate",
-        "Falsification",
+    //
+    // `IrreducibleCore` ist bewusst dabei, obwohl L7 den Fixpunkt schon
+    // baut: [`psk_nraii::StackFixpoint`] heisst mit Absicht anders,
+    // weil der gate- und replayzertifizierte Kern K* zu NRAII-8 gehoert
+    // (QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis)).
+    let l8_namen = [
+        "C444",
+        "IrreducibleCore",
+        "ProjectionTwin",
+        "AbstractLock",
+        "PathInv",
     ];
     let quelle = concat!(
         include_str!("../src/lib.rs"),
@@ -531,12 +691,13 @@ fn nraii_seven_is_not_claimed() {
         include_str!("../src/diagnostic_field.rs"),
         include_str!("../src/wish.rs"),
         include_str!("../src/peristalsis.rs"),
+        include_str!("../src/stack_closure.rs"),
     );
-    for name in l7_namen {
+    for name in l8_namen {
         assert!(
             !quelle.contains(&format!("pub struct {name}")),
             "{name} ist gebaut - die Stufenmessung ist fortzuschreiben"
         );
     }
-    println!("NRAII-7 bis NRAII-9: nicht erreicht, nicht behauptet");
+    println!("NRAII-8 und NRAII-9: nicht erreicht, nicht behauptet");
 }

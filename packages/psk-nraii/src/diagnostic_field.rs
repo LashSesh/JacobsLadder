@@ -258,6 +258,65 @@ impl FalsificationCheck {
     }
 }
 
+/// Wie eine offene Pflicht zur Closure steht
+/// (QPM Definition 16.3 (4-4-4-Closure)).
+///
+/// Die Closure verlangt, dass "alle offenen Pflichten des Proof-Horizon
+/// erfuellt ODER explizit als nichtclosurewirksam klassifiziert sind" -
+/// zwei Wege, und der zweite ist der Grund, warum diese Skala
+/// existiert. Ohne ihn gaebe es nur "offen" und "weg", und der einzige
+/// Weg zur Closure fuehrte ueber das Loeschen einer Pflicht.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ObligationStanding {
+    /// Offen und unklassifiziert - blockiert die Closure.
+    Open,
+    /// Erfuellt, mit Nachweis. Der erste der beiden Wege.
+    Fulfilled { evidence: String },
+    /// Explizit als nichtclosurewirksam klassifiziert, mit Begruendung.
+    /// Der zweite Weg - die Pflicht bleibt offen und SICHTBAR, sie
+    /// blockiert nur nicht mehr.
+    NotClosureEffective { justification: String },
+}
+
+/// Eine einzelne Pflicht des Proof-Horizon, mit ihrem Stand.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProofObligation {
+    pub text: String,
+    pub standing: ObligationStanding,
+}
+
+impl ProofObligation {
+    /// Eine neue, unklassifizierte Pflicht.
+    pub fn open(text: &str) -> Self {
+        ProofObligation {
+            text: text.to_string(),
+            standing: ObligationStanding::Open,
+        }
+    }
+
+    /// Ob diese Pflicht der Closure im Weg steht.
+    ///
+    /// Eine Begruendung aus Leerraum klassifiziert nicht - dieselbe
+    /// Haltung wie beim Gegenhorizont und beim Domain-Vertrag. Sonst
+    /// waere "explizit klassifiziert" mit einem Leerzeichen erreichbar.
+    pub fn blocks_closure(&self) -> bool {
+        match &self.standing {
+            ObligationStanding::Open => true,
+            ObligationStanding::Fulfilled { evidence } => evidence.trim().is_empty(),
+            ObligationStanding::NotClosureEffective { justification } => {
+                justification.trim().is_empty()
+            }
+        }
+    }
+
+    /// Ob die Pflicht noch als offene Schuld im Horizont steht -
+    /// unabhaengig davon, ob sie die Closure blockiert. Eine
+    /// klassifizierte Pflicht ist BEIDES: offen und nicht blockierend.
+    pub fn is_open(&self) -> bool {
+        !matches!(self.standing, ObligationStanding::Fulfilled { .. })
+    }
+}
+
 /// `PH(K)` aus QPM Definition 13.5 (Proof-Horizon): "die endliche,
 /// versionierte Menge offener Beweis-, Validierungs-, Kalibrierungs-
 /// und Falsifikationspflichten."
@@ -267,23 +326,72 @@ impl FalsificationCheck {
 /// sind Stabilitaet und Geschlossenheit hier zwei Fragen und nicht eine:
 /// [`ProofHorizon::is_closed`] beantwortet die zweite, und keine
 /// Funktion dieses Moduls leitet sie aus der ersten ab.
+///
+/// ## Was die NRAII-7-Messung hier gefunden hat
+///
+/// L4 baute diesen Typ nach QPM Definition 13.5 (Proof-Horizon) und
+/// damit vollstaendig - aber nicht ausreichend fuer den Gebrauch, den
+/// QPM Definition 16.3 (4-4-4-Closure) davon macht. Die verlangt
+/// naemlich MEHR als eine leere Menge: "alle offenen Pflichten des
+/// Proof-Horizon erfuellt ODER explizit als nichtclosurewirksam
+/// klassifiziert". Der zweite Disjunkt war in L4 nicht ausdrueckbar -
+/// eine Pflicht war entweder da (dann nicht geschlossen) oder weg.
+///
+/// Das ist keine Namensfrage, sondern eine fehlende Unterscheidung, und
+/// sie ist mit L7 nachgetragen: [`ProofHorizon::is_closed`] bleibt
+/// QPM Definition 13.5 (Proof-Horizon) woertlich,
+/// [`ProofHorizon::closure_admissible`] ist der Test von
+/// QPM Definition 16.3 (4-4-4-Closure). Die beiden fallen NICHT
+/// zusammen, und der Fall, in dem sie auseinandergehen, ist genau der,
+/// den die Closure braucht.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProofHorizon {
     /// Die Version, unter der diese Pflichtenmenge steht - "versioniert"
     /// steht in der Definition.
     pub version: String,
-    /// Die offenen Pflichten, je mit ihrem Text.
-    pub obligations: Vec<String>,
+    /// Die Pflichten, je mit ihrem Text und ihrem Stand.
+    pub obligations: Vec<ProofObligation>,
 }
 
 impl ProofHorizon {
-    /// `PH(K) = {}` - erst dann ist geschlossen moeglich.
+    /// `PH(K) = {}` nach QPM Definition 13.5 (Proof-Horizon).
+    ///
+    /// Zaehlt die noch offenen Pflichten - eine klassifizierte ist
+    /// weiterhin offen. Ein Horizont mit klassifizierter Pflicht ist
+    /// also NICHT geschlossen, auch wenn er die Closure zulaesst.
     pub fn is_closed(&self) -> bool {
-        self.obligations.is_empty()
+        self.open_count() == 0
     }
 
+    /// Wieviele Pflichten noch offenstehen - klassifizierte
+    /// eingeschlossen. Regel 7.51 (Erklärter Nullstand) verlangt
+    /// Sichtbarkeit im Artefakt: eine Klassifikation verschwindet
+    /// nicht aus dieser Zahl.
     pub fn open_count(&self) -> usize {
-        self.obligations.len()
+        self.obligations.iter().filter(|o| o.is_open()).count()
+    }
+
+    /// Der Closure-Test aus QPM Definition 16.3 (4-4-4-Closure): jede
+    /// offene Pflicht ist erfuellt oder explizit als
+    /// nichtclosurewirksam klassifiziert.
+    ///
+    /// Der Name sagt "admissible" und nicht "closed": das hier ist EINE
+    /// der beiden Bedingungen von QPM Definition 16.3 (4-4-4-Closure),
+    /// die andere ist `C444 = 1`. Wer beides zusammenzieht, hat den
+    /// lokalen Sieg zum Globalbeweis gemacht, den
+    /// QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis) ausschliesst.
+    pub fn closure_admissible(&self) -> bool {
+        self.blocking().is_empty()
+    }
+
+    /// Welche Pflichten die Closure blockieren - benannt, nicht
+    /// gezaehlt. Ein "nicht zulaessig" ohne die Liste sagte so wenig
+    /// wie ein Gate ohne Grund.
+    pub fn blocking(&self) -> Vec<&ProofObligation> {
+        self.obligations
+            .iter()
+            .filter(|o| o.blocks_closure())
+            .collect()
     }
 }
 
@@ -404,7 +512,9 @@ mod tests {
     fn an_open_proof_horizon_keeps_a_stable_candidate_unclosed() {
         let offen = ProofHorizon {
             version: "1.0.0".into(),
-            obligations: vec!["Kalibrierung der Akzeptanzregion steht aus".into()],
+            obligations: vec![ProofObligation::open(
+                "Kalibrierung der Akzeptanzregion steht aus",
+            )],
         };
         assert!(!offen.is_closed());
         assert_eq!(offen.open_count(), 1);
@@ -414,5 +524,93 @@ mod tests {
             obligations: vec![],
         };
         assert!(geschlossen.is_closed());
+    }
+
+    /// QPM Definition 16.3 (4-4-4-Closure) gegen
+    /// QPM Definition 13.5 (Proof-Horizon): die beiden Praedikate
+    /// fallen NICHT zusammen.
+    ///
+    /// ERWARTUNG, vor der Messung ausgesprochen: eine als
+    /// nichtclosurewirksam klassifizierte Pflicht laesst
+    /// `closure_admissible` wahr werden und `is_closed` FALSCH bleiben.
+    /// Genau dieser Fall traegt die Unterscheidung - waeren beide
+    /// gleich, haette die Klassifikation keine Wirkung, und waeren sie
+    /// unabhaengig, sagte keiner etwas ueber den anderen.
+    #[test]
+    fn classification_admits_closure_without_emptying_the_horizon() {
+        let klassifiziert = ProofHorizon {
+            version: "1.0.0".into(),
+            obligations: vec![ProofObligation {
+                text: "Kontraktionskonstante ist domaenenabhaengig (NRAII-OBL-001)".into(),
+                standing: ObligationStanding::NotClosureEffective {
+                    justification: "das Werk legt sie nicht universell fest".into(),
+                },
+            }],
+        };
+        assert!(
+            klassifiziert.closure_admissible(),
+            "klassifiziert blockiert nicht"
+        );
+        assert!(
+            !klassifiziert.is_closed(),
+            "und bleibt trotzdem eine offene Pflicht"
+        );
+        assert_eq!(
+            klassifiziert.open_count(),
+            1,
+            "Regel 7.51 (Erklärter Nullstand): sichtbar im Artefakt, nicht verschwunden"
+        );
+
+        // Erfuellt ist der andere Weg - und der leert den Horizont.
+        let erfuellt = ProofHorizon {
+            version: "1.0.0".into(),
+            obligations: vec![ProofObligation {
+                text: "Replay reproduziert".into(),
+                standing: ObligationStanding::Fulfilled {
+                    evidence: "trace-0001".into(),
+                },
+            }],
+        };
+        assert!(erfuellt.closure_admissible());
+        assert!(erfuellt.is_closed());
+
+        // Und unklassifiziert blockiert - der Befund NENNT die Pflicht.
+        let offen = ProofHorizon {
+            version: "1.0.0".into(),
+            obligations: vec![ProofObligation::open("noch niemand hat hingesehen")],
+        };
+        assert!(!offen.closure_admissible());
+        assert_eq!(offen.blocking().len(), 1);
+        assert_eq!(offen.blocking()[0].text, "noch niemand hat hingesehen");
+    }
+
+    /// Eine Klassifikation aus Leerraum klassifiziert nicht - sonst
+    /// waere die Closure mit einem Leerzeichen je Pflicht erreichbar.
+    ///
+    /// Dieselbe Gegenprobe wie beim Gegenhorizont und beim
+    /// Domain-Vertrag, und aus demselben Grund: "explizit" ist eine
+    /// Anforderung an den Inhalt, nicht an das Feld.
+    #[test]
+    fn whitespace_neither_fulfils_nor_classifies() {
+        for stand in [
+            ObligationStanding::NotClosureEffective {
+                justification: "   ".into(),
+            },
+            ObligationStanding::Fulfilled {
+                evidence: "".into(),
+            },
+        ] {
+            let ph = ProofHorizon {
+                version: "1.0.0".into(),
+                obligations: vec![ProofObligation {
+                    text: "p".into(),
+                    standing: stand.clone(),
+                }],
+            };
+            assert!(
+                !ph.closure_admissible(),
+                "{stand:?} darf die Closure nicht zulassen"
+            );
+        }
     }
 }

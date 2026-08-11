@@ -1,4 +1,4 @@
-//! NRAII-RA, die innere aktive Maschine: Schicht L0 (Nullanker).
+//! NRAII-RA, die innere aktive Maschine: Schichten L0 bis L7.
 //!
 //! ## Warum dieses Paket kein PSK-RA-Modul besitzt
 //!
@@ -87,7 +87,8 @@ pub use arms::{
 mod diagnostic_field;
 pub use diagnostic_field::{
     claim_is_complete, missing_counter_horizon_reason, AttractorMap, FalsificationCheck,
-    HorizonPair, Marker, ProofHorizon, Response, ResponseOrigin,
+    HorizonPair, Marker, ObligationStanding, ProofHorizon, ProofObligation, Response,
+    ResponseOrigin,
 };
 
 mod wish;
@@ -100,6 +101,13 @@ pub use wish::{
 mod peristalsis;
 pub use peristalsis::{
     assimilate, closure_degree, excalibrate, pass_gate, renew, sediment, ClosureDegree,
-    CycleBreach, Excalibrated, Gated, Kernel, MassStage, MonodromyRatchet, PreservedStructure,
-    Qsna, RatchetBreach, RawMass, RenewedBoundary, Sediment,
+    CycleBreach, CycleGate, Excalibrated, Gated, Kernel, MassStage, MonodromyRatchet,
+    PreservedStructure, Qsna, RatchetBreach, RawMass, RenewedBoundary, Sediment,
+};
+
+mod stack_closure;
+pub use stack_closure::{
+    reach_fixpoint, run_harness, AttractorStack, CheckOutcome, EmbeddingCertificate,
+    FixpointBreach, FoldBundle, HarnessReport, Probe, Reproducer, StackBreach, StackFixpoint,
+    StackLevel,
 };
