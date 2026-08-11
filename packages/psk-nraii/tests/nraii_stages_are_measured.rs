@@ -663,13 +663,18 @@ fn nraii_seven_all_four_parts() {
 /// aber NEBEN dem 4-4-4. Gemessen wird deshalb jede einzeln am Kern
 /// und nicht bloss "C444 liegt vor" - sonst deckte eine Zusammenfassung
 /// genau das ab, wovor
-/// QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis) warnt.
+/// QPM Regel 16.5 (Kein lokaler Sieg als Globalbeweis) warnt.
 ///
-/// Nebenbefund, gemessen: die Stufe nennt Gate, Replay und PathInv,
-/// aber NICHT `C_trace` - obwohl `C4^op` alle vier fuehrt. Die
-/// Stufenliste ist also nicht deckungsgleich mit `C4^op`. Folgenlos,
-/// weil `C444` ohnehin alle vier verlangt; hier festgehalten, damit die
-/// Ungleichheit nicht fuer eine Auslassung im Bau gehalten wird.
+/// **Der Nebenbefund ist seit v1.0.19 normativ.** Gemessen und
+/// gemeldet war: die Stufe nennt Gate, Replay und PathInv, aber NICHT
+/// `C_trace` - obwohl `C4^op` alle vier fuehrt.
+/// QPM Regel 16.4 (Stufenliste und Schlossinhalt sind nicht deckungsgleich)
+/// haelt das jetzt fest: die Ungleichheit ist folgenlos, "DARF NICHT als
+/// Auslassung zu lesen", und "massgeblich ist der Schlossinhalt, nicht
+/// die Aufzaehlung in der Stufenzeile".
+///
+/// Fuer diesen Test heisst das: gemessen wird gegen `C4^op`, und die
+/// Stufenzeile bestimmt nur, was zusaetzlich EINZELN auszuweisen ist.
 #[test]
 fn nraii_eight_all_five_certifications() {
     use psk_nraii::{

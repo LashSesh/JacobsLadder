@@ -69,12 +69,16 @@
 //! unbeschriebene Regel, und zwei Ableiter kaemen nicht notwendig zur
 //! selben."
 //!
-//! **Daraus folgt eine Pflicht an den Modulkoepfen selbst:** ist eine
-//! Lesart einmal festgeschrieben, MUSS der Kommentar das sagen, statt
-//! weiter zu behaupten, das Werk gebe nichts her. Ein Kommentar, der
-//! einen laengst geschlossenen Befund offenhaelt, ist derselbe Fehler
-//! wie eine titellose Zitierung: er zeigt auf einen Stand, den es nicht
-//! mehr gibt. Der Bestand, mit dem Werksstand der Festschreibung:
+//! **Daraus folgt eine Pflicht an den Modulkoepfen selbst**, und seit
+//! v1.0.19 steht sie im Werk statt nur hier:
+//! QPM Regel 16.4 (Stufenliste und Schlossinhalt sind nicht deckungsgleich),
+//! zweiter Absatz - "eine abgeleitete Lesart, die festgeschrieben wurde,
+//! MUSS in der Implementierung als festgeschrieben ausgewiesen sein. Ein
+//! Kommentar, der weiterhin behauptet, ein Begriff sei undefiniert,
+//! zeigt auf einen Werksstand, den es nicht mehr gibt - derselbe Fehler
+//! wie eine Zitierung ohne Titel, nur an anderer Stelle."
+//!
+//! Diese Tabelle IST die Ausweisung, die die Regel verlangt:
 //!
 //! | Begriff | abgeleitet in | festgeschrieben |
 //! |---|---|---|

@@ -9,7 +9,7 @@
 //!
 //! ## Warum die drei Schloesser sich hier nicht implizieren KOENNEN
 //!
-//! QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis): "Aus C4^geo = 1
+//! QPM Regel 16.5 (Kein lokaler Sieg als Globalbeweis): "Aus C4^geo = 1
 //! folgt weder C4^epi = 1 noch C4^op = 1. Eine visuell oder topologisch
 //! geschlossene Oberflaeche reicht nicht fuer Evidenz- oder
 //! Betriebsclosure."
@@ -33,7 +33,7 @@
 //! Ein einziges `Lock::new(kind, components)` haette beides
 //! aufgehoben: dann waere `Lock::new(Epi, geometrische_komponenten)`
 //! ein gueltiger Aufruf gewesen, und
-//! QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis) haette wieder
+//! QPM Regel 16.5 (Kein lokaler Sieg als Globalbeweis) haette wieder
 //! von der Sorgfalt des Aufrufers abgehangen.
 //!
 //! ## Was C4 ist und was nicht
@@ -78,7 +78,7 @@ pub struct ClosureCell {
 /// Deshalb ein eigener Typ und kein `bool`: ein `bool` haette sich mit
 /// jedem anderen Wahrheitswert vermischen lassen, und genau diese
 /// Vermischung ist der Fehler, den
-/// QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis) benennt.
+/// QPM Regel 16.5 (Kein lokaler Sieg als Globalbeweis) benennt.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LocalWitness {
     cells: Vec<String>,
@@ -234,7 +234,7 @@ pub enum CertificationBreach {
 ///
 /// Es gibt keinen Weg von hier zu [`EpiLock`] oder [`OpLock`]: kein
 /// `From`, kein gemeinsames Trait, kein Feldzugriff, aus dem sich einer
-/// bauen liesse. QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis)
+/// bauen liesse. QPM Regel 16.5 (Kein lokaler Sieg als Globalbeweis)
 /// ist damit nicht zugesagt, sondern unumgehbar.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GeoLock {
@@ -359,7 +359,7 @@ impl C444 {
     /// ```
     ///
     /// Genau das ist die Form, die
-    /// QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis) verlangt:
+    /// QPM Regel 16.5 (Kein lokaler Sieg als Globalbeweis) verlangt:
     /// aus einer geschlossenen Geometrie folgt keine Evidenz- und
     /// keine Betriebsclosure, und hier ist der Schluss nicht bloss
     /// verboten, sondern unformulierbar.
@@ -806,7 +806,7 @@ mod tests {
         );
     }
 
-    /// QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis), gemessen an
+    /// QPM Regel 16.5 (Kein lokaler Sieg als Globalbeweis), gemessen an
     /// dem, was das Werkzeug ueberhaupt messen KANN.
     ///
     /// Die Nichtimplikation selbst ist eine Aussage ueber das

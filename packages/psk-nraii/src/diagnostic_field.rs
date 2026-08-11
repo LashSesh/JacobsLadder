@@ -379,7 +379,7 @@ impl ProofHorizon {
     /// der beiden Bedingungen von QPM Definition 16.3 (4-4-4-Closure),
     /// die andere ist `C444 = 1`. Wer beides zusammenzieht, hat den
     /// lokalen Sieg zum Globalbeweis gemacht, den
-    /// QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis) ausschliesst.
+    /// QPM Regel 16.5 (Kein lokaler Sieg als Globalbeweis) ausschliesst.
     pub fn closure_admissible(&self) -> bool {
         self.blocking().is_empty()
     }

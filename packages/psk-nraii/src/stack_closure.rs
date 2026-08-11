@@ -84,7 +84,7 @@
 //! QPM Regel 17.6 (Irreduzibler Kern), NICHT der "gate- und
 //! replayzertifizierte" Kern K*. Die Zertifizierung ist NRAII-8
 //! (`C444`, Gate, Replay, PathInv), und
-//! QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis) ist genau die
+//! QPM Regel 16.5 (Kein lokaler Sieg als Globalbeweis) ist genau die
 //! Regel, die das Zusammenziehen verbietet. Ein Fixpunkt, der sich hier
 //! schon Kern nennte, waere derselbe Fehler in klein.
 
@@ -461,7 +461,7 @@ impl FoldBundle {
 /// Der gate- und replayzertifizierte Kern ist NRAII-8; dieser Typ
 /// traegt den Fixpunkt und sagt mit seinem Namen, dass er die
 /// Zertifizierung nicht enthaelt
-/// (QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis)).
+/// (QPM Regel 16.5 (Kein lokaler Sieg als Globalbeweis)).
 ///
 /// Von aussen unkonstruierbar - der Weg fuehrt nur ueber
 /// [`reach_fixpoint`], und der vergleicht drei Wege:
@@ -825,7 +825,7 @@ mod tests {
     /// dieser Test misst, dass die eine die andere nicht mitbringt: ein
     /// erreichter Fixpunkt neben einem Proof-Horizon mit blockierender
     /// Pflicht. Waere das zusammengezogen, waere es genau der Fehler
-    /// aus QPM Regel 16.4 (Kein lokaler Sieg als Globalbeweis).
+    /// aus QPM Regel 16.5 (Kein lokaler Sieg als Globalbeweis).
     #[test]
     fn a_reached_fixpoint_does_not_by_itself_admit_closure() {
         let stack = AttractorStack::embed(
