@@ -5,7 +5,8 @@
 
 mod golden_run;
 pub use golden_run::{
-    run_golden_run, run_golden_run_with_certificate, GoldenRunCertification, GoldenRunReport,
+    run_golden_run, run_golden_run_with_certificate, CapsuleOutcome, GoldenRunCertification,
+    GoldenRunReport,
 };
 
 mod conformance_catalog;

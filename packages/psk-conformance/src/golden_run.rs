@@ -111,6 +111,33 @@ fn tick_time(tick_no: u64) -> DualTime {
     }
 }
 
+/// Eine Kapsel des Laufs samt ihrem Challenge-Ausgang - eine je
+/// Quotientenklasse (Algorithmus 11.19 (Normativer Compilerlauf)).
+///
+/// `CandidateCapsule` und `ChallengeRecord` sind auf Sigma-Ebene zwei
+/// getrennte Listen, verknuepft ueber `ChallengeRecord.capsule_ref`.
+/// Dieser Typ traegt das Paar zusammen: ein Bericht ueber eine Kapsel
+/// ohne ihren Ausgang (oder umgekehrt) waere unvollstaendig, und zwei
+/// parallele Vecs liessen die Zuordnung dem Leser ueberlassen.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CapsuleOutcome {
+    pub capsule: psk_types::objects::CandidateCapsule,
+    /// Welcher der beiden zulaessigen Challenge-Ausgaenge eintrat
+    /// (Definition 14.2 (Phasen-Modul-Bindung)) - Fixpunkt, nicht
+    /// Budget-RESIDUAL.
+    pub reached_fixpoint: bool,
+    /// Wie viele Ratchet-Runden bis zum Fixpunkt noetig waren. Ohne
+    /// Gegenmodelle steht er in Runde 1; mit ihnen kontrahiert Runde 1
+    /// erst, und der Fixpunkt steht eine Runde spaeter.
+    pub ratchet_rounds: u32,
+    /// Ob DIESE Kapsel adversarial geschlossen ist (Invariante
+    /// "Nichttrivialitaet des Ueberlebens"). `false` heisst: sie
+    /// schliesst nur unter Ausblendung eines Gegenmodells - PSK-E003,
+    /// als Residuum weitergetragen statt still verworfen. Kapseln
+    /// koennen hierin auseinandergehen - jede traegt ihr eigenes Urteil.
+    pub adversarially_closed: bool,
+}
+
 /// Gesammeltes Ergebnis EINER Ausfuehrung der Schritte 1-12 (Regel 24.3 (Golden-Run-Ablauf)).
 /// Schritt 13 (Zertifikat/Replaymanifest) ist bewusst NICHT Teil dieses
 /// Typs: `issue_certificate` verlangt Vertrag 22.4 (Replayklasse des Referenzrelease), mindestens R2 als
@@ -143,23 +170,12 @@ pub struct GoldenRunReport {
     /// residualisiert werden). Bei einem PASS-Bootgate kann das durchaus 0
     /// sein - siehe die beiden golden_run-Tests (PASS- und HOLD-Fall).
     pub residues_opened: usize,
-    /// Die Kapsel des Laufs nach Challenge (eine je Quotientenklasse;
-    /// dieser Lauf hat genau eine Klasse). Herausgegeben als FC5-Artefakt:
-    /// Kandidatenkapsel, Ratchet und Supportentscheidung sind an ihr
-    /// ablesbar. `capsule_reached_fixpoint` haelt fest, WELCHER der beiden
-    /// zulaessigen Challenge-Ausgaenge eintrat (Definition 14.2 (Phasen-Modul-Bindung)) -
-    /// Fixpunkt, nicht Budget-RESIDUAL.
-    pub capsule: psk_types::objects::CandidateCapsule,
-    pub capsule_reached_fixpoint: bool,
-    /// Wie viele Ratchet-Runden bis zum Fixpunkt noetig waren. Ohne
-    /// Gegenmodelle stand er in Runde 1; mit ihnen kontrahiert Runde 1
-    /// erst, und der Fixpunkt steht eine Runde spaeter.
-    pub ratchet_rounds: u32,
-    /// Ob der Kandidat adversarial geschlossen ist (Invariante
-    /// "Nichttrivialitaet des Ueberlebens"). `false` heisst: er schliesst
-    /// nur unter Ausblendung eines Gegenmodells - PSK-E003, als Residuum
-    /// weitergetragen statt still verworfen.
-    pub adversarially_closed: bool,
+    /// Die Kapseln des Laufs nach Challenge - eine je Quotientenklasse
+    /// (Algorithmus 11.19 (Normativer Compilerlauf)), seit v1.0.46 real
+    /// mehrere statt nur der ersten. Herausgegeben als FC5-Artefakt:
+    /// Kandidatenkapseln, Ratchet und Supportentscheidung sind an ihnen
+    /// ablesbar - je Kapsel einzeln, weil sie auseinandergehen koennen.
+    pub capsule_outcomes: Vec<CapsuleOutcome>,
     /// Schritt 2/3 des Referenzauftrags: die im Korpus identifizierten
     /// Widersprueche samt bestimmter Geltung.
     pub contradictions: Vec<crate::Contradiction>,
@@ -1184,11 +1200,31 @@ fn build_report(
         &[&boot_gate, &patch_gate],
         &sigma.residues,
     );
-    let challenge = sigma
-        .challenges
-        .first()
-        .cloned()
-        .ok_or(PskError::UntypedInput)?;
+    // Eine Kapsel OHNE ihren Challenge-Ausgang waere ein FC5-Artefakt
+    // mit einer Luecke - `ok_or` je Kapsel statt eines Nullbefunds ueber
+    // der ganzen Liste, damit der Befund die FEHLENDE Kapsel nennt.
+    let capsule_outcomes: Vec<CapsuleOutcome> = sigma
+        .capsules
+        .iter()
+        .map(|capsule| {
+            let record = sigma
+                .challenges
+                .iter()
+                .find(|r| r.capsule_ref == capsule.id)
+                .ok_or(PskError::UntypedInput)?;
+            Ok(CapsuleOutcome {
+                capsule: capsule.clone(),
+                reached_fixpoint: record.reached_fixpoint,
+                ratchet_rounds: record.rounds,
+                adversarially_closed: record.adversarially_closed,
+            })
+        })
+        .collect::<Result<Vec<_>, PskError>>()?;
+    if capsule_outcomes.is_empty() {
+        // Nullbefund ueber Kapseln ist Fehlschlag, nicht Erfolg -
+        // dieselbe Haltung wie bei den Widerspruch-Obstruktionen oben.
+        return Err(PskError::UntypedInput);
+    }
     let i_t = sigma_digest(&sigma)?;
 
     Ok(GoldenRunReport {
@@ -1209,14 +1245,7 @@ fn build_report(
             .first()
             .cloned()
             .ok_or(PskError::UntypedInput)?,
-        capsule: sigma
-            .capsules
-            .first()
-            .cloned()
-            .ok_or(PskError::UntypedInput)?,
-        capsule_reached_fixpoint: challenge.reached_fixpoint,
-        ratchet_rounds: challenge.rounds,
-        adversarially_closed: challenge.adversarially_closed,
+        capsule_outcomes,
         contradictions: sigma.contradictions.clone().unwrap_or_default(),
         obstructions: sigma.obstructions.clone(),
         field_identities: sigma.fields.clone(),
@@ -1746,57 +1775,70 @@ mod tests {
             psk_types::objects::ObstructionRecordSeverityKind::Blocking
         );
 
-        // Der Ausgang, den der Auftraggeber vorab benannt hatte: mit
-        // Gegenmodellen hoert das Ratchet auf, in Runde 1 zu fixieren -
-        // Runde 1 kontrahiert, der Fixpunkt steht in Runde 2. Ein
-        // Ratchet, das etwas zu verkleinern hat, ist der bessere Beleg
-        // fuer denselben Nachweis.
+        // Mehrfachkapselung seit v1.0.46: eine Kapsel JE Quotientenklasse
+        // (Algorithmus 11.19 (Normativer Compilerlauf)), nicht mehr nur
+        // die erste. Zwei Kapseln, benannt ueber ihre Zeugenzahl statt
+        // ueber die Position in der Liste - deren Reihenfolge ist eine
+        // Eigenschaft des Quotienten, keine, auf die sich ein Test
+        // verlassen sollte.
         assert_eq!(
-            report.ratchet_rounds, 2,
-            "Runde 1 kontrahiert, Runde 2 fixiert"
-        );
-        assert!(
-            !report.adversarially_closed,
-            "der Kandidat schliesst nur ohne das Gegenmodell - PSK-E003"
-        );
-        assert!(
-            report.capsule_reached_fixpoint,
-            "der Challenge-Ausgang dieses Laufs ist der Fixpunkt, nicht RESIDUAL"
-        );
-        // Gemessen, nicht gewaehlt: der Kandidat schliesst OHNE das
-        // Gegenmodell, aber nicht MIT ihm - genau die Lage, die
-        // Invariante "Nichttrivialitaet des Ueberlebens" als PSK-E003
-        // beschreibt. Damit ist der Witnesspfad nicht "innerhalb des
-        // geltenden Horizonts definiert", und die Kapsel geht nach
-        // RESIDUAL statt SUPPORTED. Frueher stand hier SUPPORTED - das
-        // war richtig, solange es keinen Gegenmodellerzeuger gab.
-        assert_eq!(
-            report.capsule.phase,
-            psk_types::objects::CandidateCapsulePhaseKind::Residual
-        );
-        // Die Zeugen der Kapsel sind die Projektionen IHRER
-        // Quotientenklasse, nicht alle Projektionen des Laufs. Bis
-        // v1.0.45 fielen beide zusammen, weil es genau eine Klasse gab:
-        // sechs Sichten, sechs Zeugen.
-        //
-        // Jetzt sind es zwei Klassen, und die gekapselte traegt zwei
-        // Projektionen. Der Rueckgang von sechs auf zwei ist KEIN
-        // Verlust an Evidenz - er ist der Wegfall der Scheinmehrheit:
-        // vier der sechs alten Zeugen waren korrelierte Sichten auf
-        // dieselbe Quelle.
-        //
-        // **Und er macht einen Befund sichtbar**, der vorher nicht zu
-        // sehen war: der Lauf kapselt nur `quotient_classes.first()`,
-        // waehrend Algorithmus 11.19 (Normativer Compilerlauf) eine
-        // Kapsel JE Klasse verlangt.
-        // Die zweite Klasse - vier Projektionen aus `spec` und
-        // `inline-contract` - wird derzeit nicht gekapselt. Siehe den
-        // Kommentar an der Fundstelle in `psk_scheduler::dispatch`.
-        assert_eq!(
-            report.capsule.witnesses.len(),
+            report.capsule_outcomes.len(),
             2,
-            "die gekapselte Quotientenklasse traegt zwei Projektionen"
+            "{:?}",
+            report.capsule_outcomes
         );
+        let mut by_witnesses: Vec<&CapsuleOutcome> = report.capsule_outcomes.iter().collect();
+        by_witnesses.sort_by_key(|o| o.capsule.witnesses.len());
+        let (klein, gross) = (by_witnesses[0], by_witnesses[1]);
+        assert_eq!(
+            klein.capsule.witnesses.len(),
+            2,
+            "release-note liefert Falsifikator + Integrator"
+        );
+        assert_eq!(
+            gross.capsule.witnesses.len(),
+            4,
+            "spec und inline-contract fallen ueber den auditor transitiv zusammen"
+        );
+
+        // ERWARTUNG vor der Messung (Auftraggeber): mit zwei Kapseln
+        // KOENNTE der Ratchet verschiedene Ergebnisse je Klasse liefern.
+        // GEMESSEN: er tut es in diesem Lauf NICHT - beide Kapseln
+        // konvergieren identisch. Das ist kein Fehlschlag der
+        // Vermutung, sondern ein eigener Befund: `allowed_next`,
+        // `countermodels` und `patch_artifact` sind LAUFgroessen
+        // (`spec.allowed_next`, `state.contradictions`,
+        // `state.program.patch_plan` - siehe `psk_scheduler::dispatch`,
+        // `ChallengeCapsulate` und `ChallengeResolve`), nicht
+        // klassenabhaengige. Der Ratchet liest nirgends `witnesses`; er
+        // kann deshalb strukturell nicht divergieren, solange beide
+        // Kapseln dieselbe Nachfolgemenge und dieselben Gegenmodelle
+        // erhalten - und das tun sie, weil `CapsuleSpec` EIN Wert je
+        // Lauf ist, nicht einer je Quotientenklasse.
+        for outcome in [klein, gross] {
+            assert_eq!(
+                outcome.ratchet_rounds,
+                2,
+                "Runde 1 kontrahiert, Runde 2 fixiert - {} Zeugen",
+                outcome.capsule.witnesses.len()
+            );
+            assert!(
+                !outcome.adversarially_closed,
+                "schliesst nur ohne das Gegenmodell - PSK-E003 - {} Zeugen",
+                outcome.capsule.witnesses.len()
+            );
+            assert!(
+                outcome.reached_fixpoint,
+                "Challenge-Ausgang ist der Fixpunkt, nicht RESIDUAL - {} Zeugen",
+                outcome.capsule.witnesses.len()
+            );
+            assert_eq!(
+                outcome.capsule.phase,
+                psk_types::objects::CandidateCapsulePhaseKind::Residual,
+                "{} Zeugen",
+                outcome.capsule.witnesses.len()
+            );
+        }
 
         assert_ne!(report.trace_head, psk_trace::GENESIS_DIGEST);
 

@@ -104,7 +104,7 @@ pub fn apply(state: &mut Sigma, outcome: DispatchOutcome) -> Result<(), PskError
             state.contradictions = Some(contradictions);
             state.obstructions.extend(obstructions);
         }
-        DispatchOutcome::CapsuleSealed(capsule) => state.capsules.push(capsule),
+        DispatchOutcome::CapsuleSealed(capsules) => state.capsules.extend(capsules),
         DispatchOutcome::ChallengeResolved {
             sealed,
             capsule,

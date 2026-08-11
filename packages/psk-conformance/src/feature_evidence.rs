@@ -120,37 +120,39 @@ fn measure_run(run: &GoldenRunReport, evidence: &mut FeatureEvidence) {
     evidence.field_lineages += count_nonempty_lineages(&run.field_identities);
 
     // ---- FC5: seit dem Challenge-Schritt durchlaeuft der Lauf M24 real.
-    // Drei der vier Nachweise entstehen dabei: die Kapsel (eine je
-    // Quotientenklasse, publiziert im Bericht), der Ratchet-Schritt
-    // (aufgeloest im Kapselfixpunkt, nicht Budget-RESIDUAL - siehe
-    // capsule_reached_fixpoint) und die Supportentscheidung (Phase
-    // SUPPORTED oder RESIDUAL, beides ist eine Entscheidung).
+    // Drei der vier Nachweise entstehen dabei: die Kapseln (eine je
+    // Quotientenklasse, publiziert im Bericht - seit v1.0.46 wirklich
+    // mehrere statt nur der ersten), der Ratchet-Schritt (aufgeloest im
+    // Kapselfixpunkt, nicht Budget-RESIDUAL - siehe `reached_fixpoint`)
+    // und die Supportentscheidung (Phase SUPPORTED oder RESIDUAL, beides
+    // ist eine Entscheidung).
     //
-    // Der VIERTE Nachweis - Residuenfluss - hat in einem voll
-    // bestehenden Lauf keine ehrliche Quelle: residue_flow greift erst ab
-    // Phase RESIDUAL, und die Kapsel dieses Laufs ist SUPPORTED. Den
-    // Witness-Pfad auf false zu setzen, damit sie RESIDUAL wird und
-    // fliesst, waere die Erfindung mit umgekehrtem Vorzeichen (siehe
-    // run_challenge). `residue_flow_transitions` bleibt deshalb 0, und
-    // FC5 faellt an genau diesem einen benannten Nachweis.
-    evidence.candidate_capsules += 1;
-    if run.capsule_reached_fixpoint || run.capsule.phase == CandidateCapsulePhaseKind::Residual {
-        evidence.ratcheted_capsules += 1;
-    }
-    if matches!(
-        run.capsule.phase,
-        CandidateCapsulePhaseKind::Supported | CandidateCapsulePhaseKind::Residual
-    ) {
-        evidence.support_decisions += 1;
-    }
+    // Gezaehlt wird JE KAPSEL, nicht je Lauf: mit mehreren Kapseln ist
+    // "die Phase" kein Singular mehr, und eine Kapsel, deren Ratchet
+    // anders ausging als die einer anderen, ist ein eigener Nachweis,
+    // kein Duplikat.
+    evidence.candidate_capsules += run.capsule_outcomes.len();
+    for outcome in &run.capsule_outcomes {
+        if outcome.reached_fixpoint || outcome.capsule.phase == CandidateCapsulePhaseKind::Residual
+        {
+            evidence.ratcheted_capsules += 1;
+        }
+        if matches!(
+            outcome.capsule.phase,
+            CandidateCapsulePhaseKind::Supported | CandidateCapsulePhaseKind::Residual
+        ) {
+            evidence.support_decisions += 1;
+        }
 
-    // Vierter Nachweis - Residuenfluss. `residue_flow_next` gibt die
-    // zulaessige Folgephase; sie existiert nur ab RESIDUAL. Gezaehlt wird
-    // ein Uebergang nur, wenn die Kapsel tatsaechlich dort steht UND das
-    // Werk von dort aus einen Weg fuehrt. Ist die Kapsel SUPPORTED,
-    // fliesst nichts - das ist dann der Messwert, kein Mangel der Messung.
-    if psk_adversarial::residue_flow_next(run.capsule.phase).is_some() {
-        evidence.residue_flow_transitions += 1;
+        // Vierter Nachweis - Residuenfluss. `residue_flow_next` gibt die
+        // zulaessige Folgephase; sie existiert nur ab RESIDUAL. Gezaehlt
+        // wird ein Uebergang nur, wenn DIESE Kapsel tatsaechlich dort
+        // steht UND das Werk von dort aus einen Weg fuehrt. Steht eine
+        // Kapsel auf SUPPORTED, fliesst fuer sie nichts - das ist dann
+        // ihr Messwert, kein Mangel der Messung.
+        if psk_adversarial::residue_flow_next(outcome.capsule.phase).is_some() {
+            evidence.residue_flow_transitions += 1;
+        }
     }
 
     // ---- FC6.

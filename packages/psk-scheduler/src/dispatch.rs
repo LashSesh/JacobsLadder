@@ -198,7 +198,11 @@ pub enum DispatchOutcome {
         contradictions: Vec<psk_adversarial::Contradiction>,
         obstructions: Vec<psk_types::objects::ObstructionRecord>,
     },
-    CapsuleSealed(psk_types::objects::CandidateCapsule),
+    /// Eine Kapsel JE Quotientenklasse (Algorithmus 11.19 (Normativer Compilerlauf):
+    /// `capsules = C7_adversarial_canonicalize(profile.quotient_classes)` -
+    /// PLURAL). Dasselbe Muster wie `ContradictionsIdentified` oben: EIN
+    /// Dispatch-Aufruf, VIELE Ergebnisse.
+    CapsuleSealed(Vec<psk_types::objects::CandidateCapsule>),
     ChallengeResolved {
         /// Die ID der versiegelten Kapsel, die zur Aufloesung anstand -
         /// die Aufloesung praegt eine neue (inhaltsadressierte) ID, und
@@ -896,59 +900,76 @@ pub fn dispatch_readonly(
                 .capsule_spec
                 .as_ref()
                 .ok_or(PskError::UntypedInput)?;
-            // Die erste Quotientenklasse als Projektionsmenge aufloesen -
-            // ueber die IDs des realen Profils, nicht "alle Projektionen".
+            // EINE Kapsel JE Quotientenklasse (Algorithmus 11.19 (Normativer Compilerlauf):
+            // `capsules = C7_adversarial_canonicalize(profile.quotient_classes)`
+            // - PLURAL), seit v1.0.46 real gebaut statt nur gemeldet.
             //
-            // **BEFUND, gemeldet und NICHT hier behoben.** Algorithmus
-            // 11.19 sagt `capsules = C7_adversarial_canonicalize(
-            // profile.quotient_classes)` - PLURAL, eine Kapsel je
-            // Klasse. Dieses `.first()` bildet genau eine, und solange
-            // die Referenzdomaene aus EINER Quelle bestand, gab es auch
-            // nur eine Klasse: der Singular war nicht von der richtigen
-            // Form zu unterscheiden.
-            //
-            // Seit die Domaene drei Quellen fuehrt, sind es zwei
-            // Klassen, und die zweite faellt hier still weg. Das ist
-            // dieselbe Fehlerform wie ein Bodenwert
+            // Bis dahin stand hier `.first()`: mit einer einzigen Quelle
+            // gab es nur eine Klasse, und der Singular war von der
+            // richtigen Form nicht zu unterscheiden. Seit die Domaene
+            // drei Quellen fuehrt, sind es zwei Klassen - derselbe
+            // Fehlerform wie ein Bodenwert
             // (Regel 7.51 (Ein Bodenwert ist keine Messung)): ein
-            // Ausdruck, der ueber der bisherigen Eingabe korrekt aussah
-            // und es ueber der neuen nicht mehr ist. Der Umbau auf
-            // mehrere Kapseln beruehrt Ratchet, Support und
-            // Kapselfixpunkt und ist deshalb eine eigene Entscheidung,
-            // kein Nebenzug.
-            let class_ids = profile
-                .quotient_classes
-                .first()
-                .ok_or(PskError::CorrelatedWitnessOvercount)?;
-            let class: Vec<psk_types::objects::FieldProjection> = state
-                .projections
-                .iter()
-                .filter(|p| class_ids.contains(&p.id))
-                .cloned()
-                .collect();
-            let capsule = psk_adversarial::capsulate(
-                &class,
-                psk_adversarial::CapsuleInputs {
-                    // Die behauptete Rolle IST der formale Claim des
-                    // Gedankens - ein Laufwert, kein Etikett.
-                    surface: SurfaceDescriptor(thought.claim.formal.0.clone()),
-                    replay: spec.replay.clone(),
-                    boundary: spec.boundary.clone(),
-                    trace_ref: TraceRef(state.trace.head()),
-                    coupling: vec![],
-                    allowed_next: spec.allowed_next.clone(),
-                },
-            )?;
+            // Ausdruck, der ueber der alten Eingabe korrekt aussah und
+            // es ueber der neuen nicht mehr war.
+            //
+            // Kein Nachfilter auf leere Klassen: eine Quotientenklasse
+            // ohne aufloesbare Projektionen waere ein Defekt im Profil,
+            // kein Fall, den dieser Schritt still ausblenden darf - No
+            // Silent Loss (Axiom 7.44 (No Silent Loss)).
+            //
+            // **Befund, gemessen nach dem Umbau:** `allowed_next`
+            // (unten) ist fuer JEDE Kapsel `spec.allowed_next.clone()` -
+            // derselbe Wert, weil `CapsuleSpec` EIN Wert je Lauf ist,
+            // keiner je Quotientenklasse. `ChallengeResolve` liest fuer
+            // `survivors` ebenfalls nur laufglobale Groessen
+            // (`state.contradictions`, `state.program.patch_plan`), nie
+            // `witnesses`. Der Ratchet KANN deshalb strukturell nicht
+            // zwischen Kapseln divergieren, solange dieser Zustand
+            // steht - gemessen an der Referenzdomaene: zwei Kapseln (2
+            // und 4 Zeugen), beide Runde 2, beide RESIDUAL, beide nicht
+            // adversarial geschlossen. Ob `allowed_next` je Klasse
+            // verschieden sein SOLLTE, ist eine Werksfrage, die dieser
+            // Umbau nicht beantwortet - siehe den Testkommentar in
+            // `psk_conformance::golden_run`.
+            if profile.quotient_classes.is_empty() {
+                return Err(PskError::CorrelatedWitnessOvercount);
+            }
+            let mut capsules = Vec::with_capacity(profile.quotient_classes.len());
+            for class_ids in &profile.quotient_classes {
+                let class: Vec<psk_types::objects::FieldProjection> = state
+                    .projections
+                    .iter()
+                    .filter(|p| class_ids.contains(&p.id))
+                    .cloned()
+                    .collect();
+                capsules.push(psk_adversarial::capsulate(
+                    &class,
+                    psk_adversarial::CapsuleInputs {
+                        // Die behauptete Rolle IST der formale Claim des
+                        // Gedankens - ein Laufwert, kein Etikett. Fuer
+                        // jede Kapsel derselbe Claim: der Lauf behauptet
+                        // EINE Rolle, unabhaengig davon, wie viele
+                        // Quotientenklassen sie traegt.
+                        surface: SurfaceDescriptor(thought.claim.formal.0.clone()),
+                        replay: spec.replay.clone(),
+                        boundary: spec.boundary.clone(),
+                        trace_ref: TraceRef(state.trace.head()),
+                        coupling: vec![],
+                        allowed_next: spec.allowed_next.clone(),
+                    },
+                )?);
+            }
             let segment = seg(
                 ModuleId::AdversarialKernel,
                 phase,
-                &capsule,
+                &capsules,
                 time,
-                vec![capsule.id],
+                capsules.iter().map(|c| c.id).collect(),
             )?;
             Ok(DispatchResult {
                 trace_segments: vec![segment],
-                outcome: DispatchOutcome::CapsuleSealed(capsule),
+                outcome: DispatchOutcome::CapsuleSealed(capsules),
             })
         }
 
