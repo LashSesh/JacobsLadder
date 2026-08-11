@@ -66,7 +66,7 @@ pub enum ArmType {
     Replay,
     /// "read-only Messereignisse an PSK-QPM-RA projizieren (Teil C)".
     ///
-    /// **Erklaerter Nullstand** nach Regel 7.51 (Erklärter Nullstand):
+    /// **Erklaerter Nullstand** nach Regel 7.52 (Erklärter Nullstand):
     /// dieser Armtyp ist DEKLARIERT und hat KEINEN Erzeuger.
     ///
     /// - Benannte Bedingung: er projiziert an PSK-QPM-RA und gehoert

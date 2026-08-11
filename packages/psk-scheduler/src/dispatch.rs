@@ -896,8 +896,26 @@ pub fn dispatch_readonly(
                 .capsule_spec
                 .as_ref()
                 .ok_or(PskError::UntypedInput)?;
-            // Die eine Quotientenklasse als Projektionsmenge aufloesen -
+            // Die erste Quotientenklasse als Projektionsmenge aufloesen -
             // ueber die IDs des realen Profils, nicht "alle Projektionen".
+            //
+            // **BEFUND, gemeldet und NICHT hier behoben.** Algorithmus
+            // 11.19 sagt `capsules = C7_adversarial_canonicalize(
+            // profile.quotient_classes)` - PLURAL, eine Kapsel je
+            // Klasse. Dieses `.first()` bildet genau eine, und solange
+            // die Referenzdomaene aus EINER Quelle bestand, gab es auch
+            // nur eine Klasse: der Singular war nicht von der richtigen
+            // Form zu unterscheiden.
+            //
+            // Seit die Domaene drei Quellen fuehrt, sind es zwei
+            // Klassen, und die zweite faellt hier still weg. Das ist
+            // dieselbe Fehlerform wie ein Bodenwert
+            // (Regel 7.51 (Ein Bodenwert ist keine Messung)): ein
+            // Ausdruck, der ueber der bisherigen Eingabe korrekt aussah
+            // und es ueber der neuen nicht mehr ist. Der Umbau auf
+            // mehrere Kapseln beruehrt Ratchet, Support und
+            // Kapselfixpunkt und ist deshalb eine eigene Entscheidung,
+            // kein Nebenzug.
             let class_ids = profile
                 .quotient_classes
                 .first()

@@ -224,9 +224,26 @@ fn workspace_root() -> std::path::PathBuf {
 /// der blockierende Negativtest `correlated-views-counted-as-independent`
 /// an genau diesem Lauf GEMESSEN.
 ///
-/// Der Referenzlauf ist dafuer der richtige Fall: sechs Projektionen,
-/// die alle dieselbe eine Ankerquelle teilen. Wer sie als unabhaengig
-/// zaehlte, kaeme auf Rang sechs; der Abhaengigkeitsquotient sagt eins.
+/// Der Referenzlauf ist dafuer der richtige Fall: sechs Projektionen
+/// ueber DREI deklarierten Quellen. Wer sie als unabhaengig zaehlte,
+/// kaeme auf Rang sechs; der Abhaengigkeitsquotient sagt zwei.
+///
+/// **Warum zwei und nicht drei** - und das ist der Punkt, an dem sich
+/// zeigt, dass der Quotient wirklich quotientiert statt Etiketten zu
+/// zaehlen: der Archetyp `auditor` liest laut Korpusmanifest AUS ZWEI
+/// Quellen (`spec` und `inline-contract`), weil er den Vertrag gegen die
+/// Spezifikation prueft. Damit faellt seine Projektion mit beiden
+/// zusammen, und die beiden Quellen fallen TRANSITIV in eine Klasse.
+/// `release-note` bleibt getrennt. Sechs Sichten, zwei Klassen, vier
+/// absorbiert.
+///
+/// Bis v1.0.45 trugen alle sechs dieselbe feste Quelle
+/// `sandbox-observation`, und der Quotient sagte eins - gerechnet und
+/// richtig, aber ueber einem Gegenstand ohne Uneinigkeit. Der Wert war
+/// nie ein Bodenwert (Regel 7.51 (Ein Bodenwert ist keine Messung));
+/// `psk_dependency::quotient` gibt ueber leerer Eingabe null. Der
+/// Bodenwert sass in `psk_adversarial::effective_rank_of`, und der
+/// hatte keinen Aufrufer.
 #[test]
 fn correlated_views_are_not_counted_as_independent() {
     let root = workspace_root();
@@ -253,8 +270,28 @@ fn correlated_views_are_not_counted_as_independent() {
     );
     assert_eq!(rank.views, 6);
     assert_eq!(
-        rank.sources, 1,
-        "eine gemeinsame Quelle - das IST die Korrelation"
+        rank.sources, 3,
+        "drei deklarierte Quellen - die Korrelation liegt jetzt in der \
+         UEBERLAPPUNG, nicht mehr darin, dass es nur eine gibt"
+    );
+    assert_eq!(
+        rank.independent_classes, 2,
+        "spec und inline-contract fallen ueber den auditor transitiv \
+         zusammen; release-note bleibt getrennt"
+    );
+    assert_eq!(
+        rank.absorbed_by_correlation(),
+        4,
+        "sechs Sichten auf zwei Klassen - vier hat die Korrelation geschluckt"
+    );
+
+    // Der Rang IST jetzt eine Messung, und der Bericht sagt es
+    // (Regel 7.51 (Ein Bodenwert ist keine Messung)).
+    assert!(rank.is_measured());
+    assert!(
+        rank.labelled().contains("gemessen"),
+        "die Kennzeichnung fehlt: {}",
+        rank.labelled()
     );
 
     // Und der Negativtest selbst.

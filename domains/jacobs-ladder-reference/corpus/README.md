@@ -1,3 +1,10 @@
+> **Seit v1.0.45: drei Quellen statt einer.** `requirements.yaml` ist
+> jetzt ein Manifest über `sources/spec.yaml`,
+> `sources/inline-contract.yaml` und `sources/release-note.yaml`. Der
+> Grund und die Folgen stehen im Kopf des Manifests; die wichtigste ist,
+> dass Präzedenz **quellenrelativ** ist und über Quellgrenzen nichts
+> entscheidet.
+
 # Referenzkorpus
 
 Die versiegelte Menge aus Schritt 1 des Referenzauftrags: Spezifikations-

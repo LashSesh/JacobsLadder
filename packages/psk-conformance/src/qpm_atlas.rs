@@ -50,7 +50,7 @@
 //!    Fragezeichen, aber aus einem Lauf nicht bestimmbar (siehe oben).
 //!
 //! Beide sind hier als `Option` gefuehrt UND mit einem erklaerten
-//! Grund - dieselbe Form, die Regel 7.52 (Unsignierte Ausstellung unterhalbC4) fuer das leere Signaturfeld verlangt: der Nullstand
+//! Grund - dieselbe Form, die Regel 7.53 (Unsignierte Ausstellung unterhalbC4) fuer das leere Signaturfeld verlangt: der Nullstand
 //! als erklaerter, nicht als stiller. Gemeldet, nicht ueberspielt.
 
 use std::collections::BTreeMap;

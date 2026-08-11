@@ -1,70 +1,78 @@
-# Anforderungskorpus der Referenzdomaene (Regel Referenzauftrag, Schritt 1:
-# "eine versiegelte Menge von Spezifikations- und Quelltextdateien").
+# Das Anforderungskorpus der Referenzdomaene - seit v1.0.45 ein MANIFEST
+# ueber mehrere Quellen statt einer einzelnen Anforderungsliste.
 #
-# Form uebernommen von constitution/requirement_matrix.yaml (id, severity,
-# artifact, statement) - das vorhandene, maschinenlesbare Anforderungs-
-# register des Kerns. Ergaenzt um `precedence`, weil die Geltungsbestimmung
-# eine Eigenschaft der ANFORDERUNGEN ist, nicht der Relationssorten: zwei
-# Anforderungen ueber dasselbe Artefakt koennen einander widersprechen, und
-# nur eine erklaerte Rangfolge entscheidet das ohne Aussenrecord.
+# ## Warum die Datei ihre Form gewechselt hat
 #
-# Das Korpus ist NICHT auf FC5 hin entworfen. Es enthaelt beide
-# Widerspruchsarten, weil ein realistisches Anforderungskorpus beide
-# enthaelt: solche, die eine deklarierte Praezedenz aufloest, und solche,
-# die ohne Aussenrecord offen bleiben. Was der Lauf daraus macht, wird
-# gemessen.
-schema: psk.domain-requirements/1.0
+# Regel 32.6 (Referenzauftrag) verlangt "eine versiegelte Menge von
+# Spezifikations- und Quelltextdateien" und laesst die Maschine
+# "widersprueckliche Anforderungen identifizieren" und "gemeinsame
+# Quellen quotientieren". Solange alle Anforderungen in EINER Datei
+# standen, war das Quotientieren gegenstandslos: sechs Sichten auf ein
+# Dokument sind eine Quelle, und der Abhaengigkeitsquotient rechnete
+# korrekt Rang eins. Gerechnet, nicht gefallen - aber eben ueber einem
+# Gegenstand ohne Uneinigkeit.
+#
+# Jetzt stehen drei Dokumente VERSCHIEDENER HERKUNFT nebeneinander. Das
+# ist der Unterschied zwischen mehreren Sichten auf eine Quelle und
+# mehreren Quellen: erst hier kann RankEff ueberhaupt ueber eins
+# steigen, und erst hier hat der Falsifikator etwas zu suchen.
+#
+# ## Praezedenz ist QUELLENRELATIV
+#
+# Innerhalb eines Dokuments ist `precedence` die erklaerte Rangfolge
+# seines Autors und entscheidet. ZWISCHEN unabhaengigen Dokumenten
+# entscheidet sie nichts: die Zahl 2 in der Spezifikation und die Zahl 2
+# in der Betriebsaufzeichnung stammen von verschiedenen Verfassern und
+# sind nicht vergleichbar. Sie doch zu vergleichen waere derselbe Fehler
+# wie korrelierte Sichten als unabhaengig zu zaehlen, nur eine Ebene
+# hoeher - eine erfundene Ordnung ueber Dingen, die keine gemeinsame
+# haben.
+#
+# Deshalb kennt `Geltung` seit v1.0.45 drei Faelle statt zwei, und der
+# dritte ist der quellenuebergreifende.
+schema: psk.domain-requirements/2.0
 domain: jacobs-ladder-reference
 
-# Hoehere Zahl schlaegt niedrigere. Gleiche Zahl heisst: die Rangfolge
-# entscheidet NICHT - dann ist der Widerspruch ohne Aussenrecord offen.
-precedence_rule: "hoehere precedence schlaegt niedrigere; bei Gleichstand entscheidet die Rangfolge nicht"
+precedence_rule: >-
+  Innerhalb EINER Quelle: hoehere precedence schlaegt niedrigere; bei
+  Gleichstand entscheidet die Rangfolge nicht. ZWISCHEN Quellen ist
+  precedence nicht vergleichbar und entscheidet nie - dort ist ein
+  Aussenrecord die einzige Aufloesung.
 
-requirements:
-  # --- Widerspruchspaar A: ueber die Praezedenz aufloesbar. ---
-  # Zwei Fassungen derselben Anforderung an dieselbe Datei. Die spaetere
-  # Fassung traegt den hoeheren Rang; das ist der Normalfall einer
-  # fortgeschriebenen Spezifikation.
-  - id: R-PATCH-001
-    severity: MUST
-    artifact: golden-run-patch.txt
-    precedence: 1
-    statement: "Die Sandboxdatei golden-run-patch.txt enthaelt genau 'hello golden run'."
+# Die Quellen, je mit ihrer Herkunft. `id` ist der SourceRef, unter dem
+# der Abhaengigkeitsquotient sie fuehrt.
+sources:
+  - id: spec
+    origin: Spezifikationsdokument
+    path: sources/spec.yaml
+  - id: inline-contract
+    origin: Quelltextbaum
+    path: sources/inline-contract.yaml
+  - id: release-note
+    origin: Betriebsaufzeichnung
+    path: sources/release-note.yaml
 
-  - id: R-PATCH-002
-    severity: MUST
-    artifact: golden-run-patch.txt
-    precedence: 2
-    statement: "Die Sandboxdatei golden-run-patch.txt enthaelt genau 'hello golden run v2'."
-
-  # --- Widerspruchspaar B: ohne Aussenrecord nicht aufloesbar. ---
-  # Gleicher Rang, gegenlaeufige Forderungen ueber dasselbe Artefakt. Die
-  # Rangfolge entscheidet hier nichts, und die Frage, WAS der Freigabestand
-  # ausserhalb der Sandbox ist, kann der Lauf aus sich heraus nicht
-  # beantworten - dafuer braucht es eine Beobachtung von aussen.
-  - id: R-SCOPE-001
-    severity: MUST
-    artifact: golden-run-patch.txt
-    precedence: 1
-    statement: "Der Patch DARF ausschliesslich innerhalb der Sandbox schreiben."
-
-  - id: R-SCOPE-002
-    severity: MUST
-    artifact: golden-run-patch.txt
-    precedence: 1
-    statement: "Der Patch MUSS den ausserhalb der Sandbox gefuehrten Freigabestand spiegeln."
-
-  # --- Widerspruchsfrei, als Kontrollmenge. ---
-  # Ohne sie wuerde eine Widerspruchssuche, die ALLES als widerspruechlich
-  # meldet, unbemerkt bestehen.
-  - id: R-TRACE-001
-    severity: MUST
-    artifact: trace.jsonl
-    precedence: 1
-    statement: "Jeder Schritt des Laufs erzeugt ein TraceSegment."
-
-  - id: R-SEAL-001
-    severity: MUST
-    artifact: anchor.json
-    precedence: 1
-    statement: "Der Anker versiegelt den beobachteten Verzeichnisstand vor der ersten Aenderung."
+# Welcher Archetyp der Feldfamilie (Regel 32.7) aus welcher Quelle liest.
+#
+# Die Schluessel sind die REGISTERWERTE aus architecture/sort_registry.yaml
+# (ArchetypeId), nicht die deutschen Rollennamen: die Menge ist dort
+# geschlossen, und ein Schluessel daneben faellt auf, statt still ins
+# Leere zu greifen.
+#
+# DOMAENENGELIEFERT, wie LensSpec und GateSet: welche Rolle welches
+# Dokument befragt, ist eine Aussage ueber diese Domaene und keine ueber
+# die Architektur. Der Kern liest die Zuordnung, er waehlt sie nicht.
+#
+# Die Zuordnung ist nicht gleichverteilt, und das ist Absicht: der
+# Auditor prueft den Vertrag, also liest er den Quelltextbaum UND die
+# Spezifikation - er ist die Rolle, die den Widerspruch sieht. Ein
+# Archetyp, der zwei Quellen liest, faellt im Quotienten mit beiden
+# zusammen; genau daran zeigt sich, dass der Quotient TRANSITIV arbeitet
+# und nicht bloss verschiedene Etiketten zaehlt.
+archetype_sources:
+  explorer: [spec]
+  historian: [inline-contract]
+  falsifier: [release-note]
+  constructor: [spec]
+  auditor: [spec, inline-contract]
+  integrator: [release-note]

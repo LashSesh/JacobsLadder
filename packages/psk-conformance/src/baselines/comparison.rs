@@ -256,15 +256,21 @@ mod tests {
         // comparison.rs Modulkopf): monolithic hat keine Feldfamilie (0.0,
         // strukturell, keine Resistenz). event_sourcing quotientiert drei
         // korrelierte Perspektiven nicht (3 - 1 = 2.0). kern fuehrt Regel
-        // 32.7s sechs Feldrollen aus, die in dieser Fixture denselben
-        // source_provenance teilen und deshalb zu r_eff=1 quotientieren
-        // (6 - 1 = 5.0) - GROESSER als beide Baselines, gerade WEIL der
-        // Kern (anders als event_sourcing) r_eff ueberhaupt berechnet.
-        // Deshalb aus dem strikten kern_passes()-Gate ausgenommen, aber
-        // hier als Tatsache gemessen, nicht verschwiegen.
+        // 32.7s sechs Feldrollen aus.
+        //
+        // Der kern-Wert ist mit v1.0.45 von 5.0 auf 4.0 GEFALLEN, und
+        // das ist eine Verbesserung: bis dahin teilten alle sechs
+        // Feldrollen dieselbe festverdrahtete Quelle und quotientierten
+        // zu r_eff=1 (6 - 1 = 5.0). Jetzt lesen sie aus drei
+        // deklarierten Quellen, von denen zwei ueber den `auditor`
+        // transitiv zusammenfallen: r_eff=2, also 6 - 2 = 4.0. Die
+        // Kennzahl misst, wieviel Scheinmehrheit der Quotient
+        // wegnimmt - und je mehr echte Unabhaengigkeit vorliegt, desto
+        // weniger BLEIBT wegzunehmen. Ein steigender Wert waere hier
+        // das schlechtere Zeichen.
         assert_eq!(comparison.monolithic.synthetic_majority, 0.0);
         assert_eq!(comparison.event_sourcing.synthetic_majority, 2.0);
-        assert_eq!(comparison.kern.synthetic_majority, 5.0);
+        assert_eq!(comparison.kern.synthetic_majority, 4.0);
 
         assert!(!comparison.monolithic.recovery_succeeded);
         assert!(!comparison.event_sourcing.recovery_succeeded);

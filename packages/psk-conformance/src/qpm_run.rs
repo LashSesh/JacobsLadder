@@ -99,7 +99,7 @@ pub struct QpmRunReport {
     /// Warum das Verdikt so ausfiel - benannt, nicht zu erraten.
     pub verdict_reason: String,
     /// Das Ergebnis der Pipelinestufe QueryVersionedTemplateCatalog,
-    /// im Artefakt sichtbar (Regel 7.51 (Erklärter Nullstand), dritte
+    /// im Artefakt sichtbar (Regel 7.52 (Erklärter Nullstand), dritte
     /// Pflicht): die Leerform steht HIER, nicht nur im Grundtext des
     /// Verdikts.
     pub catalog_query: crate::qpm_query::CatalogQuery,
@@ -403,6 +403,40 @@ impl WitnessRank {
     /// nicht geuebt.
     pub fn absorbed_by_correlation(&self) -> usize {
         self.views.saturating_sub(self.independent_classes)
+    }
+
+    /// Ob dieser Rang eine MESSUNG ist
+    /// (Regel 7.51 (Ein Bodenwert ist keine Messung)).
+    ///
+    /// **Gemessen, und der Befund ist gegenlaeufig zur Vermutung:** die
+    /// Zahl hier ist keine Bodenzahl. `psk_dependency::quotient` gibt
+    /// ueber einer leeren Projektionsmenge `effective_rank = 0` und
+    /// leere `quotient_classes` zurueck, nicht eins - der Boden, den
+    /// Regel 7.51 (Ein Bodenwert ist keine Messung) benennt, sass in
+    /// `psk_adversarial::effective_rank_of`
+    /// und nicht hier. Der Referenzlauf misst wirklich: sechs Sichten,
+    /// eine Quotientenklasse, Rang eins.
+    ///
+    /// Die Kennzeichnung steht trotzdem, weil der Bericht sie verlangt:
+    /// "ein Bericht, der den Bodenwert neben gemessenen Werten fuehrt,
+    /// ohne ihn zu kennzeichnen, behauptet eine Messung, die nicht
+    /// stattfand". Ein Lauf ohne Projektionen faellt hier auf, statt
+    /// eine Null als Rang auszugeben.
+    pub fn is_measured(&self) -> bool {
+        self.views > 0
+    }
+
+    /// Der Rang mit seiner Kennzeichnung - fuer jeden Bericht, der ihn
+    /// neben anderen Zahlen fuehrt.
+    pub fn labelled(&self) -> String {
+        if self.is_measured() {
+            format!(
+                "{} (gemessen ueber {} Sichten, {})",
+                self.effective_rank, self.views, self.method
+            )
+        } else {
+            "nicht gemessen (keine Projektionen)".to_string()
+        }
     }
 }
 

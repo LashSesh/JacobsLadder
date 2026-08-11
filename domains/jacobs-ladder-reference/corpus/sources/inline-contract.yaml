@@ -1,0 +1,29 @@
+# Quelle 2 von 3: die im Quelltextbaum stehenden Vertraege.
+#
+# Herkunft: der Quelltext selbst. Was hier steht, hat kein
+# Spezifikationsautor geschrieben, sondern wer den Code gebaut hat - eine
+# andere Herkunft mit einer eigenen, nicht vergleichbaren Rangfolge.
+#
+# Die Sandboxbeschraenkung steht hier und nicht in der Spezifikation,
+# weil sie eine Eigenschaft des ausfuehrenden Codes ist: der Effekt-
+# adapter kann nur schreiben, wozu sein Token ihn berechtigt.
+source: inline-contract
+origin: Quelltextbaum
+
+requirements:
+  # Widerspruchspaar B, QUELLENUEBERGREIFEND: gegen release-note.
+  # Gleicher Rang waere hier ohnehin unaufloesbar - aber selbst ein
+  # anderer Rang loeste nichts, weil die Zahlen aus verschiedenen
+  # Federn stammen.
+  - id: CODE-SCOPE-001
+    severity: MUST
+    artifact: golden-run-patch.txt
+    precedence: 1
+    statement: "Der Patch DARF ausschliesslich innerhalb der Sandbox schreiben."
+
+  # Kontrollmenge.
+  - id: CODE-SEAL-001
+    severity: MUST
+    artifact: anchor.json
+    precedence: 1
+    statement: "Der Anker versiegelt den beobachteten Verzeichnisstand vor der ersten Aenderung."

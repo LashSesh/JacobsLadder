@@ -755,7 +755,7 @@ impl psk_effect::ExclusiveLine for HeldChild {
 /// zweier Laeufe folgt (Definition 22.1 (Replayklassen): keine Eigenschaft eines
 /// einzelnen Laufs).
 /// Schritt 13, Zertifikatsteil. **Jedes Feld kommt vom Aufrufer, keines
-/// entsteht hier** - Regel 7.54 (Plattformgebundene Verpflichtungsauflösung im Zertifikat):
+/// entsteht hier** - Regel 7.55 (Plattformgebundene Verpflichtungsauflösung im Zertifikat):
 /// "Kein Feld eines MachineCertificate DARF einen Wert tragen, der nicht
 /// aus einem Artefakt des zertifizierten Laufes stammt."
 ///
@@ -808,7 +808,7 @@ fn issue_golden_run_certificate(
         negative_test_report_digest: reports.negative_test_report.digest,
         scope: ScopeExpr("golden-run".into()),
         issued_at: run_time(),
-        // Regel 7.52 (Unsignierte Ausstellung unterhalbC4), seit
+        // Regel 7.53 (Unsignierte Ausstellung unterhalbC4), seit
         // v1.0.42 normativ und woertlich die Lesart, die dieser Lauf
         // gemeldet hatte: "signature ist ein Pflichtfeld; ein leerer
         // Wert ist kein Verfahren. Er ist dennoch zulaessig, solange die
@@ -824,7 +824,7 @@ fn issue_golden_run_certificate(
         // Bedingung, unter der der Nullstand zulaessig bleibt, und faellt
         // bei C4. Der Lauf steht heute auf C3 - eine Stufe darunter.
         signature: psk_types::Signature(vec![]),
-        // Regel 7.54 (Plattformgebundene Verpflichtungsauflösung im Zertifikat): der abgeleitete Vektor haelt diesen Lauf
+        // Regel 7.55 (Plattformgebundene Verpflichtungsauflösung im Zertifikat): der abgeleitete Vektor haelt diesen Lauf
         // unterhalb jeder Klasse, die OBL-010 (blocking_from: C4)
         // betrifft - siehe `is_relevant` in
         // `check_platform_bound_obligations`. Ein leerer Vektor ist hier
@@ -951,7 +951,22 @@ fn deposit_program(
 
     // Schritt 5: die statische Feldfamilie (Regel 32.7 (Feldfamilie der Referenzdomäne)) - sechs
     // Archetypen, je Registrierung plus Projektionswerte.
+    //
+    // Die Quellen je Archetyp kommen seit v1.0.45 aus dem KORPUSMANIFEST
+    // und nicht mehr aus einer festen Zeichenkette. Vorher trugen alle
+    // sechs `sandbox-observation`, also fielen sie im
+    // Abhaengigkeitsquotienten in eine Klasse: sechs Sichten, Rang eins.
+    // Das war GERECHNET und richtig - aber ueber einem Gegenstand ohne
+    // Uneinigkeit. Erst mehrere Quellen machen den Rang zu einer
+    // Aussage ueber die Domaene statt ueber die Verdrahtung.
+    let manifest = crate::load_manifest(corpus_root)?;
     for (i, archetype) in ArchetypeId::ALL.into_iter().enumerate() {
+        // Eine Rolle ohne deklarierte Quelle laese aus nichts - das ist
+        // ein Manifestdefekt, kein leerer Erfolg.
+        let quellen = manifest
+            .archetype_sources
+            .get(archetype.id())
+            .ok_or(PskError::UntypedInput)?;
         sigma.program.field_family.push(FieldFamilyEntry {
             archetype,
             registration: psk_fields::FieldRegistrationInputs {
@@ -979,7 +994,7 @@ fn deposit_program(
                 system_identity: Digest::sha256(b"system-identity-not-a-field"),
             },
             node: IRNodeId(format!("golden-run-node-{i}")),
-            source_provenance: vec![SourceRef("sandbox-observation".into())],
+            source_provenance: quellen.iter().map(|q| SourceRef(q.clone())).collect(),
             scope: ScopeSpec("sandbox".into()),
             registered: None,
             projected: None,
@@ -1454,7 +1469,7 @@ pub fn run_golden_run_with_certificate(
 
     // Der Selbstkompilationsvorschlag steht JETZT vor dem Zertifikat, und
     // das ist keine Umsortierung aus Bequemlichkeit: sein GateReport ist
-    // FC7s Beleg, und Regel 7.54 (Plattformgebundene Verpflichtungsauflösung im Zertifikat)
+    // FC7s Beleg, und Regel 7.55 (Plattformgebundene Verpflichtungsauflösung im Zertifikat)
     // verlangt `feature_coverage` als abgeleiteten Wert. Solange das
     // Zertifikat zuerst entstand, konnte der Vektor nicht abgeleitet
     // werden - er wurde behauptet. Das Zertifikat ist das LETZTE Artefakt
@@ -1620,9 +1635,17 @@ mod tests {
         // Integrator MUSS daraus eine sichtbare Obstruktion machen. Alle
         // Gates stehen weiterhin auf PASS - "PASSend" und
         // "residuenfrei" sind seither zwei verschiedene Aussagen.
+        //
+        // Seit v1.0.45 sind es DREI: das Korpus besteht aus drei
+        // Quellen, und drei seiner vier Widersprueche laufen ueber
+        // Quellgrenzen, wo keine Praezedenz entscheidet. Der Lauf tut
+        // damit etwas, das er vorher nie tat - er traegt mehr
+        // Uneinigkeit aus, als eine Rangfolge aufloesen kann, und macht
+        // jede davon sichtbar statt eine davon.
         assert_eq!(
-            report.residues_opened, 1,
-            "genau der eine offene Widerspruch des Korpus residualisiert"
+            report.residues_opened, 3,
+            "die drei quellenuebergreifenden Widersprueche residualisieren, \
+             jeder einzeln"
         );
 
         assert!(report.anchor.sealed);
@@ -1681,22 +1704,39 @@ mod tests {
         // ueberlebt, allowed_next bleibt gleich (Definition 22.2 (Kapselfixpunkt)). Die
         // Supportentscheidung fiel positiv (alle fuenf Pfade definiert,
         // Definition 11.11 (Perkolationssupport)), also SUPPORTED.
-        // Schritt 2/3: beide Widerspruchsarten identifiziert, jede mit
-        // bestimmter Geltung. Die Kontrollmenge des Korpus stellt sicher,
-        // dass hier nicht einfach alles als widerspruechlich gilt.
+        // Schritt 2/3: ALLE drei Widerspruchsarten identifiziert, jede
+        // mit bestimmter Geltung. Die Kontrollmenge des Korpus stellt
+        // sicher, dass hier nicht einfach alles als widerspruechlich
+        // gilt - `trace.jsonl` und `anchor.json` streiten nicht.
+        //
+        // Seit v1.0.45 vier statt zwei, weil das Korpus aus drei
+        // Quellen besteht. Bemerkenswert dabei: SPEC-PATCH-002 GEWINNT
+        // den quelleninternen Praezedenzstreit und bleibt trotzdem von
+        // aussen bestritten. Eine Entscheidung innerhalb einer Quelle
+        // beendet den Streit nicht, sie beendet ihn nur DORT.
         assert_eq!(
             report.contradictions.len(),
-            2,
+            4,
             "{:?}",
             report.contradictions
         );
         assert_eq!(
             report.contradictions.iter().filter(|c| c.is_open()).count(),
-            1,
-            "genau einer ist ohne Aussenrecord offen"
+            3,
+            "drei ohne Aussenrecord offen, alle quellenuebergreifend"
         );
-        // Der Integrator: eine Obstruktion der Art `order`, blockierend.
-        assert_eq!(report.obstructions.len(), 1);
+        assert_eq!(
+            report
+                .contradictions
+                .iter()
+                .filter(|c| c.crosses_sources())
+                .count(),
+            3
+        );
+        // Der Integrator: je eine Obstruktion der Art `order`,
+        // blockierend - und zwar EINE JE offenem Widerspruch. Ein
+        // gemeinsamer Sammeleintrag verlöre, welcher Streit welcher ist.
+        assert_eq!(report.obstructions.len(), 3);
         assert_eq!(
             report.obstructions[0].kind,
             psk_types::objects::ObstructionRecordKindKind::Order
@@ -1734,10 +1774,28 @@ mod tests {
             report.capsule.phase,
             psk_types::objects::CandidateCapsulePhaseKind::Residual
         );
+        // Die Zeugen der Kapsel sind die Projektionen IHRER
+        // Quotientenklasse, nicht alle Projektionen des Laufs. Bis
+        // v1.0.45 fielen beide zusammen, weil es genau eine Klasse gab:
+        // sechs Sichten, sechs Zeugen.
+        //
+        // Jetzt sind es zwei Klassen, und die gekapselte traegt zwei
+        // Projektionen. Der Rueckgang von sechs auf zwei ist KEIN
+        // Verlust an Evidenz - er ist der Wegfall der Scheinmehrheit:
+        // vier der sechs alten Zeugen waren korrelierte Sichten auf
+        // dieselbe Quelle.
+        //
+        // **Und er macht einen Befund sichtbar**, der vorher nicht zu
+        // sehen war: der Lauf kapselt nur `quotient_classes.first()`,
+        // waehrend Algorithmus 11.19 (Normativer Compilerlauf) eine
+        // Kapsel JE Klasse verlangt.
+        // Die zweite Klasse - vier Projektionen aus `spec` und
+        // `inline-contract` - wird derzeit nicht gekapselt. Siehe den
+        // Kommentar an der Fundstelle in `psk_scheduler::dispatch`.
         assert_eq!(
             report.capsule.witnesses.len(),
-            6,
-            "die eine Quotientenklasse traegt alle sechs Projektionen"
+            2,
+            "die gekapselte Quotientenklasse traegt zwei Projektionen"
         );
 
         assert_ne!(report.trace_head, psk_trace::GENESIS_DIGEST);

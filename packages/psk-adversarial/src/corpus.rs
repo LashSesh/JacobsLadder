@@ -53,17 +53,49 @@ pub struct Requirement {
     pub artifact: String,
     pub precedence: u32,
     pub statement: String,
+    /// Aus WELCHEM Quelldokument diese Anforderung stammt.
+    ///
+    /// Seit v1.0.45 traegt jede Anforderung ihre Herkunft, weil
+    /// Regel 32.6 (Referenzauftrag) "gemeinsame Quellen quotientieren"
+    /// verlangt - und ein Quotient ueber einer einzigen Quelle nichts
+    /// tut. Ohne dieses Feld waere jede Rangfolge quellenblind, und
+    /// genau daraus entstuende die Ordnung, die es nicht gibt.
+    pub source: String,
 }
 
 /// Warum zwei Anforderungen einander widersprechen und ob die erklaerte
 /// Rangfolge das entscheidet.
+///
+/// ## Drei Faelle, und warum der dritte seit v1.0.45 noetig ist
+///
+/// Praezedenz ist QUELLENRELATIV. Innerhalb eines Dokuments ist sie die
+/// erklaerte Rangfolge seines Verfassers und entscheidet. Zwischen
+/// unabhaengigen Dokumenten entscheidet sie nichts: `precedence: 5` in
+/// einer Betriebsaufzeichnung und `precedence: 2` in einer Spezifikation
+/// sind zwei Zahlen aus zwei Federn, und sie zu vergleichen erfaende
+/// eine Ordnung ueber Dingen, die keine gemeinsame haben.
+///
+/// Das ist derselbe Fehler wie korrelierte Sichten als unabhaengig zu
+/// zaehlen (Invariante 12.2 (Kein Selbstwitness)), nur eine Ebene
+/// hoeher - dort wird Unabhaengigkeit erfunden, hier eine Rangfolge.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 pub enum Geltung {
-    /// Die Praezedenz entscheidet: genau eine der beiden gilt.
+    /// Dieselbe Quelle, verschiedener Rang: die Praezedenz entscheidet,
+    /// genau eine der beiden gilt.
     ResolvedByPrecedence { winner: String, loser: String },
-    /// Gleicher Rang - die Rangfolge entscheidet nichts. Die Geltung ist
-    /// ohne eine Beobachtung von aussen nicht bestimmbar.
+    /// Dieselbe Quelle, gleicher Rang - die Rangfolge entscheidet
+    /// nichts. Die Geltung ist ohne eine Beobachtung von aussen nicht
+    /// bestimmbar.
     UnresolvableWithoutExternalRecord { left: String, right: String },
+    /// VERSCHIEDENE Quellen: die Praezedenzen sind nicht vergleichbar,
+    /// unabhaengig davon, wie die Zahlen stehen. Der Befund nennt beide
+    /// Quellen, weil "unaufloesbar" ohne sie nicht sagte, warum.
+    UnresolvableAcrossSources {
+        left: String,
+        left_source: String,
+        right: String,
+        right_source: String,
+    },
 }
 
 /// Ein identifizierter Widerspruch samt bestimmter (oder eben nicht
@@ -79,7 +111,14 @@ impl Contradiction {
         matches!(
             self.geltung,
             Geltung::UnresolvableWithoutExternalRecord { .. }
+                | Geltung::UnresolvableAcrossSources { .. }
         )
+    }
+
+    /// Ob dieser Widerspruch ueber Quellgrenzen laeuft - die Klasse, die
+    /// es vor v1.0.45 nicht gab, weil es nur eine Quelle gab.
+    pub fn crosses_sources(&self) -> bool {
+        matches!(self.geltung, Geltung::UnresolvableAcrossSources { .. })
     }
 }
 
@@ -103,7 +142,18 @@ pub fn identify_contradictions(reqs: &[Requirement]) -> Result<Vec<Contradiction
                 if !statements_conflict(&a.statement, &b.statement) {
                     continue;
                 }
-                let geltung = if a.precedence == b.precedence {
+                // Zuerst die Quellenfrage, DANN die Rangfrage. Die
+                // Reihenfolge ist die Aussage: ueber Quellgrenzen wird
+                // der Rang gar nicht erst angesehen, weil er dort keine
+                // Bedeutung hat.
+                let geltung = if a.source != b.source {
+                    Geltung::UnresolvableAcrossSources {
+                        left: a.id.clone(),
+                        left_source: a.source.clone(),
+                        right: b.id.clone(),
+                        right_source: b.source.clone(),
+                    }
+                } else if a.precedence == b.precedence {
                     Geltung::UnresolvableWithoutExternalRecord {
                         left: a.id.clone(),
                         right: b.id.clone(),
@@ -169,6 +219,20 @@ pub fn falsifier_countermodels(contradictions: &[Contradiction]) -> Vec<CapsuleI
             Geltung::UnresolvableWithoutExternalRecord { left, right } => {
                 CapsuleId(format!("countermodel:{}:{}~{}", c.artifact, left, right))
             }
+            // Quellenuebergreifend: dasselbe Gegenmodell, aber die
+            // Kennung nennt die QUELLEN mit. Wer es liest, sieht nicht
+            // nur, DASS zwei Anforderungen streiten, sondern dass sie
+            // aus verschiedenen Federn stammen - und damit, warum keine
+            // Rangfolge hilft.
+            Geltung::UnresolvableAcrossSources {
+                left,
+                left_source,
+                right,
+                right_source,
+            } => CapsuleId(format!(
+                "countermodel:{}:{}@{}~{}@{}",
+                c.artifact, left, left_source, right, right_source
+            )),
             Geltung::ResolvedByPrecedence { .. } => unreachable!("nach is_open gefiltert"),
         })
         .collect()
@@ -206,8 +270,27 @@ pub fn integrator_obstruction(
     residue_ref: ObjectId,
     located_at: M13Address,
 ) -> Result<ObstructionRecord, PskError> {
-    let Geltung::UnresolvableWithoutExternalRecord { left, right } = &contradiction.geltung else {
-        return Err(PskError::SurfaceInvariantCollapse);
+    // Beide unaufloesbaren Arten erzeugen eine Obstruktion; der
+    // Erholungspfad benennt, WORAN sie haengt. Bei der
+    // quellenuebergreifenden ist das nicht "gleiche Praezedenz", sondern
+    // "verschiedene Quellen" - ein Aussenrecord bleibt in beiden Faellen
+    // der Weg, aber der Grund ist ein anderer, und ein gemeinsamer Text
+    // verlöre ihn.
+    let recovery = match &contradiction.geltung {
+        Geltung::UnresolvableWithoutExternalRecord { left, right } => {
+            format!("aussenrecord-einholen:{left}~{right}")
+        }
+        Geltung::UnresolvableAcrossSources {
+            left,
+            left_source,
+            right,
+            right_source,
+        } => format!(
+            "aussenrecord-einholen-quellenuebergreifend:{left}@{left_source}~{right}@{right_source}"
+        ),
+        Geltung::ResolvedByPrecedence { .. } => {
+            return Err(PskError::SurfaceInvariantCollapse);
+        }
     };
     let draft = ObstructionRecord {
         id: ObjectId::new(SortId::Residue, Digest::sha256(b"")), // Platzhalter
@@ -216,10 +299,7 @@ pub fn integrator_obstruction(
         involved: vec![],
         severity: ObstructionRecordSeverityKind::Blocking,
         residue_ref,
-        allowed_recovery: vec![RecoveryPathId(format!(
-            "aussenrecord-einholen:{}~{}",
-            left, right
-        ))],
+        allowed_recovery: vec![RecoveryPathId(recovery)],
     };
     let mut value = serde_json::to_value(&draft).map_err(|_| PskError::CanonicalizationFailed)?;
     value
@@ -242,6 +322,17 @@ pub fn open_obligation_for(contradiction: &Contradiction) -> ObligationExpr {
              (gleiche Praezedenz)",
             contradiction.artifact
         )),
+        Geltung::UnresolvableAcrossSources {
+            left,
+            left_source,
+            right,
+            right_source,
+        } => ObligationExpr(format!(
+            "Geltung zwischen {left} ({left_source}) und {right} ({right_source}) ueber {} ist \
+             ohne Aussenrecord nicht bestimmbar (verschiedene Quellen - die Praezedenzen sind \
+             nicht vergleichbar, unabhaengig von ihren Zahlen)",
+            contradiction.artifact
+        )),
         Geltung::ResolvedByPrecedence { winner, loser } => ObligationExpr(format!(
             "{winner} schlaegt {loser} - keine offene Obligation"
         )),
@@ -252,14 +343,120 @@ pub fn open_obligation_for(contradiction: &Contradiction) -> ObligationExpr {
 mod tests {
     use super::*;
 
+    /// Eine Anforderung aus DERSELBEN Quelle - der Fall, in dem
+    /// Praezedenz ueberhaupt etwas entscheidet.
     fn req(id: &str, artifact: &str, prec: u32, st: &str) -> Requirement {
+        req_from("eine-quelle", id, artifact, prec, st)
+    }
+
+    fn req_from(source: &str, id: &str, artifact: &str, prec: u32, st: &str) -> Requirement {
         Requirement {
             id: id.into(),
             severity: "MUST".into(),
             artifact: artifact.into(),
             precedence: prec,
             statement: st.into(),
+            source: source.into(),
         }
+    }
+
+    /// Praezedenz ist QUELLENRELATIV - der Fall, der die dritte
+    /// Geltungsart traegt.
+    ///
+    /// ERWARTUNG, vor der Messung ausgesprochen: zwei Anforderungen aus
+    /// VERSCHIEDENEN Quellen loesen sich nicht auf, auch wenn eine den
+    /// klar hoeheren Rang traegt. Und die Gegenprobe daneben ist die
+    /// tragende: DIESELBEN Zahlen innerhalb EINER Quelle loesen sehr
+    /// wohl auf. Ohne sie sagte der erste Fall nur, dass irgendetwas
+    /// nicht aufloest - nicht, dass die Quellgrenze der Grund ist.
+    #[test]
+    fn precedence_decides_within_a_source_and_never_across_two() {
+        let a = "Die Datei enthaelt genau 'x'.";
+        let b = "Die Datei enthaelt genau 'y'.";
+
+        // Ueber Quellgrenzen: 5 gegen 2, und es entscheidet NICHTS.
+        let ueber_quellen = vec![
+            req_from("spec", "S1", "f.txt", 2, a),
+            req_from("release-note", "O1", "f.txt", 5, b),
+        ];
+        let found = identify_contradictions(&ueber_quellen).expect("Widerspruch");
+        assert_eq!(found.len(), 1);
+        assert_eq!(
+            found[0].geltung,
+            Geltung::UnresolvableAcrossSources {
+                left: "S1".into(),
+                left_source: "spec".into(),
+                right: "O1".into(),
+                right_source: "release-note".into(),
+            },
+            "der hoehere Rang aus fremder Quelle entscheidet nicht"
+        );
+        assert!(found[0].is_open());
+        assert!(found[0].crosses_sources());
+
+        // Gegenprobe: dieselben Zahlen, EINE Quelle - jetzt entscheidet
+        // die Rangfolge.
+        let eine_quelle = vec![
+            req_from("spec", "S1", "f.txt", 2, a),
+            req_from("spec", "S2", "f.txt", 5, b),
+        ];
+        let found = identify_contradictions(&eine_quelle).expect("Widerspruch");
+        assert_eq!(
+            found[0].geltung,
+            Geltung::ResolvedByPrecedence {
+                winner: "S2".into(),
+                loser: "S1".into()
+            },
+            "innerhalb einer Quelle schlaegt der hoehere Rang"
+        );
+        assert!(!found[0].is_open());
+        assert!(!found[0].crosses_sources());
+    }
+
+    /// Der quellenuebergreifende Widerspruch erzeugt eine Obstruktion,
+    /// und ihr Erholungspfad NENNT die Quellen.
+    ///
+    /// ERWARTUNG: die Obstruktion entsteht (blocking, Art `order`), und
+    /// ihr Pfad unterscheidet sich von dem des quelleninternen Falls -
+    /// sonst waere die neue Klasse gebaut und im Artefakt unsichtbar.
+    #[test]
+    fn a_cross_source_contradiction_names_both_sources_in_its_recovery_path() {
+        let reqs = vec![
+            req_from("spec", "S1", "f.txt", 2, "Die Datei enthaelt genau 'x'."),
+            req_from(
+                "release-note",
+                "O1",
+                "f.txt",
+                5,
+                "Die Datei enthaelt genau 'y'.",
+            ),
+        ];
+        let c = &identify_contradictions(&reqs).expect("Widerspruch")[0];
+        let obstruction = integrator_obstruction(
+            c,
+            ObjectId::new(SortId::Residue, Digest::sha256(b"res")),
+            M13Address("m13:0/c0".into()),
+        )
+        .expect("Obstruktion");
+
+        assert_eq!(obstruction.kind, ObstructionRecordKindKind::Order);
+        assert_eq!(
+            obstruction.severity,
+            ObstructionRecordSeverityKind::Blocking
+        );
+        let pfad = &obstruction.allowed_recovery[0].0;
+        assert!(
+            pfad.contains("quellenuebergreifend"),
+            "der Pfad muss die Art nennen: {pfad}"
+        );
+        assert!(pfad.contains("spec") && pfad.contains("release-note"));
+
+        // Und die offene Obligation sagt, WARUM keine Rangfolge hilft.
+        let ob = open_obligation_for(c).0;
+        assert!(
+            ob.contains("nicht vergleichbar"),
+            "die Obligation muss den Grund nennen: {ob}"
+        );
     }
 
     #[test]

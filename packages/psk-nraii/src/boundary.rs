@@ -45,7 +45,7 @@
 //! QPM Axiom 3.1 (Kein stiller Ausschluss) auf der QPM-Seite - und in
 //! dieser Form ist sie hier auch gemessen.
 //!
-//! **Erklaerter Nullstand** nach Regel 7.51 (Erklärter Nullstand):
+//! **Erklaerter Nullstand** nach Regel 7.52 (Erklärter Nullstand):
 //! `R = R*` (Selbstadjungiertheit) ist NICHT geprueft, weil kein
 //! Innenprodukt deklariert ist - ohne `<x,y>` gibt es nichts, woran
 //! `<Rx,y> = <x,Ry>` zu messen waere. Benannte Bedingung: sobald der
