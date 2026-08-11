@@ -148,7 +148,7 @@ pub fn ir_encode(bundle: &IRBundle) -> Result<Vec<u8>, PskError> {
 
     let json = serde_json::to_vec(&value).map_err(|_| PskError::CanonicalizationFailed)?;
     let canon = psk_canon::can(&json, psk_canon::Media::Json)?;
-    Ok(canon.0)
+    Ok(canon.into_bytes())
 }
 
 /// `ir_decode(bytes) -> IRBundle` (Algorithmus 10.3). `schema_valid(obj,

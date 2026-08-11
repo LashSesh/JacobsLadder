@@ -1,0 +1,9 @@
+{
+  "qpm_id": "d8296c87f4a2a6c38130c014e01d9e1d9dbd124ad6c870925e7ae747d3420b32",
+  "sealed_over_files": [
+    "qpm_object_registry.yaml",
+    "qpm_gate_registry.yaml",
+    "qpm_conformance.yaml",
+    "seam_registry.yaml"
+  ]
+}

@@ -170,13 +170,21 @@ pub fn check_architecture_bundle(root: &Path) -> Result<ArchitectureCheck, Strin
     })
 }
 
-/// Die Zweitschicht-Register (QPM/NRAII-RA v1.0.1, Listings A.1-D.1).
+/// Die Zweitschicht-Register (QPM/NRAII-RA, Listings A.1-D.1).
 ///
 /// Sie liegen BEWUSST ausserhalb von `architecture/` und gehen deshalb
-/// NICHT in I_A ein: das Werk fuehrt eigenstaendige Identitaeten
-/// ("I_QPM, I_NRAII"), und sein Nahtregister fuehrt
+/// NICHT in I_A ein: das Werk fuehrt eigenstaendige Identitaeten, und
+/// QPM Regel 0.2 (Zwei eigene Locks, kein gemeinsamer) begruendet das
+/// normativ - eine gemeinsame Identitaet waere die von
+/// QPM Axiom 19.2 (Keine Autoritätsverschmelzung) untersagte
+/// Verschmelzung, und das Nahtregister fuehrt
 /// `shared-identity-in-certificate` als blockierenden Negativtest.
-/// Geprueft werden sie trotzdem - was `binds_to` behauptet, muss halten.
+///
+/// Ungesiegelt duerfen sie deshalb aber nicht bleiben. Dieselbe Regel:
+/// "Ein Register, dessen Aenderung keinen Digest bewegt, ist gegen
+/// unbemerkte Aenderung nicht geschuetzt - die Bindungspruefung stellt
+/// fest, dass eine Behauptung haelt, nicht dass niemand sie
+/// ausgetauscht hat." Siehe [`SECOND_LAYER_SEALS`].
 pub const SECOND_LAYER_REGISTERS: &[&str] = &[
     "qpm-nraii-architecture/qpm_object_registry.yaml",
     "qpm-nraii-architecture/qpm_gate_registry.yaml",
@@ -186,6 +194,111 @@ pub const SECOND_LAYER_REGISTERS: &[&str] = &[
     "nraii-architecture/nraii_gate_registry.yaml",
     "nraii-architecture/nraii_conformance.yaml",
 ];
+
+/// Eine Zweitschicht-Identitaet: welches Verzeichnis sie siegelt, wo
+/// ihr Lock liegt, unter welchem Feldnamen der Wert steht.
+pub struct SecondLayerSeal {
+    /// Die Identitaet, wie das Werk sie nennt.
+    pub identity: &'static str,
+    /// Das Verzeichnis, ueber dem H(Can(...)) gebildet wird.
+    pub directory: &'static str,
+    /// Die versiegelten Dateien, in fester Reihenfolge - der
+    /// Kollektionsdigest haengt an ihr (Definition 6.9 (Kollektionsdigest)).
+    pub files: &'static [&'static str],
+    /// Der Lock, der den Wert traegt. Liegt IM Verzeichnis, gehoert
+    /// aber NICHT zu `files`: ein Siegel, das sich selbst siegelte,
+    /// haette keinen Fixpunkt.
+    pub lock: &'static str,
+    pub field: &'static str,
+}
+
+/// Die beiden Berechnungsorte aus
+/// QPM Regel 0.2 (Zwei eigene Locks, kein gemeinsamer), woertlich:
+/// "I_QPM = H(Can(qpm-nraii-architecture/*)),
+/// I_NRAII = H(Can(nraii-architecture/*))".
+///
+/// Befund zur Naht, gemeldet statt umentschieden: `seam_registry.yaml`
+/// liegt in `qpm-nraii-architecture/` und faellt damit nach dem
+/// Wortlaut unter I_QPM - eine Aenderung an der Naht bewegt also die
+/// QPM-Identitaet, nicht die NRAII-Identitaet. Gesiegelt ist sie
+/// dadurch; die Zuordnung ist aber asymmetrisch, obwohl die Naht
+/// beiden Seiten gehoert ("Owner beide Seiten gemeinsam",
+/// QPM Struktur 21.2 (NRAIIQPMSeam)).
+pub const SECOND_LAYER_SEALS: &[SecondLayerSeal] = &[
+    SecondLayerSeal {
+        identity: "I_QPM",
+        directory: "qpm-nraii-architecture",
+        files: &[
+            "qpm_object_registry.yaml",
+            "qpm_gate_registry.yaml",
+            "qpm_conformance.yaml",
+            "seam_registry.yaml",
+        ],
+        lock: "qpm.lock.json",
+        field: "qpm_id",
+    },
+    SecondLayerSeal {
+        identity: "I_NRAII",
+        directory: "nraii-architecture",
+        files: &[
+            "nraii_layer_registry.yaml",
+            "nraii_gate_registry.yaml",
+            "nraii_conformance.yaml",
+        ],
+        lock: "nraii.lock.json",
+        field: "nraii_id",
+    },
+];
+
+/// Berechnet H(Can(<verzeichnis>/*)) fuer eine Zweitschicht-Identitaet.
+///
+/// Dieselbe Bildung wie I_A und I_C: `collection_digest` ueber die
+/// kanonisierten Dateien (Definition 6.9 (Kollektionsdigest)). Eine
+/// zweite Digestbildung waere hier genau der Verstoss, den
+/// QPM Regel 9.2 (Eigenständig in der Architektur, nicht in den Grundlagen)
+/// benennt - auch fuer ein Werkzeug.
+pub fn compute_second_layer_id(root: &Path, seal: &SecondLayerSeal) -> Result<Digest, String> {
+    let dir = root.join(seal.directory);
+    let mut present: Vec<(String, CanonicalBytes)> = Vec::new();
+    for name in seal.files {
+        present.push(((*name).to_string(), canon_of(&dir.join(name), Media::Yaml)?));
+    }
+    let refs: Vec<(&str, &CanonicalBytes)> = present.iter().map(|(n, c)| (n.as_str(), c)).collect();
+    Ok(collection_digest(&refs))
+}
+
+/// Prueft beide Zweitschicht-Siegel gegen ihre Locks.
+///
+/// Gibt je Identitaet (Name, berechnet, gespeichert) zurueck; der
+/// Aufrufer entscheidet ueber den Ausgang. Ein fehlender Lock ist ein
+/// Fehler, kein Vorgabewert - ohne ihn waere die Wache abwesend, und
+/// genau das war der Zustand, den QPM Regel 0.2 (Zwei eigene Locks, kein gemeinsamer)
+/// behebt.
+pub fn check_second_layer_seals(
+    root: &Path,
+) -> Result<Vec<(&'static str, Digest, String)>, String> {
+    let mut out = Vec::new();
+    for seal in SECOND_LAYER_SEALS {
+        let computed = compute_second_layer_id(root, seal)?;
+        let lock_path = root.join(seal.directory).join(seal.lock);
+        let text = fs::read_to_string(&lock_path).map_err(|e| {
+            format!(
+                "{}: {e} - {} braucht einen Berechnungsort \
+                 (QPM Regel 0.2 (Zwei eigene Locks, kein gemeinsamer))",
+                lock_path.display(),
+                seal.identity
+            )
+        })?;
+        let lock: Value = serde_json::from_str(&text)
+            .map_err(|e| format!("{} nicht lesbar: {e}", lock_path.display()))?;
+        let stored = lock[seal.field]
+            .as_str()
+            .ok_or_else(|| format!("{} fuehrt kein Feld `{}`", lock_path.display(), seal.field))?
+            .to_string();
+        out.push((seal.identity, computed, stored));
+    }
+    Ok(out)
+}
 
 /// Prueft die Bindungsbehauptungen der Zweitschicht gegen PSK-RA:
 /// jede genannte Sorte, jedes Modul und jeder Pass MUSS im gebundenen

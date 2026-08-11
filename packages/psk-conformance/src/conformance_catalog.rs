@@ -457,9 +457,10 @@ mod tests {
     fn t_can_001_canonicalization_is_idempotent() {
         let input = br#"{"b": 2, "a": [3, 1, 2], "c": {"z": 1, "y": 2}}"#;
         let once = psk_canon::can(input, psk_canon::Media::Json).unwrap();
-        let twice = psk_canon::can(&once.0, psk_canon::Media::Json).unwrap();
+        let twice = psk_canon::can(once.as_bytes(), psk_canon::Media::Json).unwrap();
         assert_eq!(
-            once.0, twice.0,
+            once.as_bytes(),
+            twice.as_bytes(),
             "Can(Can(x)) muss byteidentisch zu Can(x) sein"
         );
     }

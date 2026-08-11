@@ -167,6 +167,41 @@ fn main() {
         const_refs.len()
     );
 
+    // --- Zweitschichtsiegel: I_QPM und I_NRAII ---
+    //
+    // QPM Regel 0.2 (Zwei eigene Locks, kein gemeinsamer): "I_QPM und
+    // I_NRAII sind eigenstaendige Identitaeten und MUSS je einen
+    // eigenen Berechnungsort besitzen." Beide gehen NICHT in I_A ein -
+    // das waere die untersagte gemeinsame Identitaet. Die Dateilisten
+    // und Feldnamen stehen in verify-architecture, damit Schreiber und
+    // Pruefer nicht auseinanderlaufen koennen; hier wird nur
+    // geschrieben, was dort gelesen wird.
+    for seal in verify_architecture::SECOND_LAYER_SEALS {
+        let id = verify_architecture::compute_second_layer_id(&root, seal)
+            .unwrap_or_else(|e| panic!("{}: {e}", seal.identity));
+        let lock_path = root.join(seal.directory).join(seal.lock);
+        let mut lock: Value = match fs::read_to_string(&lock_path) {
+            Ok(t) => serde_json::from_str(&t)
+                .unwrap_or_else(|e| panic!("{} nicht lesbar: {e}", lock_path.display())),
+            // Erstausstellung: der Lock entsteht mit seinem ersten Wert.
+            Err(_) => serde_json::json!({}),
+        };
+        lock[seal.field] = Value::String(id.to_string());
+        lock["sealed_over_files"] = Value::from(
+            seal.files
+                .iter()
+                .map(|s| Value::String((*s).to_string()))
+                .collect::<Vec<_>>(),
+        );
+        write_json(&lock_path, &lock);
+        println!(
+            "{}: {} = {id} ({} Dateien)",
+            seal.lock,
+            seal.identity,
+            seal.files.len()
+        );
+    }
+
     // --- PSK.lock ---
     let psk_lock_path = root.join("PSK.lock");
     let mut psk_lock: Value =

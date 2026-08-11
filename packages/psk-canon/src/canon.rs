@@ -67,13 +67,54 @@ pub enum CanonValue {
 }
 
 /// Ergebnis von Can(): kompakt serialisierte kanonische Bytes.
+///
+/// ## Warum das Feld privat ist
+///
+/// Wer `CanonicalBytes` direkt bilden kann, faelscht kanonische Bytes -
+/// und damit JEDEN Digest darueber: `digest()`, `record_digest`,
+/// `collection_digest`, ueber sie I_A, I_C und die
+/// Zweitschichtidentitaeten. Die Kanonisierung waere dann eine
+/// Behauptung des Aufrufers statt ein Ergebnis der Kanonisierung
+/// (Algorithmus 6.1 (Can)).
+///
+/// Bis v1.0.12 war das Feld oeffentlich, und die Begruendung lautete,
+/// dass es ausserhalb dieses Moduls niemand direkt konstruiert -
+/// nachgemessen und zutreffend, aber folgenlos, und folgenlos ist nicht
+/// dasselbe wie unmoeglich. Dieselbe Klasse wie das Loch, das
+/// `GateReport` hatte, bevor `GateAuthorization` es schloss: dort war
+/// die Autoritaet erfindbar, hier die Kanonizitaet. Sichtbar geworden
+/// ist es an der NRAII-Seite, wo eine zweite Kanonisierung der von
+/// QPM Regel 9.2 (Eigenständig in der Architektur, nicht in den Grundlagen)
+/// benannte Verstoss waere - der Defekt selbst liegt aber hier.
+///
+/// Konstruieren duerfen nur die beiden Kanonisierungspfade dieses
+/// Moduls, [`can`] (Definition 6.6 (Objekt-ID)) und
+/// [`identity_projection`] (Definition 6.7 (Recorddigest)). Von
+/// aussen ist der Weg verschlossen:
+///
+/// ```compile_fail,E0423
+/// let _ = psk_canon::CanonicalBytes(vec![1, 2, 3]);
+/// ```
+///
+/// Lesend bleibt alles offen - [`CanonicalBytes::as_bytes`] gibt die
+/// Bytes heraus. Verschlossen ist das HEREINGEBEN.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CanonicalBytes(pub Vec<u8>);
+pub struct CanonicalBytes(Vec<u8>);
 
 impl CanonicalBytes {
     /// H(Can(f)) — die Digest-Haelfte von Definition 6.6/6.7/6.9/Regel 6.10.
     pub fn digest(&self) -> Digest {
         Digest::sha256(&self.0)
+    }
+
+    /// Die kanonischen Bytes, lesend.
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+
+    /// Die kanonischen Bytes, uebernommen.
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.0
     }
 }
 

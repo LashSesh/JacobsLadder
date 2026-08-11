@@ -8,27 +8,26 @@
 //! nachgebaut. Es gibt in diesem Paket keine zweite Kanonisierung und
 //! keine zweite Digestbildung.
 //!
-//! ## Warum das hier eine Typschranke braucht
+//! ## Zwei Schranken, eine je Ebene
 //!
-//! `psk_canon::CanonicalBytes` traegt ein oeffentliches Feld
-//! (`CanonicalBytes(pub Vec<u8>)`) - jeder kann den Typ direkt bilden,
-//! ohne durch `can()` gegangen zu sein. Auf PSK-RA-Seite ist das
-//! folgenlos, weil dort niemand es tut (nachgemessen: ausserhalb von
-//! psk-canon konstruiert kein Aufrufer ihn direkt). Fuer NRAII ist es
-//! nicht folgenlos: eine zweite Kanonisierung waere hier genau der
-//! Verstoss, den
-//! QPM Regel 9.2 (Eigenständig in der Architektur, nicht in den Grundlagen)
-//! benennt, und ein oeffentliches Tupelfeld ist die offene Tuer dorthin.
+//! [`CanonicalState`] traegt ein privates Feld; der einzige Konstruktor
+//! ist [`CanonicalState::canonicalize`], und der ruft `psk_canon::can`.
+//! Wer einen kanonischen NRAII-Zustand in der Hand haelt, haelt damit
+//! einen, der durch die geteilte Kanonisierung gegangen ist - eine
+//! Eigenschaft des Typs, keine Zusage im Kommentar. Dasselbe Muster wie
+//! `GateAuthorization`, aus demselben Grund.
 //!
-//! [`CanonicalState`] schliesst sie auf NRAII-Seite: das Feld ist
-//! privat, der einzige Konstruktor ist [`CanonicalState::canonicalize`],
-//! und der ruft `psk_canon::can`. Wer einen kanonischen NRAII-Zustand
-//! in der Hand haelt, haelt damit einen, der durch die geteilte
-//! Kanonisierung gegangen ist - das ist eine Eigenschaft des Typs, keine
-//! Zusage im Kommentar. Dasselbe Muster wie `GateAuthorization`, aus
-//! demselben Grund.
+//! Das allein reichte nicht: bis v1.0.12 trug `psk_canon::CanonicalBytes`
+//! selbst ein oeffentliches Tupelfeld, sodass ein Aufrufer kanonische
+//! Bytes ohne Kanonisierung bilden konnte. Der Befund entstand an dieser
+//! Stelle, gehoert aber PSK-RA: nicht NRAII haette dann eine zweite
+//! Kanonisierung, sondern jeder Digest darueber waere faelschbar
+//! gewesen. Er ist in derselben Runde an der Quelle behoben - siehe den
+//! Typkommentar von `CanonicalBytes`. Beide Ebenen sind damit
+//! geschlossen, und das Feld unten haelt den psk-canon-Typ statt roher
+//! Bytes, damit die untere Schranke auch hier traegt.
 
-use psk_canon::{can, Media};
+use psk_canon::{can, CanonicalBytes, Media};
 use psk_types::{Digest, PskError};
 
 /// Ein Zustand, der durch die geteilte Kanonisierung gegangen ist.
@@ -38,12 +37,15 @@ use psk_types::{Digest, PskError};
 /// Konstruktor damit unerreichbar:
 ///
 /// ```compile_fail,E0451
-/// let _ = psk_nraii::CanonicalState { bytes: vec![] };
+/// let _ = psk_nraii::CanonicalState { canonical: todo!() };
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CanonicalState {
-    /// Das Ergebnis von `psk_canon::can`, nicht ein eigenes Format.
-    bytes: Vec<u8>,
+    /// Das Ergebnis von `psk_canon::can` in SEINEM Typ, nicht in einem
+    /// eigenen. Seit v1.0.12 ist auch `CanonicalBytes` von aussen nicht
+    /// mehr konstruierbar - was hier liegt, ist damit auf beiden Ebenen
+    /// als kanonisiert ausgewiesen und nicht bloss so benannt.
+    canonical: CanonicalBytes,
 }
 
 impl CanonicalState {
@@ -55,7 +57,7 @@ impl CanonicalState {
     /// letzter Absatz: "welche, sagt er nicht, weil es nur eine gibt").
     pub fn canonicalize(bytes: &[u8], media: Media) -> Result<Self, PskError> {
         Ok(CanonicalState {
-            bytes: can(bytes, media)?.0,
+            canonical: can(bytes, media)?,
         })
     }
 
@@ -63,11 +65,11 @@ impl CanonicalState {
     /// eigener. Geht ueber `psk_canon::CanonicalBytes::digest`, damit
     /// auch die Digestbildung bezogen und nicht nachgebaut ist.
     pub fn digest(&self) -> Digest {
-        psk_canon::CanonicalBytes(self.bytes.clone()).digest()
+        self.canonical.digest()
     }
 
     pub fn as_bytes(&self) -> &[u8] {
-        &self.bytes
+        self.canonical.as_bytes()
     }
 }
 
@@ -107,7 +109,7 @@ mod tests {
     fn the_canonicalization_is_psk_ras_own_not_a_second_one() {
         let via_nraii = CanonicalState::canonicalize(A, Media::Json).expect("kanonisierbar");
         let via_psk = can(A, Media::Json).expect("kanonisierbar");
-        assert_eq!(via_nraii.as_bytes(), &via_psk.0[..]);
+        assert_eq!(via_nraii.as_bytes(), via_psk.as_bytes());
         assert_eq!(via_nraii.digest(), via_psk.digest());
 
         // Und die Kanonisierung TUT etwas: verschiedene Schreibweisen

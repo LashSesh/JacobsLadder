@@ -1,0 +1,8 @@
+{
+  "nraii_id": "316139f714edae6d9a841f3978a9f1b9ec5e8c61b488e003c31f147da029e87b",
+  "sealed_over_files": [
+    "nraii_layer_registry.yaml",
+    "nraii_gate_registry.yaml",
+    "nraii_conformance.yaml"
+  ]
+}

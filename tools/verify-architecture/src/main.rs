@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use verify_architecture::{
-    check_architecture_bundle, check_second_layer_binding, ARCHITECTURE_FILES_YAML,
-    SECOND_LAYER_REGISTERS,
+    check_architecture_bundle, check_second_layer_binding, check_second_layer_seals,
+    ARCHITECTURE_FILES_YAML, SECOND_LAYER_REGISTERS,
 };
 
 fn workspace_root() -> PathBuf {
@@ -71,6 +71,32 @@ fn main() -> ExitCode {
         }
         Err(e) => {
             eprintln!("verify-architecture: FAIL — Zweitschicht nicht pruefbar: {e}");
+            return ExitCode::FAILURE;
+        }
+    }
+
+    // QPM Regel 0.2 (Zwei eigene Locks, kein gemeinsamer): die
+    // Bindungspruefung oben stellt fest, dass eine Behauptung haelt -
+    // nicht, dass niemand sie ausgetauscht hat. Dafuer die Siegel.
+    match check_second_layer_seals(&root) {
+        Ok(seals) => {
+            let mut abweichung = false;
+            for (identity, computed, stored) in &seals {
+                if computed.to_string() == *stored {
+                    eprintln!("verify-architecture: {identity} = {computed} (Siegel stimmt).");
+                } else {
+                    eprintln!(
+                        "verify-architecture: FAIL — {identity} weicht ab. Gespeichert: {stored}, berechnet: {computed}"
+                    );
+                    abweichung = true;
+                }
+            }
+            if abweichung {
+                return ExitCode::FAILURE;
+            }
+        }
+        Err(e) => {
+            eprintln!("verify-architecture: FAIL — Zweitschichtsiegel: {e}");
             return ExitCode::FAILURE;
         }
     }

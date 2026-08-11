@@ -65,3 +65,6 @@ mod signature;
 pub use signature::{
     diamond_equivalent, lift, CompatibilityBreach, DiamondClass, QuotientOperator, Signed,
 };
+
+mod domain_contract;
+pub use domain_contract::{ClaimStatus, ContractBreach, ContractComponent, DomainContract};
