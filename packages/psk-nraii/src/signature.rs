@@ -23,7 +23,7 @@
 //!
 //! - Die **Diamant-Aequivalenz** (hier) quotientiert ueber der
 //!   SIGNATUR: gleich, wenn die klassenbildenden Merkmale gleich sind.
-//! - Der **Abhaengigkeitsquotient** (QPM Definition 11.5 (Abhängigkeitsquotient, zweite Instanz))
+//! - Der **Abhaengigkeitsquotient** (QPM Definition 11.7 (Abhängigkeitsquotient, zweite Instanz))
 //!   quotientiert ueber geteilten QUELLEN: "Zwei Perspektiven werden
 //!   nicht doppelt gezaehlt, wenn sie Quelle, Kalibrierung, Heuristik
 //!   oder Vorverarbeitung teilen." Er ist ausdruecklich "dieselbe

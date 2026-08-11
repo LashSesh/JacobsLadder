@@ -2,7 +2,7 @@
 //!
 //! ## Die Fuenfermenge - gemessen, nicht angenommen
 //!
-//! QPM Struktur 11.4 (Rekonstruktive Wish-Klasse) nennt fuenf
+//! QPM Struktur 11.6 (Rekonstruktive Wish-Klasse) nennt fuenf
 //! zulaessige Ergebnisse, und QPM Struktur 4.2 (Ergebnisordnung) auf
 //! der QPM-Seite ebenfalls fuenf. Die Frage, ob das DIESELBE Menge ist
 //! oder nur gleich aussieht, ist gemessen worden:
@@ -60,7 +60,7 @@
 //!
 //! - **Forward/Inverse-Channel**: die beiden Wish-Richtungen dieses
 //!   Kapitels - deklarativ (QPM Struktur 11.1 (Deklarativer Wish)) und
-//!   rekonstruktiv (QPM Struktur 11.4 (Rekonstruktive Wish-Klasse)) -
+//!   rekonstruktiv (QPM Struktur 11.6 (Rekonstruktive Wish-Klasse)) -
 //!   verbunden durch den Regelkreis.
 //!   **Befund**: das Wort "Channel" hat im NRAII-Teil KEINEN eigenen
 //!   Block; es erscheint dort nur in der Stufenliste selbst. (Im
@@ -72,7 +72,7 @@
 //!   quotientenvertraeglich sein. Das Werkzeug dafuer steht seit L1
 //!   (`crate::lift`); [`lift_channel`] wendet es auf den Channel an.
 //!
-//! Und der lose Faden aus L1: QPM Definition 11.5 (Abhängigkeitsquotient, zweite Instanz)
+//! Und der lose Faden aus L1: QPM Definition 11.7 (Abhängigkeitsquotient, zweite Instanz)
 //! gehoert zu diesem Kapitel und war im ersten Zug nicht gebaut. Er ist
 //! unten nachgetragen - als BEFUND nach
 //! QPM Regel 9.3 (Was NRAII feststellt, ordnet der Eigner ein), weil die
@@ -308,7 +308,7 @@ pub fn reobserve(
 }
 
 /// Die fuenf zulaessigen Ergebnisse aus
-/// QPM Struktur 11.4 (Rekonstruktive Wish-Klasse) - geschlossen und
+/// QPM Struktur 11.6 (Rekonstruktive Wish-Klasse) - geschlossen und
 /// woertlich.
 ///
 /// Eigenes Vokabular, KEINE Bindung an `IdentityVerdict`: siehe die
@@ -479,7 +479,7 @@ mod tests {
         );
     }
 
-    /// QPM Struktur 11.4 (Rekonstruktive Wish-Klasse): fuenf Ergebnisse,
+    /// QPM Struktur 11.6 (Rekonstruktive Wish-Klasse): fuenf Ergebnisse,
     /// und "erzwungene Eindeutigkeit ist ein Fehler".
     ///
     /// ERWARTUNG: zwei Ueberlebende ergeben `FinitelyAmbiguous` und
@@ -540,7 +540,7 @@ mod tests {
 // ---------------------------------------------------------------------
 
 /// Eine Perspektive im Sinne von
-/// QPM Definition 11.5 (Abhängigkeitsquotient, zweite Instanz), mit den
+/// QPM Definition 11.7 (Abhängigkeitsquotient, zweite Instanz), mit den
 /// vier Merkmalen, die sie abhaengig machen: "Quelle, Kalibrierung,
 /// Heuristik oder Vorverarbeitung".
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -561,7 +561,7 @@ pub struct WishPerspective {
 /// hier nicht getroffen: eine Abhaengigkeit auf ein Modulpaket waere die
 /// Architekturbindung, die QPM Regel 9.2 (Eigenständig in der Architektur, nicht in den Grundlagen)
 /// ausschliesst, ein eigener Quotient die Parallelstruktur, die
-/// QPM Definition 11.5 (Abhängigkeitsquotient, zweite Instanz)
+/// QPM Definition 11.7 (Abhängigkeitsquotient, zweite Instanz)
 /// ausschliesst ("dieselbe Konstruktion wie PSK-RAs
 /// DependencyProfile").
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -606,7 +606,7 @@ pub fn shared_dependencies(a: &WishPerspective, b: &WishPerspective) -> Vec<Shar
     out
 }
 
-/// Die Perspektivenpaare, die nach QPM Definition 11.5 (Abhängigkeitsquotient, zweite Instanz)
+/// Die Perspektivenpaare, die nach QPM Definition 11.7 (Abhängigkeitsquotient, zweite Instanz)
 /// NICHT doppelt zaehlen duerfen - als Befund fuer den Eigner.
 ///
 /// Gibt Indexpaare mit dem geteilten Merkmal zurueck. Was daraus an
@@ -662,7 +662,7 @@ mod nachtrag_tests {
         }
     }
 
-    /// QPM Definition 11.5 (Abhängigkeitsquotient, zweite Instanz): der
+    /// QPM Definition 11.7 (Abhängigkeitsquotient, zweite Instanz): der
     /// Befund nennt das geteilte Merkmal, nicht nur die Tatsache.
     ///
     /// ERWARTUNG, vor der Messung ausgesprochen: zwei Perspektiven mit

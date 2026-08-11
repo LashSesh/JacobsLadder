@@ -12,6 +12,8 @@
 //! - NRAII-3: "Radiale Arme, Armtypen, Wing-Mesh, Zykluswitness"
 //! - NRAII-4: "Deklarativer und rekonstruktiver Wish strikt getrennt"
 //! - NRAII-5: "Quotientenstabiler Forward/Inverse-Channel mit Reobservation"
+//! - NRAII-6: "Peristaltische Assimilation, Support-Akkretion,
+//!   Boundary-Renewal, Monodromie-Ratchet und 4pi-Lift"
 //!
 //! Die beiden Stufen decken sich NICHT mit den Schichten: NRAII-0 und
 //! NRAII-1 fallen beide erst mit L1, weil L0 allein nur einen der vier
@@ -441,11 +443,65 @@ fn nraii_five_all_three_parts() {
     println!("NRAII-5: Forward/Inverse, quotientenstabil gehoben, Reobservation");
 }
 
+/// NRAII-6, gemessen: "Peristaltische Assimilation, Support-Akkretion,
+/// Boundary-Renewal, Monodromie-Ratchet und 4pi-Lift".
+#[test]
+fn nraii_six_all_parts() {
+    use psk_nraii::{
+        assimilate, closure_degree, excalibrate, pass_gate, renew, sediment, ClosureDegree,
+        MonodromyRatchet, RawMass,
+    };
+
+    // Peristaltische Assimilation mit Akkretion: die Kette laeuft
+    // vollstaendig, und die abgetrennte Masse ist ein Residuum.
+    let x = excalibrate(
+        vec![
+            RawMass {
+                id: "a".into(),
+                content: "eins".into(),
+            },
+            RawMass {
+                id: "fremd".into(),
+                content: "zwei".into(),
+            },
+        ],
+        &["fremd".into()],
+    );
+    assert_eq!(x.separated().len(), 1, "kein Verlust, ein Residuum");
+    let sigma = renew(assimilate(sediment(
+        pass_gate(x, "N-BOUNDARY", true).expect("Gate"),
+    )))
+    .expect("Boundary-Renewal");
+
+    // Boundary-Renewal: die neue Traglast liegt innen, und die Kette
+    // ist vollstaendig - fuenf Schritte, keiner uebersprungen.
+    assert_eq!(sigma.encloses(), 1);
+    assert_eq!(sigma.provenance().len(), 5);
+
+    // Monodromie-Ratchet: der Liftindex steigt.
+    let klasse = Digest::sha256(b"chi");
+    let r = MonodromyRatchet::start(klasse)
+        .complete_cycle(klasse, true)
+        .expect("Umlauf")
+        .complete_cycle(klasse, true)
+        .expect("Umlauf");
+    assert_eq!(r.lift_index(), 2);
+
+    // 4pi-Lift: zwei Umlaeufe schliessen die Orientierung, einer nicht.
+    assert_eq!(closure_degree(4), Some(ClosureDegree::FourPi));
+    assert_eq!(closure_degree(2), Some(ClosureDegree::TwoPi));
+
+    println!("NRAII-6: Assimilation, Akkretion, Renewal, Ratchet, 4pi-Lift");
+}
+
 /// Die Gegenprobe zur Stufenmessung: was NICHT erreicht ist, ist auch
 /// nicht erreichbar behauptet.
 ///
-/// NRAII-5 verlangt "Quotientenstabiler Forward/Inverse-Channel mit
-/// Reobservation" und NRAII-6 die peristaltische Assimilation - L6.
+/// Die NAECHSTE OFFENE Stufe ist NRAII-7: "Attraktorstack, FoldBundle,
+/// Proof-Horizon und Falsifikationsharness" - L7. Der Vorausblick steht
+/// bewusst dort und nicht auf der naechsten Nummer in der Liste: stuende
+/// er auf einer bereits erreichten, deckte er eine Luecke, statt sie zu
+/// melden.
 /// Nichts davon existiert, und dieser Test haelt fest, dass das Paket
 /// auch nichts davon exportiert.
 ///
@@ -453,11 +509,16 @@ fn nraii_five_all_three_parts() {
 /// Fassungen standen NRAII-2 und NRAII-3 hier, und der Bau der
 /// jeweiligen Schicht hat ihn planmaessig zu Fall gebracht.
 #[test]
-fn nraii_six_is_not_claimed() {
-    // Die Namen, die L6 einfuehren wuerde. Zeichenketten statt echter
+fn nraii_seven_is_not_claimed() {
+    // Die Namen, die L7 einfuehren wuerde. Zeichenketten statt echter
     // Bezuege: ein echter waere ein Kompilierfehler, und der Test soll
     // MESSEN, nicht selbst nicht bauen.
-    let l6_namen = ["RawMass", "Sediment", "MonodromyRatchet", "PhaseLift"];
+    let l7_namen = [
+        "AttractorStack",
+        "FoldBundle",
+        "EmbeddingCertificate",
+        "Falsification",
+    ];
     let quelle = concat!(
         include_str!("../src/lib.rs"),
         include_str!("../src/null_anchor.rs"),
@@ -469,12 +530,13 @@ fn nraii_six_is_not_claimed() {
         include_str!("../src/arms.rs"),
         include_str!("../src/diagnostic_field.rs"),
         include_str!("../src/wish.rs"),
+        include_str!("../src/peristalsis.rs"),
     );
-    for name in l6_namen {
+    for name in l7_namen {
         assert!(
             !quelle.contains(&format!("pub struct {name}")),
             "{name} ist gebaut - die Stufenmessung ist fortzuschreiben"
         );
     }
-    println!("NRAII-5 bis NRAII-9: nicht erreicht, nicht behauptet");
+    println!("NRAII-7 bis NRAII-9: nicht erreicht, nicht behauptet");
 }

@@ -4,7 +4,7 @@
 //!
 //! Nicht Praeferenz, sondern Abhaengigkeit: der Regelkreis des
 //! Wunschkalkuels (QPM Regel 11.3 (Regelkreis)) beginnt mit `Obs`, und
-//! die rekonstruktive Wish-Klasse (QPM Struktur 11.4 (Rekonstruktive Wish-Klasse))
+//! die rekonstruktive Wish-Klasse (QPM Struktur 11.6 (Rekonstruktive Wish-Klasse))
 //! misst `d(Obs(w), O_ext)`. `Obs` ist das Marker- und Response-Feld
 //! dieser Schicht. L5 vor L4 hiesse, `Obs` zu stubben oder zweimal zu
 //! bauen.

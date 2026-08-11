@@ -96,3 +96,10 @@ pub use wish::{
     Facet, LoopClosure, LoopStage, Materialization, SharedDependency, Wish, WishBreach,
     WishDistance, WishOutcome, WishPerspective,
 };
+
+mod peristalsis;
+pub use peristalsis::{
+    assimilate, closure_degree, excalibrate, pass_gate, renew, sediment, ClosureDegree,
+    CycleBreach, Excalibrated, Gated, Kernel, MassStage, MonodromyRatchet, PreservedStructure,
+    Qsna, RatchetBreach, RawMass, RenewedBoundary, Sediment,
+};
