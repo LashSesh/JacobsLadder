@@ -1,5 +1,7 @@
-# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.3.pdf, Listing C.2.
-# Woertlich uebernommen.
+# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.11.pdf, Listing C.2.
+# Woertlich uebernommen; Inhalt seit v1.0.3 unveraendert - gegen
+# v1.0.11 nachgeprueft, nicht bloss stehengelassen, weil die
+# Nachbarlistings C.1 und C.3 dort korrigiert wurden.
 #
 # Die beiden Vorgabewerte sind die interessante Zeile: `HOLD` bei
 # unentscheidbar, `FAIL` bei fehlend. Das ist genau PSK-RAs

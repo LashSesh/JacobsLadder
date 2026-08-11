@@ -12,46 +12,56 @@
 //! Ausnahme, die schon psk-conformance und die Werkzeuge tragen. Die
 //! Regel ist damit im Werkzeug abgebildet, nicht bloss zugesagt.
 //!
-//! ## Warum L0 dennoch nichts von PSK-RA uebernimmt
+//! ## Was uebernommen wird, und wann es faellig wurde
 //!
 //! Dieselbe Regel verlangt in der Gegenrichtung, dass Kanonisierung,
 //! Digestbildung, Identitaetsprojektion, append-only Trace und
 //! Residuenbuchfuehrung UEBERNOMMEN werden: "Eine zweite Kanonisierung
 //! waere eine zweite Antwort auf dieselbe Frage."
 //!
-//! L0 uebernimmt davon nichts - und das ist kein Verstoss, sondern ein
-//! erklaerter Nullstand nach Regel 7.51 (Erklärter Nullstand):
+//! L0 uebernahm davon nichts, als erklaerter Nullstand nach
+//! Regel 7.51 (Erklärter Nullstand) mit benannter Bedingung: sobald
+//! eine Struktur dieses Pakets einen Payload traegt, ist eine
+//! Kanonisierung faellig, und sie MUSS die geteilte sein. Die
+//! Ersatzfuellung, die dieselbe Regel verbietet, waere gewesen,
+//! `psk-canon` schon damals ungenutzt aufzunehmen, um die Uebernahme zu
+//! BEHAUPTEN.
 //!
-//! - Benannte Bedingung: sobald eine L0-Struktur einen Payload traegt,
-//!   ist eine Kanonisierung faellig, und sie MUSS die geteilte sein.
-//! - Nachweis, der bei Eintritt faellt: `the_null_anchor_carries_no_payload`
-//!   misst `size_of::<NullAnchor>() == 0`. Ein Feld an `NullAnchor` laesst
-//!   ihn fallen, bevor die Frage der Kanonisierung ueberhaupt entsteht.
-//! - Sichtbarkeit: die leere `[dependencies]`-Tabelle in Cargo.toml mit
-//!   ihrer Begruendung.
-//!
-//! Die Ersatzfuellung, die Regel 7.51 (Erklärter Nullstand) verbietet,
-//! waere hier gewesen,
-//! `psk-canon` aufzunehmen und ungenutzt stehen zu lassen, um die
-//! Uebernahme zu BEHAUPTEN. Die erste echte Abhaengigkeit entsteht mit
-//! L1 (kanonischer Zustandsraum), wo QPM Axiom 10.3 (Kanonisierungsidempotenz)
+//! **Mit L1 ist die Bedingung eingetreten.** Der kanonische Zustand
+//! traegt einen Payload, also bezieht dieses Paket seit L1
+//! `psk_canon::can` und `psk_canon::CanonicalBytes::digest` - siehe
+//! [`CanonicalState`], wo QPM Axiom 10.3 (Kanonisierungsidempotenz)
 //! die Kanonisierung ausdruecklich als "identisch zu PSK-RAs eigener
-//! Kanonisierungsinvariante" bindet.
+//! Kanonisierungsinvariante" bindet. Der Nullstand ist damit nicht
+//! stillschweigend verschwunden, sondern eingeloest.
 //!
 //! ## Schichten und Stufen laufen nicht parallel
 //!
 //! QPM Struktur 9.1 (Normative Schichten L0–L9) traegt die
 //! Abhaengigkeiten (L2 setzt L1 setzt L0 voraus),
 //! QPM Struktur 18.3 (Konformitätsstufen NRAII-0 bis NRAII-LAB)
-//! ist das Messwerk. Die
-//! beiden Leitern decken sich NICHT: die Nullanker-Statelessness, die
-//! dieses Modul herstellt, ist Mindestanforderung von NRAII-**1**
-//! ("Kanonischer Zustand, Signatur, Quotient und zustandsloser
-//! Nullanker"), nicht von NRAII-0. Gebaut wird schichtweise, gemessen
-//! stufenweise - dieselbe Trennung wie I0-I8 gegen FC0-FC8 auf der
+//! ist das Messwerk. Die beiden Leitern decken sich NICHT: die
+//! Nullanker-Statelessness aus L0 ist Mindestanforderung von
+//! NRAII-**1**, zusammen mit kanonischem Zustand, Signatur und
+//! Quotient - alles L1-Material. Gebaut wird schichtweise, gemessen
+//! stufenweise; dieselbe Trennung wie I0-I8 gegen FC0-FC8 auf der
 //! PSK-RA-Seite.
+//!
+//! Seit v1.0.11 sagen Kapiteltabelle und Registerlisting dasselbe: bis
+//! v1.0.10 trug Listing C.3 noch die gekuerzte Leiter, waehrend
+//! QPM Struktur 18.3 (Konformitätsstufen NRAII-0 bis NRAII-LAB)
+//! bereits die vollstaendige fuehrte. Die Zuordnung oben braucht
+//! deshalb keinen Vorbehalt mehr.
 
 mod null_anchor;
 pub use null_anchor::{
     apparent_connection, AnchoredRelation, ApparentConnection, NullAnchor, Step, Traversable, N0,
+};
+
+mod canonical_state;
+pub use canonical_state::CanonicalState;
+
+mod signature;
+pub use signature::{
+    diamond_equivalent, lift, CompatibilityBreach, DiamondClass, QuotientOperator, Signed,
 };

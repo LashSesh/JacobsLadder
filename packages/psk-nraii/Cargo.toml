@@ -5,11 +5,16 @@ edition.workspace = true
 rust-version.workspace = true
 publish = false
 
-# Bewusst OHNE Abhaengigkeiten - siehe den Modulkopf von src/lib.rs.
 # QPM Regel 9.2 (Eigenständig in der Architektur, nicht in den Grundlagen)
 # verlangt die UEBERNAHME der Grundlagen (Kanonisierung, Digestbildung,
-# Identitaetsprojektion, Trace, Residuenbuchfuehrung), nicht ihren Nachbau.
-# L0 hat nichts, was zu kanonisieren waere: Payload(N_0) ist leer. Die
-# erste Abhaengigkeit auf psk-canon/psk-types entsteht mit L1, wo es
-# erstmals eine Form zu fixieren gibt.
+# Identitaetsprojektion, Trace, Residuenbuchfuehrung), nicht ihren
+# Nachbau. Mit L1 ist die Bedingung eingetreten, unter der L0 seinen
+# erklaerten Nullstand fuehrte: es gibt jetzt eine Form zu fixieren, und
+# genau diese beiden Pakete liefern sie.
+#
+# Was hier NICHT steht, ist ebenso Aussage: kein PSK-RA-Modulpaket
+# (M00-M27). Die Eigenstaendigkeit betrifft Architektur - Module, Ports,
+# Autoritaet -, und diese Liste ist der Ort, an dem sie nachpruefbar ist.
 [dependencies]
+psk-types = { path = "../psk-types" }
+psk-canon = { path = "../psk-canon" }

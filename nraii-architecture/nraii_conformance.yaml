@@ -1,23 +1,40 @@
-# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.3.pdf, Listing C.3.
+# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.11.pdf, Listing C.3.
 # Woertlich uebernommen.
 #
 # Die NRAII-Leiter laeuft eigenstaendig neben der QPM-Leiter; das
 # Nahtregister verlangt fuer SEAM-* beide zugleich (QPM>=QPM-8 UND
-# NRAII>=NRAII-7).
+# NRAII>=NRAII-7). NRAII-9 IST die Membran - die Vorbedingung meint
+# also Attraktorstack, FoldBundle, Proof-Horizon und
+# Falsifikationsharness, nicht die 4-4-4-Closure.
+#
+# Stand v1.0.11: bis v1.0.10 trug dieses Listing die alte, gekuerzte
+# Leiter, waehrend die Kapiteltabelle (QPM Struktur 18.3
+# (Konformitätsstufen NRAII-0 bis NRAII-LAB)) bereits die
+# vollstaendige fuehrte. v1.0.11 hat beide Seiten nachgezogen; diese
+# Datei folgt der nachgezogenen Fassung.
+#
+# Schichten und Stufen laufen NICHT parallel: die Nullanker-
+# Statelessness aus L0 ist Mindestanforderung von NRAII-1, die
+# peristaltische Assimilation aus L6 eine von NRAII-6.
 
 schema: psk.nraii.conformance/1.0
 levels:
-  NRAII-0: "Typen, Domain-Vertrag, Nullanker-Statelessness"
-  NRAII-1: "Reflexive Boundary, Quotient"
-  NRAII-2: "Wunschkalkuel, Doppelprojektion"
-  NRAII-3: "Radiale Armtopologie, Wing-Mesh"
-  NRAII-4: "Diagnosefeld, Gegenhorizont"
-  NRAII-5: "Peristaltische Assimilation"
-  NRAII-6: "Boundary-Closure-Modus, Ratchet"
-  NRAII-7: "4-4-4-Closure"
-  NRAII-8: "Stack-Closure, irreduzibler Kern"
-  NRAII-9: "vollstaendige Negativ- und Konformanzsuite"
-  NRAII-LAB: "domaenenspezifische Qualifikation"
+  NRAII-0: "Zielidentitaet, Domain-Vertrag und Statusdisziplin definiert"
+  NRAII-1: "Kanonischer Zustand, Signatur, Quotient, zustandsloser Nullanker"
+  NRAII-2: "Reflexive Boundary, Projektorzerlegung, Residuenvertrag,
+            nullverankerter Closure-Modus"
+  NRAII-3: "Radiale Arme, Armtypen, Wing-Mesh, Zykluswitness"
+  NRAII-4: "Deklarativer und rekonstruktiver Wish strikt getrennt"
+  NRAII-5: "Quotientenstabiler Forward/Inverse-Channel mit Reobservation"
+  NRAII-6: "Peristaltische Assimilation, Support-Akkretion,
+            Boundary-Renewal, Monodromie-Ratchet, 4pi-Lift"
+  NRAII-7: "Attraktorstack, FoldBundle, Proof-Horizon, Falsifikationsharness"
+  NRAII-8: "4-4-4-, Gate-, Replay-, PathInv- und
+            Irreduzibilitaetszertifizierter Kern"
+  NRAII-9: "Doppelseitige read-only NRAII-QPM-Membran mit getrennten
+            4pi-Zyklen und Seam-Witness"
+  NRAII-LAB: "ausfuehrbare, kalibrierte, validierte und reproduzierbar
+              qualifizierte Instanz"
 blocking_negative_tests:
   [physical-overreach-closure-mode, traversal-through-null-anchor,
    score-as-gate, 2pi-as-4pi-closure, silent-ratchet-reset,

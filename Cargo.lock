@@ -1152,6 +1152,10 @@ dependencies = [
 [[package]]
 name = "psk-nraii"
 version = "0.0.0"
+dependencies = [
+ "psk-canon",
+ "psk-types",
+]
 
 [[package]]
 name = "psk-observe"

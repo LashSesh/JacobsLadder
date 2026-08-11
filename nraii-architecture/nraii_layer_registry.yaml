@@ -1,4 +1,4 @@
-# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.3.pdf, Listing C.1
+# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.11.pdf, Listing C.1
 # (Kapitel C "NRAII-Register"). Woertlich uebernommen.
 #
 # NRAII ist die INNERE, aktive Maschine (Symbolregister: "Q, N - QPM-RA
@@ -16,7 +16,9 @@ layers:
   - {id: L3, name: RadialeArmflaeche, role: "Probe, Orbit, Harvest, Condense, Anchor"}
   - {id: L4, name: Diagnosefeld, role: "Marker, Horizonte, Attraktortriangulation"}
   - {id: L5, name: DualeWunschinversion, role: "deklarativer und rekonstruktiver Wish"}
-  - {id: L6, name: PeristaltischeAssimilation, role: "Sedimentation, Akkretion, Ratchet"}
+  - {id: L6, name: PeristaltischeAssimilationUndPhasenlift,
+     role: "Exkalibration, Sedimentation, Akkretion, Kontraktion,
+            Boundary-Renewal, Monodromie-Ratchet, 4pi-Closure"}
   - {id: L7, name: StackUndProofHorizon, role: "Fold, Nullmodelle, Falsifikation"}
   - {id: L8, name: IrreduziblerKern444, role: "Fix, dreifache Vierfachclosure, Replay"}
   - {id: L9, name: GekoppelteBeobachtungskavitaet, role: "Membran zu QPM-RA, siehe Teil C"}
