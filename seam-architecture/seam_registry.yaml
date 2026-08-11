@@ -1,5 +1,14 @@
-# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.3.pdf, Listing D.1
-# (Kapitel D "Nahtregister"). Woertlich uebernommen.
+# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.13.pdf, Listing D.1
+# (Kapitel D "Nahtregister"). Woertlich uebernommen; Inhalt seit v1.0.3
+# unveraendert - gegen v1.0.13 nachgeprueft.
+#
+# Seit v1.0.13 liegt diese Datei in einem EIGENEN Verzeichnis mit einem
+# eigenen Lock (I_SEAM). Vorher lag sie in qpm-nraii-architecture/ und
+# fiel damit unter I_QPM. QPM Regel 0.2 (Zwei eigene Locks, kein gemeinsamer)
+# nennt den Grund: "Laege sie bei einer der beiden Seiten, bewegte eine
+# Aenderung am Kopplungsvertrag deren Identitaet, obwohl sich das
+# gekoppelte System nicht geaendert hat - wer zwei Instanzen vergliche,
+# saehe einen Unterschied, wo keiner ist."
 #
 # Die beiden Nahtports stehen NICHT in architecture/port_registry.yaml:
 # Invariante 4.5 (Portabschluss) schliesst die PSK-RA-Portmenge bei

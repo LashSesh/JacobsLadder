@@ -1,9 +1,8 @@
 {
-  "qpm_id": "d8296c87f4a2a6c38130c014e01d9e1d9dbd124ad6c870925e7ae747d3420b32",
+  "qpm_id": "032e50ed3fc7d21ed58d5ad67a2437c560ea49b2e0e8eaede0c2f845bc78653d",
   "sealed_over_files": [
     "qpm_object_registry.yaml",
     "qpm_gate_registry.yaml",
-    "qpm_conformance.yaml",
-    "seam_registry.yaml"
+    "qpm_conformance.yaml"
   ]
 }

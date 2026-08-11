@@ -189,7 +189,7 @@ pub const SECOND_LAYER_REGISTERS: &[&str] = &[
     "qpm-nraii-architecture/qpm_object_registry.yaml",
     "qpm-nraii-architecture/qpm_gate_registry.yaml",
     "qpm-nraii-architecture/qpm_conformance.yaml",
-    "qpm-nraii-architecture/seam_registry.yaml",
+    "seam-architecture/seam_registry.yaml",
     "nraii-architecture/nraii_layer_registry.yaml",
     "nraii-architecture/nraii_gate_registry.yaml",
     "nraii-architecture/nraii_conformance.yaml",
@@ -212,18 +212,21 @@ pub struct SecondLayerSeal {
     pub field: &'static str,
 }
 
-/// Die beiden Berechnungsorte aus
+/// Die drei Berechnungsorte aus
 /// QPM Regel 0.2 (Zwei eigene Locks, kein gemeinsamer), woertlich:
 /// "I_QPM = H(Can(qpm-nraii-architecture/*)),
-/// I_NRAII = H(Can(nraii-architecture/*))".
+/// I_NRAII = H(Can(nraii-architecture/*))" und, seit v1.0.13, die Naht
+/// mit "I_SEAM = H(Can(seam-architecture/*))".
 ///
-/// Befund zur Naht, gemeldet statt umentschieden: `seam_registry.yaml`
-/// liegt in `qpm-nraii-architecture/` und faellt damit nach dem
-/// Wortlaut unter I_QPM - eine Aenderung an der Naht bewegt also die
-/// QPM-Identitaet, nicht die NRAII-Identitaet. Gesiegelt ist sie
-/// dadurch; die Zuordnung ist aber asymmetrisch, obwohl die Naht
-/// beiden Seiten gehoert ("Owner beide Seiten gemeinsam",
-/// QPM Struktur 21.2 (NRAIIQPMSeam)).
+/// Der dritte Lock loest den Befund auf, dass die Naht vorher unter
+/// I_QPM lag, obwohl sie beiden Seiten gehoert. Die Regel nennt den
+/// Grund: "Laege sie bei einer der beiden Seiten, bewegte eine
+/// Aenderung am Kopplungsvertrag deren Identitaet, obwohl sich das
+/// gekoppelte System nicht geaendert hat - wer zwei Instanzen
+/// vergliche, saehe einen Unterschied, wo keiner ist." Jetzt hat jedes
+/// Glied der Konjunktion seinen eigenen Digest, und
+/// QPM Struktur 22.3 (C444JointRecord) nennt alle drei getrennt
+/// (`identity_n`, `identity_q`, `identity_seam`).
 pub const SECOND_LAYER_SEALS: &[SecondLayerSeal] = &[
     SecondLayerSeal {
         identity: "I_QPM",
@@ -232,10 +235,16 @@ pub const SECOND_LAYER_SEALS: &[SecondLayerSeal] = &[
             "qpm_object_registry.yaml",
             "qpm_gate_registry.yaml",
             "qpm_conformance.yaml",
-            "seam_registry.yaml",
         ],
         lock: "qpm.lock.json",
         field: "qpm_id",
+    },
+    SecondLayerSeal {
+        identity: "I_SEAM",
+        directory: "seam-architecture",
+        files: &["seam_registry.yaml"],
+        lock: "seam.lock.json",
+        field: "seam_id",
     },
     SecondLayerSeal {
         identity: "I_NRAII",

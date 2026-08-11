@@ -68,3 +68,12 @@ pub use signature::{
 
 mod domain_contract;
 pub use domain_contract::{ClaimStatus, ContractBreach, ContractComponent, DomainContract};
+
+mod boundary;
+pub use boundary::{
+    decompose, residue_for_residual_part, witness_seam, BoundarySplit, Involution,
+    InvolutionBreach, ResidualPart, SeamWitness,
+};
+
+mod closure_mode;
+pub use closure_mode::{chi, seal_mode, ClosureMode, ModeBreach, ReciprocityWitness};

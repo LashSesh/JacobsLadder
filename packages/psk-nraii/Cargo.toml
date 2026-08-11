@@ -18,3 +18,7 @@ publish = false
 [dependencies]
 psk-types = { path = "../psk-types" }
 psk-canon = { path = "../psk-canon" }
+# Nur als SERIALISIERER auf dem Weg in `psk_canon::can` - die
+# Kanonisierung selbst bleibt PSK-RAs. Dieselbe Rolle wie in psk-ir und
+# psk-trace, wo serde_json ebenfalls nur das Vorprodukt formt.
+serde_json = "1"
