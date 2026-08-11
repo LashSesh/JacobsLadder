@@ -82,7 +82,7 @@ fn compute_identity(draft: &ResidueInputs) -> Result<ObjectId, PskError> {
 /// loescht - nie, dass es KEINEN gibt.
 ///
 /// Kein `remove`:
-/// ```compile_fail
+/// ```compile_fail,E0599
 /// let mut ledger = psk_trace::ResidueLedger::new();
 /// let id = psk_types::ObjectId::new(
 ///     psk_types::objects::SortId::Residue,
@@ -92,14 +92,14 @@ fn compute_identity(draft: &ResidueInputs) -> Result<ObjectId, PskError> {
 /// ```
 ///
 /// Kein `clear`:
-/// ```compile_fail
+/// ```compile_fail,E0599
 /// let mut ledger = psk_trace::ResidueLedger::new();
 /// ledger.clear();
 /// ```
 ///
 /// Und kein Schreibzugriff auf die Sammlung selbst - `residues` ist
 /// privat, `all()` gibt einen unveraenderlichen Ausschnitt:
-/// ```compile_fail
+/// ```compile_fail,E0599
 /// let mut ledger = psk_trace::ResidueLedger::new();
 /// ledger.all().clear();
 /// ```

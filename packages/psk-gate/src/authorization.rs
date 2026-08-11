@@ -42,7 +42,7 @@ use psk_types::{ObjectId, PskError};
 /// diesen Typ nicht per Struct-Literal fabrizieren. Das MUSS ein
 /// Kompilierfehler sein, keine Laufzeitpruefung:
 ///
-/// ```compile_fail
+/// ```compile_fail,E0639
 /// let forged = psk_gate::GateAuthorization {
 ///     gate_report_id: todo!(),
 ///     gate_id: todo!(),
@@ -68,7 +68,7 @@ use psk_types::{ObjectId, PskError};
 /// `#[derive(Deserialize)]` ergaenzt), schlaegt der naechste Testlauf
 /// fehl, weil DANN kompiliert, was hier NICHT kompilieren soll:
 ///
-/// ```compile_fail
+/// ```compile_fail,E0277
 /// fn require_deserialize<T: serde::de::DeserializeOwned>() {}
 /// require_deserialize::<psk_gate::GateAuthorization>();
 /// ```

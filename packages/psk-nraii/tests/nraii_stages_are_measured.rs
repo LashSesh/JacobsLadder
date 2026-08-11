@@ -21,10 +21,11 @@
 //! Ueberlegung wie bei der feldweisen Nachweispflicht am Zertifikat.
 
 use psk_nraii::{
-    accept_arm, decompose, diamond_equivalent, lift, residue_for_residual_part, seal_mode,
-    witness_cycle, witness_seam, ArmType, ClaimStatus, ContractComponent, Contraction,
-    DiamondClass, DomainContract, Involution, ReciprocityWitness, ResidualPart, Signed, WingMesh,
-    N0,
+    accept_arm, claim_is_complete, decompose, diamond_equivalent, lift,
+    missing_counter_horizon_reason, residue_for_residual_part, seal_mode, witness_cycle,
+    witness_seam, ArmType, AttractorMap, ClaimStatus, ContractComponent, Contraction, DiamondClass,
+    DomainContract, FalsificationCheck, HorizonPair, Involution, ProofHorizon, ReciprocityWitness,
+    ResidualPart, Response, ResponseOrigin, Signed, WingMesh, N0,
 };
 use psk_types::{Digest, DualTime, ModuleId, ObjectId};
 
@@ -235,14 +236,60 @@ fn nraii_three_all_four_parts() {
         "acht Typen ausserhalb, benannt"
     );
 
-    // Teil 4: der Zykluswitness - und er traegt den L2-Beleg.
+    // Teil 4: der Zykluswitness - mit seam_witness_ref als Pflichtfeld
+    // (QPM Struktur 12.4 (Zykluswitness)).
     let r = Involution::check(|x: &i64| -x, &[1i64, 0]).expect("R^2 = I");
     let seam = witness_seam(&r, &|x: &i64| 10 - x, &1i64, &N0);
-    let zyklus = witness_cycle(&arm, &4i64, &4i64, seam);
-    assert!(zyklus.closed);
+    let punkt = Digest::sha256(b"orbit");
+    let zyklus = witness_cycle(&arm, punkt, punkt, &seam, None).expect("bezeugbar");
+    assert!(zyklus.is_cycle());
     assert_eq!(zyklus.arm, ArmType::Mirror);
+    assert_eq!(
+        zyklus.seam_witness_ref,
+        psk_nraii::seam_witness_id(&seam).expect("ableitbar")
+    );
 
     println!("NRAII-3: Arme, zehn Armtypen (9 mit Erzeuger), Wing-Mesh, Zykluswitness");
+}
+
+/// L4 ist gebaut, aber NRAII-4 ist damit nicht erreicht: die Stufe
+/// verlangt "Deklarativer und rekonstruktiver Wish strikt getrennt" -
+/// das ist L5. Gemessen wird deshalb, was L4 HERVORBRINGT, ohne eine
+/// Stufe zu beanspruchen.
+///
+/// Genau der Fall, den die Trennung von Schichten und Stufen vorsieht:
+/// eine Schicht, die auf keine Stufe einzahlt, ist kein Fehlschlag.
+#[test]
+fn l4_is_built_without_claiming_a_stage() {
+    // Die Attraktorkarte nennt alle fuenf Herkuenfte.
+    let karte = AttractorMap::triangulate(vec![Response {
+        marker: "m1".into(),
+        value: "v".into(),
+        origin: ResponseOrigin::Extrapolated,
+    }]);
+    assert_eq!(karte.by_origin().len(), 5);
+    assert_eq!(karte.non_data_share(), 1);
+
+    // Die Gegenhorizontpflicht ist pruefbar, ohne eine zweite Skala.
+    let unbegruendet = HorizonPair {
+        forward: vec!["bahn".into()],
+        counter: vec![],
+        emptiness_justification: None,
+    };
+    assert!(!claim_is_complete(&unbegruendet));
+    assert!(missing_counter_horizon_reason(&unbegruendet).is_some());
+
+    // Der Harness fuehrt zehn Pruefungen, der Proof-Horizon trennt
+    // stabil von geschlossen.
+    assert_eq!(FalsificationCheck::all().len(), 10);
+    let offen = ProofHorizon {
+        version: "1.0.0".into(),
+        obligations: vec!["offen".into()],
+    };
+    assert!(!offen.is_closed());
+
+    println!("L4 gebaut: Attraktorkarte, Gegenhorizontpflicht, Harness, Proof-Horizon");
+    println!("NRAII-4 bleibt offen - die Stufe verlangt L5 (Wunschkalkuel)");
 }
 
 /// Die Gegenprobe zur Stufenmessung: was NICHT erreicht ist, ist auch
@@ -271,6 +318,7 @@ fn nraii_four_is_not_claimed() {
         include_str!("../src/boundary.rs"),
         include_str!("../src/closure_mode.rs"),
         include_str!("../src/arms.rs"),
+        include_str!("../src/diagnostic_field.rs"),
     );
     for name in l5_namen {
         assert!(

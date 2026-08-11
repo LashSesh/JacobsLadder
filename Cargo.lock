@@ -1156,6 +1156,7 @@ version = "0.0.0"
 dependencies = [
  "psk-canon",
  "psk-types",
+ "serde",
  "serde_json",
 ]
 
@@ -1866,6 +1867,10 @@ version = "0.0.0"
 dependencies = [
  "pdf-extract",
 ]
+
+[[package]]
+name = "verify-compile-fail"
+version = "0.0.0"
 
 [[package]]
 name = "verify-dependencies"

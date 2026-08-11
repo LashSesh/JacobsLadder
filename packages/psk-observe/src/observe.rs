@@ -40,7 +40,7 @@ use psk_types::{Digest, ObjectId, PskError};
 /// kompiliert nicht, derselbe Stil wie `GateAuthorization`s
 /// compile_fail-Doctests (psk-gate/authorization.rs).
 ///
-/// ```compile_fail
+/// ```compile_fail,E0560
 /// let _ = psk_observe::Persona {
 ///     style: "x".into(),
 ///     dialog_continuity: true,

@@ -165,6 +165,21 @@ pub enum AnchoredRelation {
     Synchronization,
 }
 
+impl AnchoredRelation {
+    /// Die Bezeichnung, wie der Vertragssatz sie schreibt. Sie geht in
+    /// die Ableitung der Seam-Referenz ein
+    /// (`crate::seam_witness_id`) - der Weg, auf dem eine Verbindung
+    /// ihre Art in ihren Digest traegt.
+    pub fn label(&self) -> &'static str {
+        match self {
+            AnchoredRelation::Identification => "Identifikation",
+            AnchoredRelation::Mirroring => "Spiegelung",
+            AnchoredRelation::Quotienting => "Quotientierung",
+            AnchoredRelation::Synchronization => "Synchronisation",
+        }
+    }
+}
+
 /// Eine scheinbare Verbindung: zwei Seiten, die relativ zu N_0 in
 /// Beziehung stehen, OHNE dass ein Pfad zwischen ihnen liefe.
 ///

@@ -20,17 +20,22 @@
 //! diese Schicht - er nimmt einen [`crate::SeamWitness`] entgegen und
 //! kann ohne ihn nicht entstehen.
 //!
-//! **Befund, gemeldet statt gefuellt.** Der Begriff "Zykluswitness"
-//! erscheint im Werk AUSSCHLIESSLICH in der Stufenliste
-//! (QPM Struktur 18.3 (Konformitätsstufen NRAII-0 bis NRAII-LAB), NRAII-3)
-//! und im Registerlisting - es gibt keinen Definitions-, Struktur- oder
-//! Vertragsblock dazu. Gebaut ist deshalb, was aus den vorhandenen
-//! Bloecken folgt: die Orbitstufe aus QPM Struktur 12.2 (Radialer Arm),
-//! bezeugt gegen die Seam aus QPM Struktur 10.8 (Seam). Was das Werk
-//! darueber hinaus meint, ist nicht abzulesen und hier auch nicht
-//! erfunden. Dieselbe Lage wie bei L6 vor v1.0.10, nur kleiner.
+//! **Der Zykluswitness, und wie er normativ wurde.** In der Fassung bis
+//! v1.0.13 erschien der Begriff im Werk AUSSCHLIESSLICH in der
+//! Stufenliste - kein Definitions-, Struktur- oder Vertragsblock. Als
+//! Befund gemeldet und aus den benachbarten Bloecken abgeleitet: die
+//! Orbitstufe aus QPM Struktur 12.2 (Radialer Arm), bezeugt gegen die
+//! Seam aus QPM Struktur 10.8 (Seam).
+//!
+//! QPM Struktur 12.4 (Zykluswitness) hat diese Lesart in v1.0.14
+//! festgeschrieben und `seam_witness_ref` zum Pflichtfeld gemacht: "ein
+//! Umlauf, dessen Schliessung nicht bezeugt ist, ist kein Zyklus,
+//! sondern eine Rueckkehr ohne Beleg." [`CycleWitness`] folgt jetzt der
+//! normativen Form.
 
 use std::collections::BTreeSet;
+
+use psk_types::{Digest, ObjectId};
 
 use crate::boundary::SeamWitness;
 
@@ -128,7 +133,7 @@ impl ArmType {
     }
 }
 
-/// Die drei Ausgaenge von QPM Invariante 12.4 (Radiale Kontraktion).
+/// Die drei Ausgaenge von QPM Invariante 12.5 (Radiale Kontraktion).
 ///
 /// "Jeder akzeptierte Arm erfuellt `dim w_i(x) <= dim x` ODER
 /// `RelDim(w_i(x)) < RelDim(x)`, ODER weist EXPLIZIT NACH, weshalb
@@ -184,7 +189,7 @@ impl PrivateJustification {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArmBreach {
     /// Der dritte Ausgang wurde ohne Begruendung versucht. Genau das,
-    /// was QPM Invariante 12.4 (Radiale Kontraktion) mit "weist explizit
+    /// was QPM Invariante 12.5 (Radiale Kontraktion) mit "weist explizit
     /// nach" ausschliesst.
     UnjustifiedIsolatedDegrees,
     /// Der Armtyp hat auf dieser Schicht keinen Erzeuger.
@@ -286,7 +291,7 @@ impl WingMesh {
     }
 
     /// `Coverage_D(Pi_rad) = 1` nach
-    /// QPM Vertrag 12.5 (Scope-relative Vollständigkeit): "vollstaendige
+    /// QPM Vertrag 12.6 (Scope-relative Vollständigkeit): "vollstaendige
     /// Buchfuehrung ueber die im Domain-Vertrag DEKLARIERTE Armfamilie -
     /// keine Behauptung ueber technisch nicht vorhandene Kanaele."
     ///
@@ -312,7 +317,7 @@ impl WingMesh {
     /// Die Armtypen, die es GIBT, aber die diese Domaene nicht
     /// deklariert hat. Sie sind nicht ungedeckt - sie sind ausserhalb
     /// des Scopes, und der Unterschied ist der ganze Punkt von
-    /// QPM Vertrag 12.5 (Scope-relative Vollständigkeit).
+    /// QPM Vertrag 12.6 (Scope-relative Vollständigkeit).
     pub fn out_of_scope(&self) -> Vec<ArmType> {
         ArmType::all()
             .into_iter()
@@ -321,41 +326,116 @@ impl WingMesh {
     }
 }
 
-/// Der Zykluswitness: die Orbitstufe eines Arms, bezeugt gegen die
-/// Boundary.
+/// Die geschlossene Armstufe: `OrbitStage` aus
+/// QPM Struktur 12.4 (Zykluswitness).
 ///
-/// Die Stelle, an der L3 auf L2 aufsetzt. Er nimmt einen
-/// [`SeamWitness`] entgegen und kann ohne ihn nicht entstehen - ein
-/// geschlossener Orbit, der die Boundary nicht bezeugt, waere eine
-/// Behauptung ueber einen Umlauf, den niemand gesehen hat.
-///
-/// Siehe den Modulkopf zum Befund, dass das Werk den Begriff nur in der
-/// Stufenliste fuehrt.
+/// Start und Rueckkehr stehen als DIGEST darin, nicht als Wert: die
+/// Schliessung ist damit an der geteilten Kanonisierung gemessen und
+/// nicht an einer Typgleichheit, die ein `PartialEq` beliebig
+/// definieren koennte.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CycleWitness<X> {
-    /// Welcher Arm den Orbit lief.
+pub struct OrbitStage {
+    /// Welche der fuenf Stufen den Umlauf traegt. Nach
+    /// QPM Struktur 12.2 (Radialer Arm) ist das `Orbit`.
+    pub stage: &'static str,
+    pub start: Digest,
+    pub end: Digest,
+}
+
+impl OrbitStage {
+    /// Ob der Umlauf geschlossen ist - gemessen, nicht uebergeben.
+    pub fn is_closed(&self) -> bool {
+        self.start == self.end
+    }
+}
+
+/// Der Zykluswitness nach QPM Struktur 12.4 (Zykluswitness).
+///
+/// Die Struktur ist seit v1.0.14 normativ und schreibt fest, was diese
+/// Runde zuvor als einzige ableitbare Lesart gebaut hatte: "ein Orbit
+/// ist eine geschlossene Armstufe, und geschlossen heisst nach Struktur
+/// Seam bezeugt."
+///
+/// `seam_witness_ref` ist Pflichtfeld: "Ein CycleWitness DARF NICHT
+/// ohne seam_witness_ref entstehen: ein Umlauf, dessen Schliessung
+/// nicht bezeugt ist, ist kein Zyklus, sondern eine Rueckkehr ohne
+/// Beleg." Die Referenz ist ABGELEITET - [`seam_witness_id`] bildet sie
+/// aus dem Zeugen ueber die geteilte Kanonisierung -, damit sie nicht
+/// erfindbar ist. Damit setzt L3 strukturell auf L2 auf statt per
+/// Verabredung.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CycleWitness {
+    /// `arm_ref` - welcher Arm den Orbit lief.
     pub arm: ArmType,
-    /// Der Boundary-Beleg aus L2.
-    pub seam: SeamWitness<X>,
-    /// Ob der Orbit geschlossen ist: Ausgangspunkt und Rueckkehrpunkt
-    /// fallen zusammen.
-    pub closed: bool,
+    /// `orbit_stage` - die geschlossene Stufe.
+    pub orbit_stage: OrbitStage,
+    /// `seam_witness_ref` - die Bezeugung gegen R, J und N_0.
+    /// PFLICHTFELD, kein `Option`.
+    pub seam_witness_ref: ObjectId,
+    /// `contraction` - welcher der drei Ausgaenge eintrat.
+    pub contraction: Contraction,
+    /// `residue_ref` - was der Umlauf nicht mitnahm. Optional, weil ein
+    /// Umlauf ohne Verlust keinen Residuenverweis braucht; die
+    /// Optionalitaet steht so im Werk (`ObjectId?`).
+    pub residue_ref: Option<ObjectId>,
+}
+
+impl CycleWitness {
+    /// Ob dies ein Zyklus ist - also ein Umlauf, der geschlossen UND
+    /// bezeugt ist. Das Pflichtfeld sichert die zweite Haelfte
+    /// typseitig; diese Funktion liest die erste ab.
+    pub fn is_cycle(&self) -> bool {
+        self.orbit_stage.is_closed()
+    }
+}
+
+/// Bildet die Referenz auf einen Seam-Zeugen - ABGELEITET, nicht
+/// vergeben.
+///
+/// Geht ueber die geteilte Kanonisierung (`psk_canon::can`), damit die
+/// Referenz an den Inhalt des Zeugen gebunden ist: ein anderer Zeuge
+/// ergibt eine andere Referenz. Eine frei gewaehlte ObjectId koennte
+/// auf nichts zeigen und das Pflichtfeld dennoch fuellen.
+pub fn seam_witness_id<X: serde::Serialize>(
+    seam: &SeamWitness<X>,
+) -> Result<ObjectId, psk_types::PskError> {
+    let value = serde_json::json!({
+        "reflected": seam.reflected,
+        "inverted": seam.inverted,
+        "agree": seam.agree,
+        "relation": seam.relation.label(),
+    });
+    let bytes =
+        serde_json::to_vec(&value).map_err(|_| psk_types::PskError::CanonicalizationFailed)?;
+    let canonical = crate::CanonicalState::canonicalize(&bytes, psk_canon::Media::Json)?;
+    Ok(ObjectId::new(
+        psk_types::objects::SortId::Witness,
+        canonical.digest(),
+    ))
 }
 
 /// Bezeugt den Orbit eines Arms.
 ///
-/// `closed` wird GEMESSEN (Start gleich Ziel), nicht uebergeben.
-pub fn witness_cycle<X: PartialEq + Clone>(
+/// Nimmt den Seam-Zeugen und leitet die Pflichtreferenz daraus ab - es
+/// gibt keinen Weg, einen `CycleWitness` ohne ihn zu bilden.
+pub fn witness_cycle<X: serde::Serialize>(
     arm: &RadialArm,
-    start: &X,
-    end: &X,
-    seam: SeamWitness<X>,
-) -> CycleWitness<X> {
-    CycleWitness {
+    start: Digest,
+    end: Digest,
+    seam: &SeamWitness<X>,
+    residue_ref: Option<ObjectId>,
+) -> Result<CycleWitness, psk_types::PskError> {
+    Ok(CycleWitness {
         arm: arm.arm_type,
-        closed: start == end,
-        seam,
-    }
+        orbit_stage: OrbitStage {
+            stage: "Orbit",
+            start,
+            end,
+        },
+        seam_witness_ref: seam_witness_id(seam)?,
+        contraction: arm.contraction.clone(),
+        residue_ref,
+    })
 }
 
 #[cfg(test)]
@@ -442,7 +522,7 @@ mod tests {
         );
     }
 
-    /// QPM Invariante 12.4 (Radiale Kontraktion), alle DREI Ausgaenge.
+    /// QPM Invariante 12.5 (Radiale Kontraktion), alle DREI Ausgaenge.
     ///
     /// ERWARTUNG: die ersten beiden sind ohne Weiteres bildbar, der
     /// dritte NUR mit nichtleerer Begruendung - und eine leere
@@ -484,7 +564,7 @@ mod tests {
         );
     }
 
-    /// QPM Vertrag 12.5 (Scope-relative Vollständigkeit): der Nenner ist
+    /// QPM Vertrag 12.6 (Scope-relative Vollständigkeit): der Nenner ist
     /// die DEKLARIERTE Familie.
     ///
     /// ERWARTUNG: eine Domaene, die drei Armtypen deklariert und drei
@@ -541,17 +621,34 @@ mod tests {
         )
         .expect("Erzeuger vorhanden");
 
-        let geschlossen = witness_cycle(&arm, &7i64, &7i64, seam_beleg());
-        assert!(geschlossen.closed);
-        assert_eq!(geschlossen.arm, ArmType::Mirror);
-        // Der L2-Beleg ist mitgekommen und sagt weiterhin, dass J nicht R ist.
-        assert!(!geschlossen.seam.agree);
+        let punkt_a = Digest::sha256(b"orbit-start");
+        let punkt_b = Digest::sha256(b"anderswo");
 
-        let offen = witness_cycle(&arm, &7i64, &9i64, seam_beleg());
+        let geschlossen =
+            witness_cycle(&arm, punkt_a, punkt_a, &seam_beleg(), None).expect("bezeugbar");
+        assert!(geschlossen.is_cycle());
+        assert_eq!(geschlossen.arm, ArmType::Mirror);
+        assert_eq!(geschlossen.orbit_stage.stage, "Orbit");
+
+        let offen = witness_cycle(&arm, punkt_a, punkt_b, &seam_beleg(), None).expect("bezeugbar");
         assert!(
-            !offen.closed,
-            "ein offener Orbit wird nicht geschlossen genannt"
+            !offen.is_cycle(),
+            "ein offener Umlauf ist kein Zyklus, sondern eine Rueckkehr ohne Beleg"
         );
+
+        // Die Referenz ist ABGELEITET: ein anderer Seam-Zeuge ergibt
+        // eine andere Referenz. Ohne diesen Teil sagte das Pflichtfeld
+        // nur, dass IRGENDEINE Kennung dasteht.
+        let r = Involution::check(spiegelung, &[1i64, 0]).expect("R^2 = I");
+        let anderer = witness_seam(&r, &|x: &i64| 99 - x, &1i64, &N0);
+        let mit_anderem = witness_cycle(&arm, punkt_a, punkt_a, &anderer, None).expect("bezeugbar");
+        assert_ne!(
+            geschlossen.seam_witness_ref, mit_anderem.seam_witness_ref,
+            "die Referenz haengt am Inhalt des Zeugen, nicht an einer Vergabe"
+        );
+
+        // Und der eingetretene Kontraktionsausgang steht im Zeugen.
+        assert!(geschlossen.contraction.contracts());
     }
 
     /// Die fuenf Stufen aus QPM Struktur 12.2 (Radialer Arm), in der

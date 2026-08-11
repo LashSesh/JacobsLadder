@@ -80,6 +80,12 @@ pub use closure_mode::{chi, seal_mode, ClosureMode, ModeBreach, ReciprocityWitne
 
 mod arms;
 pub use arms::{
-    accept_arm, witness_cycle, ArmBreach, ArmType, Contraction, CycleWitness, PrivateJustification,
-    RadialArm, WingMesh,
+    accept_arm, seam_witness_id, witness_cycle, ArmBreach, ArmType, Contraction, CycleWitness,
+    OrbitStage, PrivateJustification, RadialArm, WingMesh,
+};
+
+mod diagnostic_field;
+pub use diagnostic_field::{
+    claim_is_complete, missing_counter_horizon_reason, AttractorMap, FalsificationCheck,
+    HorizonPair, Marker, ProofHorizon, Response, ResponseOrigin,
 };
