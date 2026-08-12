@@ -2,7 +2,7 @@
 //! ABGELEITETEM statt beanspruchtem Deckungsvektor.
 //!
 //! Tabelle 23.2: C4 ("Reference-validated") verlangt FC0-FC6 und FC8,
-//! `reference_validated`, mindestens R2 (Vertrag 22.4 (Replayklasse des Referenzrelease)) und - seit
+//! `reference_validated`, mindestens R2 (Vertrag 22.5 (Replayklasse des Referenzrelease)) und - seit
 //! Regel 7.56 (Plattformgebundene Verpflichtungsauflösung im Zertifikat) - dass `scope` jede
 //! plattformgebundene Verpflichtungsaufloesung nennt, von der die beanspruchte Klasse abhaengt. Fuer C4 ist das
 //! OBL-010 (`blocking_from: C4`, `resolution_platform: windows`).

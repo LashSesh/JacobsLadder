@@ -1,5 +1,5 @@
 //! M19 TraceReplayResidueStore, Laufteil: RunDescriptor (Struktur 7.46 (RunDescriptor),
-//! OBJ-RUN) und ReplayManifest (Struktur 22.7, OBJ-RPM).
+//! OBJ-RUN) und ReplayManifest (Struktur 22.8 (ReplayManifest), OBJ-RPM).
 
 use psk_canon::{can, Media};
 use psk_types::objects::{
@@ -72,7 +72,7 @@ pub use psk_types::objects::{
 };
 
 /// Definition 22.1 (Replayklassen), die Bedingungen fuer R1-R3 aus
-/// Algorithmus 22.5s `ReplayResult` gelesen: `canonical_digest_match` und
+/// Algorithmus 22.6 (Replay)s `ReplayResult` gelesen: `canonical_digest_match` und
 /// `gate_sequence_match` sind seine beiden Felder; "byteidentische
 /// Artefakte" (R3) ist danach ein WEITERER, in `ReplayResult` nicht
 /// enthaltener Vergleich (Rohartefakte statt kanonischer Zustand) und
@@ -89,9 +89,25 @@ pub struct ReplayCheck {
 }
 
 /// Definition 22.1 als Entscheidungsfunktion.
-pub fn determine_replay_class(check: &ReplayCheck) -> ReplayClass {
+///
+/// Regel 22.4 (Verschiedene Eingaben bilden kein Replaypaar): Definition 22.1 ist ein Konditional -
+/// "gleicher RunDescriptor und gleiche Eingabedigests" ist sein Vordersatz,
+/// nicht sein Verletzungsfall. Diese Funktion MUSS deshalb den
+/// RunDescriptor beider Laeufe sehen, nicht nur vorverdichtete
+/// Wahrheitswerte: sonst macht sie aus dem Konditional eine Bijunktion und
+/// meldet jede Messreihe (verschiedene Eingaben von vornherein) als R1.
+/// Weichen die Descriptors ab, ist das Ergebnis NOT_COMPARABLE - ausserhalb
+/// des Definitionsbereichs, weder R0 noch ein Replaydefekt.
+pub fn determine_replay_class(
+    first_run_descriptor: &RunDescriptor,
+    second_run_descriptor: &RunDescriptor,
+    check: &ReplayCheck,
+) -> ReplayClass {
     if !check.replay_attempted {
         return ReplayClass::R0;
+    }
+    if first_run_descriptor.digest != second_run_descriptor.digest {
+        return ReplayClass::NotComparable;
     }
     if !(check.canonical_digest_match && check.gate_sequence_match) {
         // "Objektgraph und Entscheidungen rekonstruierbar; Digests duerfen
@@ -105,7 +121,7 @@ pub fn determine_replay_class(check: &ReplayCheck) -> ReplayClass {
     }
 }
 
-/// Vertrag 22.4: "Ein Referenzrelease MUSS mindestens R2 erreichen."
+/// Vertrag 22.5 (Replayklasse des Referenzrelease): "Ein Referenzrelease MUSS mindestens R2 erreichen."
 pub fn check_reference_release_class(achieved: ReplayClass) -> Result<(), PskError> {
     if matches!(achieved, ReplayClass::R2 | ReplayClass::R3) {
         Ok(())
@@ -114,7 +130,7 @@ pub fn check_reference_release_class(achieved: ReplayClass) -> Result<(), PskErr
     }
 }
 
-/// Baut das ReplayManifest (Struktur 22.7). Traegt - anders als
+/// Baut das ReplayManifest (Struktur 22.8 (ReplayManifest)). Traegt - anders als
 /// RunDescriptor - kein eigenes `digest`-Feld: sein Digest wird von
 /// aussen ueber `record_digest`/Can() gebildet (siehe
 /// MachineCertificate.replay_manifest_digest) und hier nicht vorweggenommen.
@@ -127,6 +143,8 @@ pub fn build_replay_manifest(
     trace_head: Digest,
     final_canonical_digest: Digest,
     gate_sequence_digest: Digest,
+    first_run_descriptor: &RunDescriptor,
+    second_run_descriptor: &RunDescriptor,
     check: &ReplayCheck,
     divergences: Vec<DivergenceRecord>,
 ) -> ReplayManifest {
@@ -138,7 +156,7 @@ pub fn build_replay_manifest(
         trace_head,
         final_canonical_digest,
         gate_sequence_digest,
-        achieved_class: determine_replay_class(check),
+        achieved_class: determine_replay_class(first_run_descriptor, second_run_descriptor, check),
         divergences,
     }
 }
@@ -187,6 +205,10 @@ mod tests {
         assert_ne!(a.digest, b.digest);
     }
 
+    fn sample_rd() -> RunDescriptor {
+        open_run(sample_inputs()).unwrap()
+    }
+
     #[test]
     fn no_attempt_is_r0() {
         let check = ReplayCheck {
@@ -195,7 +217,8 @@ mod tests {
             gate_sequence_match: false,
             byte_identical_artifacts: false,
         };
-        assert_eq!(determine_replay_class(&check), ReplayClass::R0);
+        let rd = sample_rd();
+        assert_eq!(determine_replay_class(&rd, &rd, &check), ReplayClass::R0);
     }
 
     #[test]
@@ -206,7 +229,8 @@ mod tests {
             gate_sequence_match: true,
             byte_identical_artifacts: false,
         };
-        assert_eq!(determine_replay_class(&check), ReplayClass::R1);
+        let rd = sample_rd();
+        assert_eq!(determine_replay_class(&rd, &rd, &check), ReplayClass::R1);
     }
 
     #[test]
@@ -217,7 +241,8 @@ mod tests {
             gate_sequence_match: true,
             byte_identical_artifacts: false,
         };
-        assert_eq!(determine_replay_class(&check), ReplayClass::R2);
+        let rd = sample_rd();
+        assert_eq!(determine_replay_class(&rd, &rd, &check), ReplayClass::R2);
     }
 
     #[test]
@@ -228,7 +253,51 @@ mod tests {
             gate_sequence_match: true,
             byte_identical_artifacts: true,
         };
-        assert_eq!(determine_replay_class(&check), ReplayClass::R3);
+        let rd = sample_rd();
+        assert_eq!(determine_replay_class(&rd, &rd, &check), ReplayClass::R3);
+    }
+
+    /// Regel 22.4 (Verschiedene Eingaben bilden kein Replaypaar): verschiedene RunDescriptors
+    /// ergeben NOT_COMPARABLE, selbst wenn beide Booleans im `check` (aus
+    /// einem falsch gebauten Aufrufer) "match" behaupten wuerden - die
+    /// Descriptorpruefung entscheidet ZUERST, vor den Uebereinstimmungs-
+    /// werten, damit ein falscher Aufrufer sie nicht umgehen kann.
+    #[test]
+    fn different_run_descriptors_are_not_comparable() {
+        let check = ReplayCheck {
+            replay_attempted: true,
+            canonical_digest_match: true,
+            gate_sequence_match: true,
+            byte_identical_artifacts: true,
+        };
+        let a = sample_rd();
+        let mut inputs_b = sample_inputs();
+        inputs_b.input_digests = vec![Digest::sha256(b"different-corpus-version")];
+        let b = open_run(inputs_b).unwrap();
+        assert_eq!(
+            determine_replay_class(&a, &b, &check),
+            ReplayClass::NotComparable
+        );
+    }
+
+    /// NOT_COMPARABLE ist weder R0 noch R1: keine der beiden bestehenden
+    /// "kein gueltiges Replay"-Klassen darf es stillschweigend absorbieren.
+    #[test]
+    fn not_comparable_is_neither_r0_nor_r1() {
+        let a = sample_rd();
+        let mut inputs_b = sample_inputs();
+        inputs_b.input_digests = vec![Digest::sha256(b"different-corpus-version")];
+        let b = open_run(inputs_b).unwrap();
+        let check = ReplayCheck {
+            replay_attempted: true,
+            canonical_digest_match: false,
+            gate_sequence_match: false,
+            byte_identical_artifacts: false,
+        };
+        let class = determine_replay_class(&a, &b, &check);
+        assert_ne!(class, ReplayClass::R0);
+        assert_ne!(class, ReplayClass::R1);
+        assert_eq!(class, ReplayClass::NotComparable);
     }
 
     #[test]
@@ -241,6 +310,20 @@ mod tests {
         assert_eq!(check_reference_release_class(ReplayClass::R3), Ok(()));
     }
 
+    /// NOT_COMPARABLE DARF NICHT eine Zertifikatsausstellung blockieren, die
+    /// sich auf einen einzelnen Lauf stuetzt (Regel 22.4) - aber es sagt
+    /// eben auch nicht "mindestens R2 erreicht". Fuer DIESE Waeche (Vertrag 22.5 (Replayklasse des Referenzrelease),
+    /// die einen Replaypaar-Vergleich voraussetzt) ist NOT_COMPARABLE
+    /// zurecht ein Err: das Paar sagt nichts ueber Replay aus, also auch
+    /// nicht, dass R2 erreicht waere.
+    #[test]
+    fn reference_release_rejects_not_comparable_too() {
+        assert_eq!(
+            check_reference_release_class(ReplayClass::NotComparable),
+            Err(PskError::UnboundNondeterminismOrDivergence)
+        );
+    }
+
     #[test]
     fn manifest_carries_the_determined_class() {
         let check = ReplayCheck {
@@ -249,6 +332,7 @@ mod tests {
             gate_sequence_match: true,
             byte_identical_artifacts: false,
         };
+        let rd = sample_rd();
         let manifest = build_replay_manifest(
             RunId("run-0".into()),
             Digest::sha256(b"rd"),
@@ -257,6 +341,8 @@ mod tests {
             Digest::sha256(b"head"),
             Digest::sha256(b"final"),
             Digest::sha256(b"gates"),
+            &rd,
+            &rd,
             &check,
             vec![],
         );

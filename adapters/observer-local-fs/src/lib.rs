@@ -15,4 +15,4 @@
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
 mod observe;
-pub use observe::{observe, ObserveError, ObserverConfig};
+pub use observe::{observe, observe_history, ObserveError, ObserverConfig};

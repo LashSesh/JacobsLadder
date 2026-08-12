@@ -228,6 +228,12 @@ pub struct RunProgram {
     pub receipt_deposits: Vec<ReceiptDeposit>,
     pub field_family: Vec<FieldFamilyEntry>,
     pub requirements: Vec<psk_adversarial::Requirement>,
+    /// Die Folgenbeobachtung von M17 (`observer_local_fs::observe_history`,
+    /// Regel 32.7 (Feldfamilie der Referenzdomäne): "Historiker rekonstruiert Versionen") - roh, aeltester
+    /// Eintrag zuerst. Der Historiker liest DIESES Feld, er beobachtet
+    /// nicht selbst (derselbe Aufbau wie `requirements` fuer Falsifikator/
+    /// Integrator: M17 deponiert, die Feldrolle interpretiert).
+    pub version_history: Vec<psk_anchor::HistoryPoint>,
     /// Der eine Aenderungsvorschlag des Laufs, als vollstaendige
     /// Ausstellungseingabe (M15). `scope` darin benennt zugleich das
     /// Artefakt, gegen das der Falsifikator Gegenmodelle prueft.

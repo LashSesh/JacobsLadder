@@ -1,7 +1,7 @@
 schema: psk.object-schemas/1.0
 # Volle Feldstrukturen der kanonischen Objekte aus PSK-RA v1.0.8, Struktur
 # 7.1-7.47 (Kapitel 7) sowie Struktur 21.5 (ValidationPlan, Kapitel 21) und
-# Struktur 22.7 (ReplayManifest, Kapitel 22) - diese zwei liegen ausserhalb
+# Struktur 22.8 (ReplayManifest) - diese zwei liegen ausserhalb
 # Kapitel 7, definieren aber ebenfalls OBJ-VAL/OBJ-RPM aus object_registry.yaml.
 #
 # Von den 29 Eintraegen in object_registry.yaml haben 28 eine explizite
@@ -678,7 +678,7 @@ objects:
 
   - id: OBJ-RPM
     name: ReplayManifest
-    struktur: "22.7"
+    struktur: "22.8"
     fields:
       - {name: run_id, type: RunId}
       - {name: run_descriptor_digest, type: Digest}
@@ -687,7 +687,7 @@ objects:
       - {name: trace_head, type: Digest}
       - {name: final_canonical_digest, type: Digest}
       - {name: gate_sequence_digest, type: Digest}
-      - {name: achieved_class, type: "R0 | R1 | R2 | R3"}
+      - {name: achieved_class, type: "R0 | R1 | R2 | R3 | NOT_COMPARABLE"}
       - {name: divergences, type: "[DivergenceRecord]"}
     nested_structs:
       ExternalRecordRef:

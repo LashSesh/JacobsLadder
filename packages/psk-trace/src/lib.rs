@@ -6,7 +6,7 @@
 //! WP04 (I5): `trace` (TraceSegment, Struktur 7.41 (TraceSegment) - hashverkettetes,
 //! ausschliesslich anhaengendes Log, Invariante 4.8), `residue`
 //! (ResidueRecord, Struktur 7.44 (ResidueRecord) - Axiom 7.45 (No Silent Loss) No Silent Loss), `run`
-//! (RunDescriptor Struktur 7.46 (RunDescriptor), ReplayManifest Struktur 22.7 - C11 wird
+//! (RunDescriptor Struktur 7.46 (RunDescriptor), ReplayManifest Struktur 22.8 (ReplayManifest) - C11 wird
 //! hier real). Pass C11 (TraceReplayEmission, Vertrag 11.18) besteht aus
 //! genau diesen drei Teilen: RunDescriptor, ReplayManifest und der
 //! vollstaendige IRBundle-Digest (letzterer entsteht erst mit einem

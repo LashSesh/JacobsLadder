@@ -1,7 +1,7 @@
 //! QPM-6, Schicht 2: die Katalogabfrage in ihrer spezifizierten
 //! Leerform und die Entscheidung der Ergebnisordnung darueber.
 //!
-//! QPM Offene Implementierungsverpflichtung 8.6 (QPM-OBL-002: Komponentenwörterbuch der Chromatographie):
+//! QPM Offene Implementierungsverpflichtung 8.7 (QPM-OBL-002: Komponentenwörterbuch der Chromatographie):
 //! "Ohne registriertes Wörterbuch bleibt QueryVersionedTemplateCatalog
 //! strukturell leer und jeder Lauf endet in UNKNOWN, nicht in FAIL."
 //! Die Leerform ist damit woertlich spezifiziert und woertlich baubar.

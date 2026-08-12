@@ -26,6 +26,9 @@ pub use feature_evidence::{
     collect_feature_evidence, collect_feature_evidence_from_parts, CoverageParts,
 };
 
+mod historian;
+pub use historian::reconstructed_versions;
+
 mod qpm_profile;
 pub use qpm_profile::{load_qpm_profile, QpmProfile};
 

@@ -375,7 +375,7 @@ fn cmd_golden_run(sandbox: Option<&str>) -> ExitCode {
         .unwrap_or_else(default_sandbox_path);
 
     match run_and_report(&root, &sandbox_path) {
-        // Struktur 22.7: `final_canonical_digest` ist der repraesentative
+        // Struktur 22.8 (ReplayManifest): `final_canonical_digest` ist der repraesentative
         // kanonische Zustandsdigest ueber Schritte 2-13 - genau das, was
         // I8 unabhaengig reproduziert sehen will. Allein auf stdout (die
         // eprintln-Meldungen oben bleiben auf stderr), damit ein Elternprozess

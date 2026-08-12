@@ -138,7 +138,7 @@
 //!   BESTEHENDE Tokeninvalidierung (FSM-TOKEN-Operator `plan_changed`,
 //!   P37), nicht ueber eine zusaetzliche Modusabfrage in `dispatch()` -
 //!   der Adapter wird unter `shadow`/`readonly` nie aufgerufen
-//!   (Invariante 22.6 (Replay ist effektfrei), "Replay ist effektfrei"). Ein Gegentest unter
+//!   (Invariante 22.7 (Replay ist effektfrei), "Replay ist effektfrei"). Ein Gegentest unter
 //!   `reference` zeigt denselben Aufruf real ausfuehren, damit der
 //!   Negativnachweis nicht auch bei einem kaputten Match-Arm gruen waere.
 //! - T-OBSV-001 (mit/ohne Profiling identischer kanonischer Digest,

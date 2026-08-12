@@ -67,8 +67,8 @@ use psk_types::objects::{
     GateId, IRNodeId, Lineage, M13Address, MachineCertificate, MachineCertificateReplayClassKind,
     ModelRef, ObligationExpr, Observation, OpId, PredicateExpr, ProfileId, QuestionSpec,
     RealityClassification, ReasonCode, ReceiptSpec, ReconciliationReport, ReplayDescriptor,
-    RollbackSpec, ScopeExpr, ScopeSpec, SemVer, SortId, SourceRef, ThoughtBody, TimeWindow,
-    TrajectoryRef, UncertaintyBlock, UncertaintyModelId, Validity, WitnessPolicy,
+    RollbackSpec, RunDescriptor, ScopeExpr, ScopeSpec, SemVer, SortId, SourceRef, ThoughtBody,
+    TimeWindow, TrajectoryRef, UncertaintyBlock, UncertaintyModelId, Validity, WitnessPolicy,
 };
 use psk_types::{
     ClockRef, Digest, DualTime, MessageType, ModuleId, Msg, ObjectId, PortId, PskError, RunId,
@@ -140,7 +140,7 @@ pub struct CapsuleOutcome {
 
 /// Gesammeltes Ergebnis EINER Ausfuehrung der Schritte 1-12 (Regel 24.3 (Golden-Run-Ablauf)).
 /// Schritt 13 (Zertifikat/Replaymanifest) ist bewusst NICHT Teil dieses
-/// Typs: `issue_certificate` verlangt Vertrag 22.4 (Replayklasse des Referenzrelease), mindestens R2 als
+/// Typs: `issue_certificate` verlangt Vertrag 22.5 (Replayklasse des Referenzrelease), mindestens R2 als
 /// Vorbedingung, und eine Replayklasse ist per Definition 22.1 (Replayklassen) keine
 /// Eigenschaft EINES Laufs, sondern eines VERGLEICHS zweier Laeufe - siehe
 /// `run_golden_run_with_certificate`.
@@ -152,6 +152,12 @@ pub struct GoldenRunReport {
     /// Der vollstaendige `psk_contract::boot()`-Ergebnistyp - Identitaets-
     /// bindung, RuntimeManifest, Releaseposture, FSM-Zustand.
     pub boot_report: psk_contract::BootReport,
+    /// Der reale RunDescriptor dieses Laufs (`rd`, gebaut aus der Bootbindung
+    /// und dem versiegelten Korpusdigest) - nicht bloss sein `digest`, weil
+    /// Regel 22.4 (Verschiedene Eingaben bilden kein Replaypaar) verlangt, dass eine Einstufung den
+    /// RunDescriptor SELBST sieht, nicht nur einen vorverdichteten
+    /// Wahrheitswert ueber ihn.
+    pub run_descriptor: RunDescriptor,
     pub anchor: AnchorSnapshot,
     pub thought: ThoughtBody,
     pub reality: RealityClassification,
@@ -182,6 +188,12 @@ pub struct GoldenRunReport {
     /// Was der Integrator daraus gemacht hat - je offenem Widerspruch
     /// eine Obstruktion der Art `order`.
     pub obstructions: Vec<psk_types::objects::ObstructionRecord>,
+    /// Was der Historiker aus der Folgenbeobachtung gemacht hat (Regel 32.7 (Feldfamilie der Referenzdomäne):
+    /// "Historiker rekonstruiert Versionen") - `sigma.program.version_history`
+    /// gefiltert auf tatsaechliche Versionswechsel, aeltester zuerst. Leer
+    /// an einem Werksstand ohne Reflog (Shallow-Klon) - erklaerter
+    /// Nullstand, keine Erfindung.
+    pub reconstructed_versions: Vec<psk_anchor::HistoryPoint>,
     /// Die sechs Feldidentitaeten des Laufs (Regel 32.7 (Feldfamilie der Referenzdomäne)) - herausgegeben,
     /// weil sie Lin_lambda tragen: FC4s Lineage-Beleg zaehlt NICHTLEERE
     /// Lineages an realen Laufobjekten, und ein Objekt, das der Bericht
@@ -950,6 +962,18 @@ fn deposit_program(
         anchor_ref: None,
     });
 
+    // Folgenbeobachtung (Regel 32.7 (Feldfamilie der Referenzdomäne): "Historiker rekonstruiert
+    // Versionen"): M17 liest `.git/logs/HEAD` an der ECHTEN Werkswurzel,
+    // nicht an der Sandbox - die Sandbox ist ein `.git`-loses
+    // Arbeitsverzeichnis (siehe `stage_corpus`), die Versionsgeschichte lebt
+    // am `workspace_root`. `unwrap_or_default`: kein Git-Repository oder
+    // keine Reflog-Datei ist ein erklaerter Nullstand (Regel 7.53 (Erklärter Nullstand)),
+    // keine leere Erfindung - derselbe zulaessige Zustand wie `git_commit:
+    // None` bei der Punktbeobachtung.
+    sigma.program.version_history =
+        observer_local_fs::observe_history(&observer_local_fs::ObserverConfig::new(workspace_root))
+            .unwrap_or_default();
+
     // Schritt 3: der Auftrag als Kandidat (Regel 5.9 (Kandidat und Gedankenkörper) - Vorform ohne
     // Objektidentitaet; die Praegung geschieht in der Anchor-Phase).
     sigma.candidates.push(psk_thought::Candidate::new(
@@ -1173,6 +1197,7 @@ fn build_report(
     sigma: Sigma,
     boot_report: psk_contract::BootReport,
     boot_gate: psk_types::objects::GateReport,
+    run_descriptor: RunDescriptor,
 ) -> Result<GoldenRunReport, PskError> {
     let final_index = sigma
         .assemblies
@@ -1232,6 +1257,7 @@ fn build_report(
     Ok(GoldenRunReport {
         boot_gate,
         boot_report,
+        run_descriptor,
         anchor: sigma
             .anchors
             .first()
@@ -1289,6 +1315,9 @@ fn build_report(
         cell_reports,
         executable,
         ticks: sigma.tick_no,
+        reconstructed_versions: crate::historian::reconstructed_versions(
+            &sigma.program.version_history,
+        ),
         i_t,
     })
 }
@@ -1385,7 +1414,7 @@ pub fn run_golden_run(
     }
     lines.shutdown()?;
 
-    build_report(sigma, boot_report, boot_gate)
+    build_report(sigma, boot_report, boot_gate, rd)
 }
 
 /// Fuehrt den Lauf zweimal gegen dieselbe Sandbox aus und bildet daraus
@@ -1393,7 +1422,7 @@ pub fn run_golden_run(
 /// exportieren" - beide sind genannt, keine Option). Definition 22.1 (Replayklassen)
 /// definiert die Replayklasse als Eigenschaft eines VERGLEICHS zweier
 /// Laeufe, nicht eines einzelnen - deshalb laeuft `run_golden_run` hier
-/// zweimal, bevor `issue_certificate` (Vertrag 22.4 (Replayklasse des Referenzrelease): mindestens R2 als
+/// zweimal, bevor `issue_certificate` (Vertrag 22.5 (Replayklasse des Referenzrelease): mindestens R2 als
 /// Vorbedingung) ueberhaupt aufgerufen werden kann.
 pub fn run_golden_run_with_certificate(
     workspace_root: &Path,
@@ -1469,6 +1498,8 @@ pub fn run_golden_run_with_certificate(
             )
             .as_bytes(),
         ),
+        &first.run_descriptor,
+        &second.run_descriptor,
         &check,
         vec![],
     );
@@ -1495,6 +1526,17 @@ pub fn run_golden_run_with_certificate(
         }
         psk_types::objects::ReplayManifestAchievedClassKind::R3 => {
             MachineCertificateReplayClassKind::R3
+        }
+        // Regel 22.4 (Verschiedene Eingaben bilden kein Replaypaar): NOT_COMPARABLE ist hier
+        // strukturell unerreichbar, nicht bloss unwahrscheinlich - `first`
+        // und `second` laufen ueber denselben `workspace_root`/Korpus mit
+        // zurueckgesetzter Sandbox dazwischen (siehe Kommentar oben an
+        // `run_golden_run_with_certificate`), ihre RunDescriptors sind bei
+        // Erfolg immer gleich. Kaeme dieser Zweig dennoch, waere GENAU
+        // diese Annahme verletzt - dieselbe Fehlerart wie ein gebrochenes
+        // R2, nicht ein neuer Fall.
+        psk_types::objects::ReplayManifestAchievedClassKind::NotComparable => {
+            return Err(PskError::UnboundNondeterminismOrDivergence);
         }
     };
 
@@ -1685,6 +1727,25 @@ mod tests {
             report.field_projections.len(),
             6,
             "sechs Archetypen (Regel 32.7 (Feldfamilie der Referenzdomäne))"
+        );
+
+        // Der Historiker (Regel 32.7 (Feldfamilie der Referenzdomäne): "rekonstruiert Versionen") an der
+        // ECHTEN Repository-Historie gemessen, nicht an einer Fixture: zum
+        // Zeitpunkt dieses Commits fuehrt `.git/logs/HEAD` bereits 79
+        // `commit:`-Eintraege - eine feste Zahl waere hier falsch (jeder
+        // weitere Commit dieser Sitzung erhoeht sie), eine LOSE Untergrenze
+        // haelt trotzdem fest, dass real gemessen wird, nicht behauptet.
+        assert!(
+            report.reconstructed_versions.len() >= 70,
+            "reale Reflog-Historie dieses Repos, keine Fixture: {} Versionen",
+            report.reconstructed_versions.len()
+        );
+        assert!(
+            report
+                .reconstructed_versions
+                .iter()
+                .all(|p| p.message.starts_with("commit")),
+            "nur tatsaechliche Versionswechsel, keine Checkouts/Klone"
         );
         assert!(
             report.glue.hold_reason.is_none(),

@@ -17,7 +17,7 @@
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
 mod external_record;
-pub use external_record::{ExternalRecord, FileObservation, ObservedPermissions};
+pub use external_record::{ExternalRecord, FileObservation, HistoryPoint, ObservedPermissions};
 
 mod anchor;
 pub use anchor::{is_fresh, no_declared_uncertainty, request_reanchor, seal_anchor, AnchorInputs};
