@@ -18,6 +18,7 @@ mod digest;
 mod m13_address;
 mod msg;
 mod object_id;
+mod tick_phase;
 
 pub mod payloads {
     //! Nutzlast-Markertypen, generiert aus `architecture/port_registry.yaml`.
@@ -65,6 +66,7 @@ pub use m13_address::{
 };
 pub use msg::{ClockRef, DualTime, MessageType, Msg, RunId, SchemaId, Signature, TraceRef, Ulid};
 pub use object_id::{ObjectId, ObjectIdParseError};
+pub use tick_phase::{Phase, CANONICAL_PHASES};
 
 include!(concat!(env!("OUT_DIR"), "/module_id.rs"));
 include!(concat!(env!("OUT_DIR"), "/port_id.rs"));

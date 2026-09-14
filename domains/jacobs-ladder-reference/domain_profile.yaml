@@ -1,0 +1,205 @@
+# Domaenenprofil der Referenzdomaene: die Kantenbedingungen je
+# RelationSortId (Regel 10.9, PSK-RA v1.0.25).
+#
+# ## Warum diese Datei NICHT unter architecture/ liegt
+#
+# Regel 10.9: preconditions und postconditions sind vom Typ PredicateExpr
+# und damit domaenengeliefert. Vertrag 27.2 fuehrt PredicateExpr unter den
+# domain_supplied_opaque-Typen und sagt zu deren Herkunft: "Die
+# Entscheidung ist getroffen und lautet: extern."
+#
+# architecture/ ist der versiegelte Architekturkoerper, aus dem I_A
+# entsteht. Laege diese Datei dort, waeren die Praedikate der Domaene Teil
+# der Identitaet des Kerns - genau die Vermischung, die Regel 10.9
+# ausschliesst. Sie liegt deshalb ausserhalb und wird ueber
+# RunDescriptor.input_digests ("versiegelte Eingaben") an den Lauf
+# gebunden; damit ist ein Replay an dasselbe Profil gebunden, ohne dass
+# das Schema des RunDescriptor sich aendern muss.
+#
+# ## Was hier steht und was nicht
+#
+# Die Sorten-Port-Matrix (architecture/sort_registry.yaml) sagt, WELCHE
+# Relation zwischen zwei Sorten zulaessig ist - 23 Tripel. Diese Datei
+# sagt fuer die Relationen, die die Referenzdomaene tatsaechlich
+# verwendet, WAS sie voraussetzt und zusichert.
+#
+# Die uebrigen 16 Relationssorten sind bewusst NICHT deklariert. Fuer sie
+# entsteht keine Kante, sondern ein ResidueRecord des Typs scope - wie bei
+# der nicht anwendbaren Spektrallinse. "Ein leerer oder lueckenhafter
+# Graph ist ein ehrlicher Messwert; ein vollstaendiger Graph mit
+# erfundenen Bedingungen ist keiner."
+#
+# Kein Praedikat hier ist stets wahr. Regel 10.9 nennt das ausdruecklich
+# einen Konformitaetsdefekt, und `no_predicate_is_trivially_true` in
+# psk-ir prueft es mechanisch.
+schema: psk.domain-profile/1.0
+domain: jacobs-ladder-reference
+
+edge_conditions:
+  # S-ANC -> S-CTX. Belegt durch ThoughtBody.anchor_refs.
+  - relation_sort: grounds
+    preconditions:
+      - "anchor.sealed_at ist gebunden und anchor.observations ist nicht leer"
+      - "thought.anchor_refs enthaelt anchor.id"
+    postconditions:
+      - "thought traegt den Realitaetshorizont des Ankers, nicht einen eigenen"
+
+  # S-ANC -> S-HOR. Belegt durch RealityClassification.anchor_ref.
+  - relation_sort: defines
+    preconditions:
+      - "classification.anchor_ref == anchor.id"
+    postconditions:
+      - "der Realitaetsstatus gilt relativ zu genau diesem Anker"
+
+  # S-FLD -> S-PRJ. Belegt durch FieldProjection.field_ref.
+  - relation_sort: projects
+    preconditions:
+      - "field.lifecycle == ACTIVE"
+      - "projection.field_ref == field.id"
+    postconditions:
+      - "projection.visible ist nicht leer (Regel 7.17)"
+      - "projection veraendert reality_status und facticity des Urbildes nicht (Regel 7.16)"
+
+  # S-PRJ -> S-DEP. Belegt durch DependencyProfile.quotient_classes.
+  - relation_sort: shares_source
+    preconditions:
+      - "projection.id erscheint in genau einer Klasse von profile.quotient_classes"
+    postconditions:
+      - "profile.effective_rank zaehlt diese Projektion hoechstens einmal"
+
+  # S-GAT -> S-CAP. Belegt durch EffectToken.gate_report_ref.
+  - relation_sort: authorizes
+    preconditions:
+      - "gate.decision == PASS"
+      - "token.gate_report_ref == gate.id"
+    postconditions:
+      - "token.scope ist im scope des Gates enthalten"
+
+  # S-CAP -> S-EFF. Belegt durch EffectAttempt.token_ref.
+  - relation_sort: permits
+    preconditions:
+      - "attempt.token_ref == token.id"
+      - "token ist zum Versuchszeitpunkt nicht konsumiert"
+    postconditions:
+      - "attempt.scope ist im scope des Tokens enthalten"
+
+  # S-RCP -> S-RCN. Belegt durch ReconciliationReport.receipt_refs.
+  - relation_sort: feeds
+    preconditions:
+      - "reconciliation.receipt_refs enthaelt receipt.id"
+      - "receipt.observer_adapter != der Adapter des zugehoerigen Versuchs"
+    postconditions:
+      - "die Faktpromotion stuetzt sich auf dieses Receipt, nicht auf den Versuch"
+
+# BEWUSST NICHT deklariert, mit Grund - damit die Auslassung selbst
+# nachlesbar ist und nicht als Vergesslichkeit erscheint:
+#
+#   observed_by (S-EFF -> S-RCP): ExternalReceipt traegt per Struktur 7.36 (EffectAttempt / ExternalReceipt)
+#     KEINE ObjectId-Referenz auf den Versuch - der Beobachter ist
+#     unabhaengig und sieht den Versuch nie. Eine Kante hier waere eine
+#     Verknuepfung, die kein Objekt festhaelt: dieselbe Sorte Erfindung,
+#     die Regel 10.9 fuer Praedikate verbietet.
+#
+#   quotients (S-DEP -> S-WIT), supports (S-WIT -> S-GAT): der
+#     Referenzlauf erzeugt kein EvidenceObject.
+#
+#   scopes, enables, yields, emits, records, views, promotes, blocks,
+#     bounds: setzen S-STA/S-TRN/S-EVT voraus; unter diesen Sorten wird im
+#     gesamten Workspace kein Objekt gepraegt.
+#
+#   forks, rebinds: setzen S-BRN voraus (CandidateCapsule); M24 laeuft im
+#     Referenzlauf nicht mit.
+#
+#   opens (S-GAT -> S-RES), preserves (S-TRC -> S-RES): der PASS-Lauf
+#     eroeffnet keine Residuen.
+
+# ---------------------------------------------------------------------
+# QPM-Domaenenprofil: der Referenzlauf als erster Messgegenstand
+# ---------------------------------------------------------------------
+#
+# Das Panoptische Phasenmakroskop beobachtet hier den Golden Run selbst.
+# Kein Zirkel: QPM ist read-only und traegt eine EIGENE Leiter (QPM-0 bis
+# QPM-10), die nichts zu PSK-RAs C-Klassen beitraegt - siehe die Pruefung
+# in psk-conformance/src/qpm_run.rs und den Test, der den Rueckflusspfad
+# ausschliesst.
+#
+# Alles hier ist DOMAENENGELIEFERT (QPM Regel 3.5: pass_predicate "wie
+# LensSpec"). Der Kern liest diese Datei nicht selbst - psk-conformance
+# tut es, weil die Referenzdomaene dieser Konformanzlauf IST.
+qpm:
+  # QPM Struktur 3.2, declared_channels. QPM Struktur 3.20 (SignatureAtlas)
+  # nennt neun Kanaele; der Referenzlauf instrumentiert VIER. Die
+  # uebrigen fuenf sind nicht deklariert und damit OUT_OF_SCOPE - nach
+  # QPM Regel 3.3 ausdruecklich NICHT abwesend.
+  declared_channels:
+    - topology   # jeder IR-Knoten traegt eine M13Address (Pass C4)
+    - trace      # jeder Knoten traegt einen TraceRef in den Laufledger
+    - residue    # der ResidueLedger des Laufs existiert und wird gefuehrt
+    - seam       # der Lauf erzeugt SeamReports (psk-closure)
+  undeclared_channels: # begruendet, nicht vergessen
+    spectrum: "der Lauf erzeugt kein Spektrum - keine Zerlegung in Komponenten"
+    phase: "keine Phasenhebung: der Lauf hat keine Primaer-/Gegenphase"
+    symmetry: "keine Symmetriemessung im Referenzlauf"
+    rank: "Witnessrang setzt EvidenceObjects voraus; der Lauf erzeugt keine"
+    entropy: "keine Entropiemessung im Referenzlauf"
+
+  # QPM Struktur 3.2, policies.
+  policies:
+    open_set: true
+    calibration_validity: "golden-run-window"
+    # QPM-OBL-002: KEIN Komponentenwoerterbuch registriert. Nach QPM
+    # QPM Regel 3.3 endet damit jeder Lauf in UNKNOWN - nicht in FAIL. Das
+    # Feld fehlt hier absichtlich und nicht aus Nachlaessigkeit.
+    catalog_ref: null
+
+  # QPM Struktur 3.4 (ApertureBank). Je Kanal eine Apertur.
+  #
+  # Das pass_predicate ist als SORTENMENGE deklariert, nicht als
+  # auswertbarer Ausdruck: der Kern wertet PredicateExpr nicht aus
+  # (Vertrag 27.2, "nur typisiert weitergereicht"), also erklaert die
+  # Domaene, WAS ihr Praedikat auswaehlt, und der Kern wendet genau das
+  # an. Der Text daneben ist die menschenlesbare Fassung derselben
+  # Aussage.
+  #
+  # Die Auswahl ist GEMESSEN, nicht entworfen: laut QPM Struktur 1.2
+  # bindet QPM an M08-M14, M19, M22-M24, M27. Ein Knoten, dessen Eigner
+  # KEIN gebundenes Modul ist, liegt ausserhalb dessen, was das
+  # Instrument ueberhaupt erreicht - daraus entsteht ein echter Schatten
+  # mit benanntem Grund, kein konstruierter.
+  aperture_bank:
+    version: "1.0.0"
+    apertures:
+      - id: AP-topology
+        channel_ref: topology
+        pass_predicate: "Sorteneigner ist ein QPM-gebundenes Modul (QPM Struktur 1.2)"
+        passes_sorts: [S-FLD, S-PRJ, S-DEP] # M08, M09, M10
+        declared_coverage: "IR-Knoten des Laufs, Skalenstufe m13:0"
+      - id: AP-trace
+        channel_ref: trace
+        pass_predicate: "Sorteneigner ist ein QPM-gebundenes Modul (QPM Struktur 1.2)"
+        passes_sorts: [S-FLD, S-PRJ, S-DEP]
+        declared_coverage: "IR-Knoten des Laufs, Skalenstufe m13:0"
+      - id: AP-residue
+        channel_ref: residue
+        pass_predicate: "Sorteneigner ist ein QPM-gebundenes Modul (QPM Struktur 1.2)"
+        passes_sorts: [S-FLD, S-PRJ, S-DEP]
+        declared_coverage: "IR-Knoten des Laufs, Skalenstufe m13:0"
+      - id: AP-seam
+        channel_ref: seam
+        pass_predicate: "Sorteneigner ist ein QPM-gebundenes Modul (QPM Struktur 1.2)"
+        passes_sorts: [S-FLD, S-PRJ, S-DEP]
+        declared_coverage: "IR-Knoten des Laufs, Skalenstufe m13:0"
+
+  # QPM Struktur 3.6 (CounterHorizon). Der Referenzlauf beobachtet sich
+  # selbst zum ersten Mal; die Domaene konstruiert keine Gegenbahn.
+  # QPM Regel 3.7 laesst das zu - MIT Begruendung, seit v1.0.4 im Feld.
+  counter_horizon:
+    null_models: []
+    out_of_scope: []
+    pathologies: []
+    emptiness_justification: >-
+      Der Referenzlauf ist der erste Messgegenstand dieser Domaene. Eine
+      Gegenbahn muesste ein alternativer Lauf desselben Auftrags mit
+      anderer Deutung sein; die Domaene kennt bisher genau einen Lauf,
+      und ein aus ihm selbst abgeleitetes Nullmodell waere kein
+      unabhaengiger Gegenbefund, sondern eine Umbenennung.

@@ -1,6 +1,6 @@
-//! Regel 24.4 (Pflichtbaselines): fuehrt Kern und beide Baselines gegen
-//! dieselbe Referenzdomaene (Regel 32.5) aus und stellt ihre zehn
-//! Metriken (Regel 24.4) gegenueber.
+//! Regel 24.5 (Pflichtbaselines): fuehrt Kern und beide Baselines gegen
+//! dieselbe Referenzdomaene (Regel 32.5 (Erste Domäne)) aus und stellt ihre zehn
+//! Metriken (Regel 24.5 (Pflichtbaselines)) gegenueber.
 //!
 //! Die Norm gibt keine Formel fuer "der Kern besteht den
 //! Baselinevergleich" vor (Tabelle 23.2, C4: "Baselines und Negativtests
@@ -13,7 +13,7 @@
 //! hier hoehere Kosten haben, das ist kein Sicherheitsmangel), keine
 //! Korrektheitseigenschaft.
 //!
-//! Validierungseffizienz (Regel 24.4: "Informationsgewinn pro Probe, Zeit
+//! Validierungseffizienz (Regel 24.5 (Pflichtbaselines): "Informationsgewinn pro Probe, Zeit
 //! und Token") bleibt aus demselben Grund wie Overhead - UND aus
 //! demselben Grund wie Synthetische Mehrheit unten - ausserhalb des
 //! strikten Vergleichs, gemessen und berichtet trotzdem (alle drei
@@ -33,7 +33,7 @@
 //! entweder verzerrt oder tautologisch sind, wird die gesamte Metrik aus
 //! dem Gate genommen statt nur einen der drei (willkuerlich) auszuwaehlen.
 //!
-//! Synthetische Mehrheit (Regel 24.4: "Facettenstimmen minus reff")
+//! Synthetische Mehrheit (Regel 24.5 (Pflichtbaselines): "Facettenstimmen minus reff")
 //! bleibt ebenfalls ausserhalb des STRIKTEN Kern<=Baseline-Vergleichs -
 //! gemessen und berichtet wird sie trotzdem, fuer alle drei Systeme,
 //! ehrlich (siehe `metrics.rs`). Grund, real gemessen, keine Vermutung:
@@ -41,7 +41,7 @@
 //! ueberzaehlen) und erreicht dadurch STRUKTURELL immer 0.0 auf dieser
 //! Metrik - das ist keine Resistenz gegen synthetische Mehrheiten,
 //! sondern die Abwesenheit jeder Mehrperspektivenpruefung ueberhaupt.
-//! `kern` dagegen fuehrt Regel 32.7s sechs verbindliche Feldrollen aus
+//! `kern` dagegen fuehrt Regel 32.7 (Feldfamilie der Referenzdomäne)s sechs verbindliche Feldrollen aus
 //! (Explorer/Historiker/Falsifikator/Konstrukteur/Auditor/Integrator);
 //! in der aktuellen Golden-Run-Fixture teilen sich alle sechs denselben
 //! `source_provenance`-Eintrag (`golden_run.rs::project_field`), also
@@ -53,7 +53,7 @@
 //! die rohe Facettenzahl blind zu zaehlen. Ein roher Differenzvergleich
 //! ueber unterschiedliche Facettenzahlen hinweg praemiert also implizit
 //! "gar nicht erst mehrere Perspektiven einholen" - das kann nicht die
-//! Absicht von Regel 24.4 sein, deren Kapitel gerade die ABWESENHEIT der
+//! Absicht von Regel 24.5 (Pflichtbaselines) sein, deren Kapitel gerade die ABWESENHEIT der
 //! konstitutionellen Architektur (Realitaetsleiter, Abhaengigkeitsquotient,
 //! Gates) sichtbar machen soll, nicht ihre Anwesenheit bestrafen. Dieser
 //! Ausschluss ist ein expliziter, dokumentierter Auslegungsentscheid
@@ -150,7 +150,7 @@ impl BaselineComparison {
 }
 
 /// Fuehrt Kern (unveraendert) und beide Baselines gegen dieselbe
-/// Referenzdomaene-Instanz aus (Regel 32.5: isolierter, versionierter
+/// Referenzdomaene-Instanz aus (Regel 32.5 (Erste Domäne): isolierter, versionierter
 /// Ordner, erst readonly, dann Sandbox mit reversiblen Dateioperationen -
 /// jede der drei Sandboxen ist frisch und leer, derselbe Zielinhalt).
 pub fn run_baseline_comparison(workspace_root: &Path) -> Result<BaselineComparison, PskError> {
@@ -246,7 +246,7 @@ mod tests {
         let comparison = run_baseline_comparison(&workspace_root())
             .expect("Kern und beide Baselines sollten durchlaufen");
 
-        // Die drei namengebenden Abwesenheiten (Regel 24.4, Baseline ii)
+        // Die drei namengebenden Abwesenheiten (Regel 24.5 (Pflichtbaselines), Baseline ii)
         // muessen wirklich fehlen - sonst waere die Baseline keine.
         assert_eq!(comparison.monolithic.unauthorized_effects, 1);
         assert_eq!(comparison.event_sourcing.unauthorized_effects, 1);
@@ -256,21 +256,27 @@ mod tests {
         // comparison.rs Modulkopf): monolithic hat keine Feldfamilie (0.0,
         // strukturell, keine Resistenz). event_sourcing quotientiert drei
         // korrelierte Perspektiven nicht (3 - 1 = 2.0). kern fuehrt Regel
-        // 32.7s sechs Feldrollen aus, die in dieser Fixture denselben
-        // source_provenance teilen und deshalb zu r_eff=1 quotientieren
-        // (6 - 1 = 5.0) - GROESSER als beide Baselines, gerade WEIL der
-        // Kern (anders als event_sourcing) r_eff ueberhaupt berechnet.
-        // Deshalb aus dem strikten kern_passes()-Gate ausgenommen, aber
-        // hier als Tatsache gemessen, nicht verschwiegen.
+        // 32.7s sechs Feldrollen aus.
+        //
+        // Der kern-Wert ist mit v1.0.45 von 5.0 auf 4.0 GEFALLEN, und
+        // das ist eine Verbesserung: bis dahin teilten alle sechs
+        // Feldrollen dieselbe festverdrahtete Quelle und quotientierten
+        // zu r_eff=1 (6 - 1 = 5.0). Jetzt lesen sie aus drei
+        // deklarierten Quellen, von denen zwei ueber den `auditor`
+        // transitiv zusammenfallen: r_eff=2, also 6 - 2 = 4.0. Die
+        // Kennzahl misst, wieviel Scheinmehrheit der Quotient
+        // wegnimmt - und je mehr echte Unabhaengigkeit vorliegt, desto
+        // weniger BLEIBT wegzunehmen. Ein steigender Wert waere hier
+        // das schlechtere Zeichen.
         assert_eq!(comparison.monolithic.synthetic_majority, 0.0);
         assert_eq!(comparison.event_sourcing.synthetic_majority, 2.0);
-        assert_eq!(comparison.kern.synthetic_majority, 5.0);
+        assert_eq!(comparison.kern.synthetic_majority, 4.0);
 
         assert!(!comparison.monolithic.recovery_succeeded);
         assert!(!comparison.event_sourcing.recovery_succeeded);
         assert!(comparison.kern.recovery_succeeded);
 
-        // Und das eigentliche Bestehenskriterium (Regel 24.4).
+        // Und das eigentliche Bestehenskriterium (Regel 24.5 (Pflichtbaselines)).
         assert!(
             comparison.kern_passes(),
             "Kern: {:#?}\nmonolithic: {:#?}\nevent_sourcing: {:#?}",
@@ -283,7 +289,7 @@ mod tests {
     #[test]
     fn neither_baseline_deviates_under_replay_despite_lacking_the_kerns_replay_manifest() {
         // Ehrliches Ergebnis, nicht schoengerechnet: Determinismus allein
-        // (beide Baselines sind fixture-getrieben, Regel 27.8) verlangt
+        // (beide Baselines sind fixture-getrieben, Regel 27.8 (Rolle eines Sprachmodells)) verlangt
         // nicht die volle RA-Architektur. Der Unterschied zum Kern ist,
         // dass nur der Kern das ueber ein echtes ReplayManifest/TraceStore
         // BEWEIST, nicht nur zufaellig erfuellt - siehe Modulkopf.

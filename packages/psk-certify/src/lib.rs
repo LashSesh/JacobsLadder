@@ -4,7 +4,7 @@
 //! Modul realisiert (Regel 32.2).
 //!
 //! WP15 (I7): `certify` - Konformanzleiter (Regel 23.1/Tabelle 23.2),
-//! MachineCertificate (Struktur 7.46), G-RELEASE (eigenes Gate, ueber
+//! MachineCertificate (Struktur 7.50 (MachineCertificate)), G-RELEASE (eigenes Gate, ueber
 //! `psk_gate::evaluate_gate`).
 //!
 //! Boot-Realisierung (Algorithmus 17.1, Schritt 18): `posture`
@@ -15,7 +15,12 @@ include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 mod certify;
 pub use certify::{
     check_minimum_replay_class, compute_conformance_class, evaluate_release_gate,
-    issue_certificate, AdditionalAcceptance, CertificateInputs,
+    issue_certificate, AdditionalAcceptance, CertificateInputs, ObligationPlatformBinding,
+};
+
+mod feature_coverage;
+pub use feature_coverage::{
+    derive_feature_coverage, CoverageDerivation, CoverageFinding, FeatureEvidence, ReplayEvidence,
 };
 
 mod posture;

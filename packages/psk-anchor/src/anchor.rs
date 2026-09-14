@@ -6,8 +6,8 @@
 //! AnchorSnapshot traegt `id: ObjectId` und `digest: Digest` als eigene
 //! Felder - ein Objekt kann aber nicht ueber sein eigenes, gerade erst zu
 //! bestimmendes Ergebnis hashen. Die Aufloesung folgt demselben Muster wie
-//! TraceSegment.segment_digest ("H(Can(alle VORSTEHENDEN Felder))", Struktur
-//! 7.36): `id` und `digest` werden ueber alle UEBRIGEN Felder gebildet,
+//! TraceSegment.segment_digest ("H(Can(alle VORSTEHENDEN Felder))",
+//! Struktur 7.41 (TraceSegment)): `id` und `digest` werden ueber alle UEBRIGEN Felder gebildet,
 //! danach erst eingesetzt. `sealed` ist dabei ebenfalls ausgenommen - es
 //! ist ein Lebenszyklusstatus ("true nach Versiegelung"), kein Inhalt.
 
@@ -107,7 +107,27 @@ pub fn is_fresh(validity: &Validity, now_tau_i: u64) -> bool {
     now_tau_i < validity.expires_at_tau_i
 }
 
-/// Praeludiert `AnchorUncertainty` ohne deklarierte Parameter - Regel 32.4
+/// Anchor-Abschlussbedingung (Definition 14.2), zweiter Ausgang: "Anker
+/// gebunden ODER ReanchorRequest erzeugt." `seal_anchor`/`is_fresh` oben
+/// leisten den ersten Ausgang; dieser hier den zweiten - fuer eine Kapsel,
+/// deren Anker per `is_fresh` als abgelaufen erkannt wurde.
+///
+/// Blockiert: `ReanchorRequest` ist in `psk-types::objects::payloads` ein
+/// generierter Nullfeld-Platzhalter (`pub struct ReanchorRequest;`,
+/// Modulkommentar dort: "Platzhalter bis WP02 die realen Felder aus Kapitel
+/// 7 nachtraegt"). Kapitel 7 fuehrt fuer diesen Typ noch keine Struktur -
+/// anders als bei den fuenf uebrigen hier dokumentierten Luecken ist das
+/// keine fehlende Verdrahtung bereits vorhandener Felder, sondern ein
+/// fehlendes Register selbst. Ein hier erfundenes Feldschema waere eine
+/// Behauptung, die das Werk nicht deckt.
+pub fn request_reanchor(_stale_anchor: &AnchorSnapshot, _now_tau_i: u64) -> ! {
+    unimplemented!(
+        "Anchor 'oder ReanchorRequest erzeugt': ReanchorRequest hat noch keine \
+         reale Feldstruktur in architecture/object_schemas.yaml (siehe Funktionskommentar)"
+    )
+}
+
+/// Praeludiert `AnchorUncertainty` ohne deklarierte Parameter - Vertrag 32.4 (Minimaler geschlossener Kreis)
 /// (Erste Domaene, read-only) braucht bis zur echten Modellwahl (OBL, siehe
 /// Kapitel 33) keine.
 pub fn no_declared_uncertainty(model: psk_types::objects::UncertaintyModelId) -> AnchorUncertainty {

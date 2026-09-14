@@ -6,8 +6,8 @@
 //! WP05: `external_record` (der Aussenrecord-Typ, Regel 32.7), `anchor`
 //! (M05: Versiegelung zu AnchorSnapshot), `ingress` (M17: Provenienzbindung).
 //!
-//! WP15 (I7): `receipt` (M17 - ExternalReceipt/ObserverAdapter, Struktur
-//! 7.34; P24-Ingress nach Vertrag 20.2, Herkunftsbeglaubigung an der
+//! WP15 (I7): `receipt` (M17 - ExternalReceipt/ObserverAdapter, Struktur 7.36
+//! (EffectAttempt / ExternalReceipt); P24-Ingress nach Vertrag 20.2, Herkunftsbeglaubigung an der
 //! Prozessgrenze VOR jeder Deserialisierung).
 //!
 //! P24a (Prozesstopologie-Realisierung): `observe_protocol` - P06/P24
@@ -17,18 +17,18 @@
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
 mod external_record;
-pub use external_record::{ExternalRecord, FileObservation, ObservedPermissions};
+pub use external_record::{ExternalRecord, FileObservation, HistoryPoint, ObservedPermissions};
 
 mod anchor;
-pub use anchor::{is_fresh, no_declared_uncertainty, seal_anchor, AnchorInputs};
+pub use anchor::{is_fresh, no_declared_uncertainty, request_reanchor, seal_anchor, AnchorInputs};
 
 mod ingress;
 pub use ingress::{bind_provenance, check_observer_separation};
 
 mod receipt;
 pub use receipt::{
-    build_receipt, ingress_p24, ingress_p24_via_exclusive_pipe, ObservationInputs, ObserverAdapter,
-    ProcessIdentity, RegisteredObserverIdentity,
+    build_receipt, ingress_p24, ingress_p24_via_exclusive_pipe, observe_unknown_effect,
+    ObservationInputs, ObserverAdapter, ProcessIdentity, RegisteredObserverIdentity,
 };
 
 mod observe_protocol;

@@ -524,6 +524,66 @@
               "resolution",
               "resolution_version"
             ]
+          },
+          {
+            "description": "Aufgeloeste Fassung der vorigen Variante (test/resolution/resolution_version als String statt null) - OBL-010s tatsaechlicher Zustand nach realer Substraterzwingung (ChildProcess::spawn, psk-lifecycle::sandbox), analog zum bereits bestehenden offen/aufgeloest-Paar von OBL-009 (evidence+kind-Form, zwei Branches weiter oben).",
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "statement": {
+                "type": "string"
+              },
+              "fixed_by_architecture": {
+                "type": "object",
+                "properties": {
+                  "isolation": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "isolation"
+                ]
+              },
+              "domain_declared": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "test": {
+                "type": "string"
+              },
+              "blocking_from": {
+                "type": "string"
+              },
+              "resolution": {
+                "type": "string"
+              },
+              "resolution_version": {
+                "type": "string"
+              },
+              "resolution_platform": {
+                "description": "Plattform, fuer die `resolution` real gilt (z.B. \"windows\") - macht eine plattformabhaengige Aufloesung (OBL-010 sieht das ausdruecklich vor) strukturell abfragbar statt nur in `resolution`s Fliesstext erwaehnt. Ein Lauf auf einer anderen Plattform prueft das SELBST NICHT (kein Code liest dieses Feld computational, siehe psk-lifecycle::process_unsupported - dessen ChildProcess::spawn scheitert dort unabhaengig davon fail-closed) - das Feld ist die dokumentierte, menschen- und werkzeuglesbare Wahrheit dazu, nicht die Durchsetzung selbst.",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "title",
+              "statement",
+              "fixed_by_architecture",
+              "domain_declared",
+              "test",
+              "blocking_from",
+              "resolution",
+              "resolution_version",
+              "resolution_platform"
+            ]
           }
         ]
       }

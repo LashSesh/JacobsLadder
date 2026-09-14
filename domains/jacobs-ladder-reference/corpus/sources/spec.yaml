@@ -1,0 +1,32 @@
+# Quelle 1 von 3: das Spezifikationsdokument.
+#
+# Herkunft: die geschriebene Spezifikation. Ihr Autor fuehrt eine eigene
+# Rangfolge, und innerhalb dieses Dokuments entscheidet sie - eine
+# fortgeschriebene Fassung schlaegt die aeltere. Das ist der Normalfall
+# einer Spezifikation und der Grund, warum der praezedenzaufloesbare
+# Widerspruch hier steht und nicht zwischen den Quellen.
+source: spec
+origin: Spezifikationsdokument
+
+requirements:
+  # Widerspruchspaar A, QUELLENINTERN: zwei Fassungen derselben
+  # Anforderung. Die spaetere traegt den hoeheren Rang.
+  - id: SPEC-PATCH-001
+    severity: MUST
+    artifact: golden-run-patch.txt
+    precedence: 1
+    statement: "Die Sandboxdatei golden-run-patch.txt enthaelt genau 'hello golden run'."
+
+  - id: SPEC-PATCH-002
+    severity: MUST
+    artifact: golden-run-patch.txt
+    precedence: 2
+    statement: "Die Sandboxdatei golden-run-patch.txt enthaelt genau 'hello golden run v2'."
+
+  # Kontrollmenge: widerspruchsfrei. Ohne sie bestuende eine
+  # Widerspruchssuche, die ALLES meldet, unbemerkt.
+  - id: SPEC-TRACE-001
+    severity: MUST
+    artifact: trace.jsonl
+    precedence: 1
+    statement: "Jeder Schritt des Laufs erzeugt ein TraceSegment."

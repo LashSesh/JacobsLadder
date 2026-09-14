@@ -1,13 +1,13 @@
 {
   "canonical_digests": {
-    "artifact_registry.yaml": "28ad2404e547676089afc6c406f88b384295f852f504550ab1322842c7fbfe46",
-    "capability_matrix.yaml": "979cfb7937695badd07ec0019a71b925fcbec40aa74c0a3229014bfe2e9813ae",
+    "artifact_registry.yaml": "e040ba12cfd3b8785438d6dd101d61f2ae700ba412c224c09db3f21a7b2cff9a",
+    "capability_matrix.yaml": "6cfe6f51a499686b260f271c4ef628c02459ede41a864e5cdd82139a05365551",
     "conformance_tests.yaml": "2bee48032f044dc271fb3efab548e39e3253be46a7b4b15e5b17863c08b4d0fa",
     "constitution.yaml": "8f91efb49bd31866d0070136d6bf327bd10a4b19677877f05e2296f4080111b8",
     "error_catalog.yaml": "00912767454be88a55b456d10aa41abbab1757ec0b68870b7da767a57589e877",
     "gate_policy.yaml": "aa30013fb5dafcb4dd4960dbd99f20b7f83b1e9387fa4c3b910c3636aaae83e2",
     "invariants.yaml": "41e0438757943fcf82e830b983b9765f05388c113e9d87bb56a36ad731efde84",
-    "meta_instance.yaml": "03e6235232fcf81b6ec44c89666a100a4d16ebf128c8b1eb7199a396c46f08aa",
+    "meta_instance.yaml": "abbae0768f173c32bfc50a7fd66713e4e95fc238f7e5674282343b62c00ef0c8",
     "operator_registry.yaml": "f9a7742f9ff5b6d5f2fb1cb896202f38768a703d46c7eb76587619007b06e86f",
     "proof_obligations.yaml": "f9a8f5808c08e00b10c2c2a72585e1f2f4ed95dadcaf1da329b2a6379fc0d555",
     "release_gate.yaml": "7355b840100c85df09e046cb450fedacf61b6c292776b1f910325e37054a1132",
@@ -20,12 +20,12 @@
     "state_machines.yaml": "7987190f5ee6077491d02a39010eeddb2389cee538ac49e9c7fe1698600b48fe",
     "target_identity.json": "83c1f70e3dcfa5d3553595ce6b8913958d4d670d5cab528f8e2e1b69053c6d9c",
     "theory_binding.json": "71e39c30d4ef731137f120492a5117e35c76146949b83c1379de933815eda990",
-    "trust_boundaries.yaml": "81b24a838802e136df8b04170b932aae25d8206e959297971a87f1755092f50d",
-    "type_registry.yaml": "1af1f6ba0b32640a60d66dbff8e6a74cef605a97bfb745f536acf927695c23ab"
+    "trust_boundaries.yaml": "d7fcad4cd72be4588b695df8ed016b0c1287569d1f82ec3fe34e1598c1e5dee5",
+    "type_registry.yaml": "8c8e06ba2beb223487c0475caba81f91f44d23c16f5d4b7112e725ebe4fae928"
   },
   "canonicalization": "parse YAML/JSON; UTF-8; sorted object keys; compact JSON separators; preserve array order",
   "computed_by": "H(Can(constitution/*)) â€” Definition 40.2 (CPSK), Regel 6.7 (PSK-RA). Can() (Algorithmus 6.1) existiert erst ab WP01.",
-  "constitution_id": "797dc5388f881ecf76d2f404829b5965a1f4ea86ba407991fbc453c2f611f565",
+  "constitution_id": "676e8cb42fe633f5795df66989ee1803375165cc88304b60b013838af70325d9",
   "declared_ancestor_constitution_id": {
     "evidence": {
       "conflicting_files": 22,

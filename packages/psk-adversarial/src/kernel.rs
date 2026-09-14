@@ -6,13 +6,16 @@
 //!
 //! Realisiert sind hier die Operatoren, deren tragende Module in I4
 //! existieren: Capsule, Split, Ratchet, Support, Contraction. Occlusion
-//! liegt bei M12 (`psk_witness::typed_absence`, Invariante 11.12);
+//! liegt bei M12 (`psk_witness::typed_absence`, Invariante 11.12 (Okklusionsdisziplin));
 //! ResidueFlow und Recanon setzen den Residuenspeicher M19 voraus (WP04,
 //! Phase I5); Harden laeuft ueber P36 und das Gate G-SELF-COMPILE
-//! (Invariante 12.12) und damit ueber M21 (WP15). Die vier bleiben
+//! (Invariante 12.15 (Keine Selbstautorisierung)) und damit ueber M21 (WP15). Die vier bleiben
 //! unimplementiert statt vorgetaeuscht - die Neunerliste ist damit nicht
 //! erweitert, nur teilweise realisiert.
 
+use std::collections::BTreeSet;
+
+use crate::corpus::Requirement;
 use psk_canon::{identity_projection, object_id, Media};
 use psk_types::objects::{
     CandidateCapsule, CandidateCapsulePhaseKind as Phase, CandidateCapsuleStatusKind as Status,
@@ -23,6 +26,17 @@ use psk_types::{Digest, ObjectId, PskError, TraceRef};
 
 const CAPSULE_SORT: SortId = SortId::Branch;
 
+/// Ein im Lauf angebotener Kandidat: seine Kapsel-ID und das Artefakt, auf
+/// das er sich bezieht. `capsulate` (Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse)) nimmt ihn nur in
+/// `allowed_next` auf, wenn die Quellen DIESER Klasse eine Anforderung zu
+/// genau diesem Artefakt tragen - sonst ist er fuer diese Klasse kein
+/// Kandidat.
+#[derive(Debug, Clone)]
+pub struct OfferedCandidate {
+    pub id: CapsuleId,
+    pub artifact: String,
+}
+
 /// Eingaben fuer `capsulate`. `phase`, `status` und `id` fehlen: die Phase
 /// beginnt bei SEALED, der Status bei OPEN, die ID folgt aus dem Inhalt.
 pub struct CapsuleInputs {
@@ -31,9 +45,10 @@ pub struct CapsuleInputs {
     pub boundary: ScopeExpr,
     pub trace_ref: TraceRef,
     pub coupling: Vec<ObjectId>,
-    /// Die Ratchet-Restmenge zu Beginn - die groesste, die diese Kapsel je
-    /// haben wird (Invariante 12.6).
-    pub allowed_next: Vec<CapsuleId>,
+    /// Das laufweite Angebot, falls der Lauf einen Aenderungsvorschlag
+    /// fuehrt. `capsulate` entscheidet je Klasse, ob es hineinkommt -
+    /// `None` heisst kein Angebot, nicht ein leeres.
+    pub offered: Option<OfferedCandidate>,
 }
 
 fn compute_identity(draft: &CandidateCapsule) -> Result<ObjectId, PskError> {
@@ -55,17 +70,41 @@ fn seal(draft: CandidateCapsule) -> Result<CandidateCapsule, PskError> {
 }
 
 /// Operator 1, `capsulate(class: [FieldProjection]) -> CandidateCapsule`
-/// (Schnittstelle 12.15).
+/// (Schnittstelle 12.18 (M24-Ports)).
 ///
 /// Die Eingabe ist EINE Quotientenklasse aus dem DependencyProfile
-/// (Algorithmus 11.19: `capsules = C7_adversarial_canonicalize(
+/// (Algorithmus 11.19 (Normativer Compilerlauf): `capsules = C7_adversarial_canonicalize(
 /// profile.quotient_classes)`) - nicht eine beliebige Projektionsmenge.
 /// `invariant_core` beginnt leer: Invarianten treten nur ueber `split` ein,
-/// und nur mit unabhaengiger Evidenz (Regel 12.4).
+/// und nur mit unabhaengiger Evidenz (Regel 12.4 (Splitoperator)).
+///
+/// Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse): `allowed_next` wird HIER aus `class` gebildet,
+/// nicht aus `inputs` durchgereicht. `class` traegt ueber
+/// `source_provenance` seine eigenen Quellen; `inputs.offered` kommt nur
+/// dann in `allowed_next`, wenn eine Anforderung EINER dieser Quellen sein
+/// Artefakt nennt. Zwei Klassen mit verschiedenen Quellen KOENNEN deshalb
+/// verschiedene `allowed_next` ergeben - siehe
+/// `allowed_next_can_differ_when_class_sources_differ` fuer den Nachweis,
+/// dass sie es nicht nur koennten, sondern es unter konstruierten
+/// Eingaben tatsaechlich tun.
 pub fn capsulate(
     class: &[FieldProjection],
+    requirements: &[Requirement],
     inputs: CapsuleInputs,
 ) -> Result<CandidateCapsule, PskError> {
+    let class_sources: BTreeSet<&str> = class
+        .iter()
+        .flat_map(|p| p.source_provenance.iter().map(|s| s.0.as_str()))
+        .collect();
+    let class_artifacts: BTreeSet<&str> = requirements
+        .iter()
+        .filter(|r| class_sources.contains(r.source.as_str()))
+        .map(|r| r.artifact.as_str())
+        .collect();
+    let allowed_next = match &inputs.offered {
+        Some(offer) if class_artifacts.contains(offer.artifact.as_str()) => vec![offer.id.clone()],
+        _ => Vec::new(),
+    };
     seal(CandidateCapsule {
         schema: "psk.candidate-capsule/1.0".to_string(),
         id: ObjectId::new(CAPSULE_SORT, Digest::sha256(b"")), // Platzhalter
@@ -77,7 +116,7 @@ pub fn capsulate(
         boundary: inputs.boundary,
         trace_ref: inputs.trace_ref,
         coupling: inputs.coupling,
-        allowed_next: inputs.allowed_next,
+        allowed_next,
         status: Status::Open,
     })
 }
@@ -89,7 +128,7 @@ pub struct SplitResult {
     pub surface: SurfaceDescriptor,
     pub invariant_core: Vec<InvariantId>,
     /// Die Invarianten, die NICHT eintreten durften, weil ihnen unabhaengige
-    /// Evidenz fehlt. Sie verschwinden nicht still (Axiom 7.41, No Silent Loss).
+    /// Evidenz fehlt. Sie verschwinden nicht still (Axiom 7.45 (No Silent Loss), No Silent Loss).
     pub rejected: Vec<InvariantId>,
 }
 
@@ -157,7 +196,7 @@ pub fn ratchet(
         .cloned()
         .collect();
 
-    // Regel 12.7: "Die Terminierung ist durch das Budget ratchet_max_rounds
+    // Regel 12.7 (Selektionsdruck): "Die Terminierung ist durch das Budget ratchet_max_rounds
     // im RunDescriptor erzwungen; bei Erschoepfung wird die Kapsel RESIDUAL."
     let phase = if rounds_used >= ratchet_max_rounds {
         Phase::Residual
@@ -172,7 +211,7 @@ pub fn ratchet(
     })
 }
 
-/// Fail-closed-Wache zu Invariante 12.6, fuer den Fall, dass eine Kapsel
+/// Fail-closed-Wache zu Invariante 12.6 (Monotone Kontraktion), fuer den Fall, dass eine Kapsel
 /// nicht ueber `ratchet` entstanden ist: die Nachfolgemenge DARF nie
 /// wachsen.
 pub fn check_monotone_contraction(
@@ -245,12 +284,12 @@ pub fn check_support(
     })
 }
 
-/// Invariante 12.14 (Nichttrivialitaet des Ueberlebens): "Ein Kandidat, der
+/// Invariante 12.17 (Nichttrivialitaet des Ueberlebens): "Ein Kandidat, der
 /// nur unter Ausblendung eines Gegenmodells schliesst, ist nicht
 /// adversarial geschlossen. Seine scheinbare Closure ist eine Projektion
 /// mit verdeckter Obstruktion und erzeugt PSK-E003."
 ///
-/// Definition 12.13: `A(M) = Close(M ∪ Countermodels(M) ∪ Stress(M))`. Die
+/// Definition 12.16 (Adversarial Closure): `A(M) = Close(M ∪ Countermodels(M) ∪ Stress(M))`. Die
 /// Gegenmodelle sind Teil der Menge, ueber der geschlossen wird - nicht
 /// etwas, das danach geprueft wird.
 pub fn check_adversarial_closure(
@@ -264,14 +303,94 @@ pub fn check_adversarial_closure(
     }
 }
 
+/// Das Ergebnis von [`effective_rank_of`] - und der Grund, warum es kein
+/// `usize` ist.
+///
+/// Regel 7.52 (Ein Bodenwert ist keine Messung): "Gibt eine Groesse bei
+/// fehlender Eingabe einen Vorgabe- oder Bodenwert zurueck - etwa einen
+/// Rang von eins ueber einer leeren Evidenzmenge -, so DARF NICHT dieser
+/// Wert als Messergebnis gelesen oder berichtet werden. Er ist von einem
+/// berechneten Wert aeusserlich nicht zu unterscheiden und deshalb
+/// gefaehrlicher als ein leeres Feld: eine Null faellt auf, eine Eins
+/// sieht aus wie ein Befund."
+///
+/// Genau das war hier der Fall: `classes.len().max(1)` gab ueber einer
+/// leeren Evidenzmenge eine Eins zurueck, die von einer gerechneten Eins
+/// (eine Quelle, Invariante 12.2 (Kein Selbstwitness)) nicht zu
+/// unterscheiden war.
+///
+/// **Was die Regel verlangt und was hier gebaut ist:** "Jede solche
+/// Groesse MUSS unterscheidbar machen, ob sie gemessen oder untergegangen
+/// ist - durch einen EIGENEN AUSGANG, nicht durch einen Zahlenwert."
+/// Deshalb ein Summentyp und keine Zahl.
+///
+/// Absichtlich NICHT vorhanden: `Default`, `From<EffectiveRank> for
+/// usize`, ein `unwrap_or(1)` oder irgendeine Rechenoperation. Jedes
+/// davon holte den Bodenwert durch die Hintertuer zurueck, und die
+/// Regel waere wieder eine Zusage statt einer Form. Der Nachweis:
+///
+/// ```compile_fail,E0369
+/// # use psk_adversarial::EffectiveRank;
+/// let r = EffectiveRank::Unmeasured;
+/// let _ = r + 1;
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EffectiveRank {
+    /// Gemessen: die Evidenzmenge war nicht leer, und der Wert ist die
+    /// Zahl der Unabhaengigkeitsklassen darin. Eine gemessene Eins ist
+    /// der Fall von Invariante 12.2 (Kein Selbstwitness) - "erhaelt
+    /// r_eff = 1" - und ein
+    /// echter Befund.
+    Measured(usize),
+    /// Nicht gemessen: es lag keine Evidenz vor. KEIN Rang, auch nicht
+    /// eins. "Die erste echte Eingabe hebt den Wert dann nicht bloss an;
+    /// sie macht ihn erstmals zu einem Wert."
+    Unmeasured,
+}
+
+impl EffectiveRank {
+    /// Der Rang, WENN einer gemessen wurde. `None` heisst: es gab keinen
+    /// - nicht "es gab einen niedrigen".
+    pub fn measured(self) -> Option<usize> {
+        match self {
+            EffectiveRank::Measured(r) => Some(r),
+            EffectiveRank::Unmeasured => None,
+        }
+    }
+
+    pub fn is_measured(self) -> bool {
+        matches!(self, EffectiveRank::Measured(_))
+    }
+
+    /// Die Kennzeichnung fuer einen Bericht.
+    /// Regel 7.52 (Ein Bodenwert ist keine Messung): "Ein Bericht,
+    /// der den Bodenwert neben gemessenen Werten fuehrt, ohne ihn zu
+    /// kennzeichnen, behauptet eine Messung, die nicht stattfand."
+    pub fn label(self) -> String {
+        match self {
+            EffectiveRank::Measured(r) => format!("{r} (gemessen)"),
+            EffectiveRank::Unmeasured => "nicht gemessen (keine Evidenz)".to_string(),
+        }
+    }
+}
+
 /// Invariante 12.2 (Kein Selbstwitness): "Der Compiler DARF NICHT seine
 /// eigenen Claims als unabhaengige Witnesses zaehlen. Eine Kapselbewertung,
 /// deren einzige Evidenz aus derselben Modell- oder Ableitungsquelle
 /// stammt, erhaelt r_eff = 1."
-pub fn effective_rank_of(evidence: &[EvidenceObject]) -> usize {
+///
+/// Die Invariante spricht ueber Kapselbewertungen MIT Evidenz. Ueber den
+/// Fall ohne jede Evidenz sagt sie nichts - und die frueher hier
+/// stehende `.max(1)` legte ihn still auf eins fest. Seit v1.0.45 ist er
+/// ein eigener Ausgang (Regel 7.52 (Ein Bodenwert ist keine Messung));
+/// siehe [`EffectiveRank`].
+pub fn effective_rank_of(evidence: &[EvidenceObject]) -> EffectiveRank {
+    if evidence.is_empty() {
+        return EffectiveRank::Unmeasured;
+    }
     let classes: std::collections::BTreeSet<&String> =
         evidence.iter().map(|e| &e.independence_class.0).collect();
-    classes.len().max(1)
+    EffectiveRank::Measured(classes.len())
 }
 
 /// Operator 7, `contract(caps) -> [CandidateCapsule]`. Behaelt die Kapseln,
@@ -300,7 +419,7 @@ pub fn contract(capsules: &[CandidateCapsule]) -> Vec<CandidateCapsule> {
 pub fn residue_flow_next(phase: Phase) -> Option<Phase> {
     match phase {
         Phase::Residual => Some(Phase::Quarantined),
-        // Recanonicalization erzeugt eine NEUE Kapsel (Vertrag 12.10:
+        // Recanonicalization erzeugt eine NEUE Kapsel (Vertrag 12.10 (Branch statt Umschreibung):
         // neue Branch, neue ID) - kein Phasenuebergang derselben Kapsel.
         Phase::Quarantined => None,
         _ => None,
@@ -330,7 +449,7 @@ impl HardeningClass {
     ];
 }
 
-/// Invariante 12.12 (Keine Selbstautorisierung): "Self-Hardening DARF NICHT
+/// Invariante 12.15 (Keine Selbstautorisierung): "Self-Hardening DARF NICHT
 /// konstitutionelle Autoritaet, externe Faehigkeit oder Faktizitaet durch
 /// Selbstdeklaration erzeugen. Jede Aenderung durchlaeuft P36 und das Gate
 /// G-SELF-COMPILE."
@@ -352,7 +471,33 @@ pub fn check_hardening_permitted(
     }
 }
 
-/// Invariante 7.22 (Keine vorzeitige Oeffnung) ueber `status`: eine Kapsel
+/// Definition 22.2 (Kapselfixpunkt, v1.0.19). `before`/`after` sind eine
+/// Kapsel unmittelbar vor und nach einem `ratchet`-Schritt (`after` MUSS
+/// aus `ratchet(before, ...)` stammen; diese Funktion ruft `ratchet` nicht
+/// selbst auf und berechnet nichts neu). Woertlich: "Eine Kapsel c steht im
+/// Kapselfixpunkt, wenn ein weiterer ratchet-Schritt ihre Menge zulaessiger
+/// Nachfolger nicht mehr verkleinert: allowed_next(ratchet(c)) =
+/// allowed_next(c)."
+///
+/// "Erschoepft zuvor das Budget, so ist die Kapsel DARF NICHT als im
+/// Fixpunkt stehend zu fuehren, sondern nach RESIDUAL zu routen" - `ratchet`
+/// setzt `phase: Residual` bereits genau bei Budgeterschoepfung (Regel
+/// 12.7); diese Wache liest das Signal, statt die Rundenzaehlung ein
+/// zweites Mal zu fuehren, und schliesst Residual explizit aus, selbst
+/// wenn `allowed_next` im selben Schritt zufaellig auch stabil geblieben
+/// waere - beide Ausgaenge bleiben getrennt, wie die Definition verlangt.
+pub fn is_capsule_fixpoint(before: &CandidateCapsule, after: &CandidateCapsule) -> bool {
+    after.phase != Phase::Residual && after.allowed_next == before.allowed_next
+}
+
+/// Challenge-Abschlussbedingung (Definition 14.2 (Phasen-Modul-Bindung): "Alle Kapseln im
+/// Kapselfixpunkt oder RESIDUAL") fuer eine einzelne Kapsel: ist sie nach
+/// diesem `ratchet`-Schritt in einem der beiden zulaessigen Endzustaende?
+pub fn is_capsule_resolved(before: &CandidateCapsule, after: &CandidateCapsule) -> bool {
+    after.phase == Phase::Residual || is_capsule_fixpoint(before, after)
+}
+
+/// Invariante 7.24 (Keine vorzeitige Oeffnung) ueber `status`: eine Kapsel
 /// DARF nicht als CLOSED gefuehrt werden, solange sie nicht kristallisiert
 /// oder abschliessend residual/quarantaeniert ist.
 pub fn check_closure_state(capsule: &CandidateCapsule) -> Result<(), PskError> {
@@ -392,19 +537,47 @@ mod tests {
         }
     }
 
-    fn inputs(next: &[&str]) -> CapsuleInputs {
-        CapsuleInputs {
+    fn projection_with_source(id: &str, source: &str) -> FieldProjection {
+        FieldProjection {
+            source_provenance: vec![SourceRef(source.into())],
+            ..projection(id)
+        }
+    }
+
+    fn requirement(id: &str, artifact: &str, source: &str) -> Requirement {
+        Requirement {
+            id: id.into(),
+            severity: "MUST".into(),
+            artifact: artifact.into(),
+            precedence: 1,
+            statement: "s".into(),
+            source: source.into(),
+        }
+    }
+
+    /// Direktes Struct-Literal statt eines Laufs durch `capsulate`: seit
+    /// Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse) entscheidet `capsulate` SELBST, was in
+    /// `allowed_next` kommt (siehe unten) - die Tests hier (Ratchet,
+    /// Split, Support, Kontraktion, Fixpunkt) pruefen andere Operatoren
+    /// und brauchen nur EINE Kapsel mit frei wählbarem `allowed_next`,
+    /// keinen Beleg fuer capsulate's eigene Ableitung. Dieselbe
+    /// Rechtfertigung wie bei den EvidenceObject-Fixtures oben: die reale
+    /// Herkunft spielt fuer diese Tests keine Rolle.
+    fn capsule(next: &[&str]) -> CandidateCapsule {
+        CandidateCapsule {
+            schema: "psk.candidate-capsule/1.0".to_string(),
+            id: ObjectId::new(CAPSULE_SORT, Digest::sha256(b"test-capsule")),
             surface: SurfaceDescriptor("behauptete Rolle".into()),
+            invariant_core: Vec::new(),
+            phase: Phase::Sealed,
+            witnesses: vec![projection("p1").id],
             replay: ReplayDescriptor("replay/1".into()),
             boundary: ScopeExpr("lokal".into()),
             trace_ref: TraceRef(Digest::sha256(b"trace")),
             coupling: vec![],
             allowed_next: next.iter().map(|c| CapsuleId((*c).into())).collect(),
+            status: Status::Open,
         }
-    }
-
-    fn capsule(next: &[&str]) -> CandidateCapsule {
-        capsulate(&[projection("p1")], inputs(next)).unwrap()
     }
 
     /// Direktes Struct-Literal statt `psk_witness::make_evidence`: die
@@ -433,7 +606,7 @@ mod tests {
 
     #[test]
     fn a_new_capsule_is_sealed_with_an_empty_core() {
-        // Axiom 12.3: Oberflaeche erzeugt keine Invarianz.
+        // Axiom 12.3 (Oberfläche erzeugt keine Invarianz): Oberflaeche erzeugt keine Invarianz.
         let c = capsule(&["c1", "c2"]);
         assert_eq!(c.phase, Phase::Sealed);
         assert_eq!(c.status, Status::Open);
@@ -464,7 +637,7 @@ mod tests {
 
     #[test]
     fn ratchet_can_only_shrink() {
-        // Definition 12.5: S_{n+1} subseteq S_n.
+        // Definition 12.5 (Ratchet-Schritt): S_{n+1} subseteq S_n.
         let c = capsule(&["c1", "c2", "c3"]);
         let after = ratchet(
             &c,
@@ -510,15 +683,48 @@ mod tests {
 
     #[test]
     fn exhausting_the_round_budget_makes_the_capsule_residual() {
-        // Regel 12.7, letzter Satz.
+        // Regel 12.7 (Selektionsdruck), letzter Satz.
         let c = capsule(&["c1"]);
         let after = ratchet(&c, &[CapsuleId("c1".into())], 10, 10).unwrap();
         assert_eq!(after.phase, Phase::Residual);
     }
 
     #[test]
+    fn a_ratchet_step_that_does_not_shrink_the_successor_set_is_a_fixpoint() {
+        // Definition 22.2 (Kapselfixpunkt): allowed_next(ratchet(c)) = allowed_next(c).
+        let c = capsule(&["c1", "c2"]);
+        let after = ratchet(&c, &[CapsuleId("c1".into()), CapsuleId("c2".into())], 1, 10).unwrap();
+        assert_eq!(after.allowed_next, c.allowed_next);
+        assert!(is_capsule_fixpoint(&c, &after));
+        assert!(is_capsule_resolved(&c, &after));
+    }
+
+    #[test]
+    fn a_ratchet_step_that_still_shrinks_the_successor_set_is_not_yet_a_fixpoint() {
+        let c = capsule(&["c1", "c2", "c3"]);
+        let after = ratchet(&c, &[CapsuleId("c1".into())], 1, 10).unwrap();
+        assert_ne!(after.allowed_next, c.allowed_next);
+        assert!(!is_capsule_fixpoint(&c, &after));
+        assert!(!is_capsule_resolved(&c, &after));
+    }
+
+    #[test]
+    fn budget_exhaustion_is_never_a_fixpoint_even_if_the_set_also_happened_to_stabilize() {
+        // Definition 22.2 (Kapselfixpunkt), letzter Satz: beide Ausgaenge bleiben getrennt -
+        // RESIDUAL gewinnt, selbst wenn allowed_next im selben Schritt
+        // zufaellig unveraendert geblieben waere.
+        let c = capsule(&["c1"]);
+        let after = ratchet(&c, &[CapsuleId("c1".into())], 10, 10).unwrap();
+        assert_eq!(after.allowed_next, c.allowed_next, "Vorbedingung des Tests");
+        assert_eq!(after.phase, Phase::Residual);
+        assert!(!is_capsule_fixpoint(&c, &after));
+        // RESIDUAL ist trotzdem einer der beiden zulaessigen Challenge-Ausgaenge.
+        assert!(is_capsule_resolved(&c, &after));
+    }
+
+    #[test]
     fn support_requires_all_five_paths() {
-        // Definition 11.11: "genau dann, wenn".
+        // Definition 11.11 (Perkolationssupport): "genau dann, wenn".
         let full = SupportPaths {
             gate: true,
             witness: true,
@@ -555,7 +761,7 @@ mod tests {
 
     #[test]
     fn closing_only_by_hiding_a_countermodel_is_not_adversarial_closure() {
-        // Invariante 12.14, PSK-E003.
+        // Invariante 12.17 (Nichttrivialität des Überlebens), PSK-E003.
         assert_eq!(
             check_adversarial_closure(true, false),
             Err(PskError::SurfaceInvariantCollapse)
@@ -565,15 +771,51 @@ mod tests {
 
     #[test]
     fn evidence_from_one_source_yields_rank_one() {
-        // Invariante 12.2.
-        assert_eq!(effective_rank_of(&[evidence("qc-0")]), 1);
+        // Invariante 12.2 (Kein Selbstwitness): EINE Quelle, egal wie
+        // oft, ergibt Rang eins -
+        // und zwar einen GEMESSENEN.
+        assert_eq!(
+            effective_rank_of(&[evidence("qc-0")]),
+            EffectiveRank::Measured(1)
+        );
         assert_eq!(
             effective_rank_of(&[evidence("qc-0"), evidence("qc-0"), evidence("qc-0")]),
-            1
+            EffectiveRank::Measured(1)
         );
-        assert_eq!(effective_rank_of(&[evidence("qc-0"), evidence("qc-1")]), 2);
-        // Auch ohne jede Evidenz nie 0 - "erhaelt r_eff = 1".
-        assert_eq!(effective_rank_of(&[]), 1);
+        assert_eq!(
+            effective_rank_of(&[evidence("qc-0"), evidence("qc-1")]),
+            EffectiveRank::Measured(2)
+        );
+    }
+
+    /// Regel 7.52 (Ein Bodenwert ist keine Messung), der Fall, der die
+    /// Regel ausgeloest hat.
+    ///
+    /// ERWARTUNG, vor der Messung ausgesprochen: eine leere Evidenzmenge
+    /// ergibt KEINEN Rang - nicht eins. Und die gemessene Eins aus einer
+    /// Quelle ist von ihr unterscheidbar, obwohl beide frueher `1`
+    /// hiessen. Der zweite Teil traegt den Test: waeren sie gleich,
+    /// haette der Umbau nur den Typ gewechselt und nichts getrennt.
+    #[test]
+    fn an_empty_evidence_set_yields_no_rank_not_a_floor_of_one() {
+        let leer = effective_rank_of(&[]);
+        assert_eq!(leer, EffectiveRank::Unmeasured);
+        assert!(!leer.is_measured());
+        assert_eq!(leer.measured(), None, "es gibt keinen Rang, auch keinen 1");
+
+        let eine_quelle = effective_rank_of(&[evidence("qc-0")]);
+        assert_ne!(
+            leer, eine_quelle,
+            "der Bodenwert und die gemessene Eins muessen unterscheidbar sein"
+        );
+        assert_eq!(eine_quelle.measured(), Some(1));
+
+        // Und die Kennzeichnung im Bericht trennt sie ebenfalls -
+        // "ein Bericht, der den Bodenwert neben gemessenen Werten
+        // fuehrt, ohne ihn zu kennzeichnen, behauptet eine Messung, die
+        // nicht stattfand".
+        assert_eq!(leer.label(), "nicht gemessen (keine Evidenz)");
+        assert_eq!(eine_quelle.label(), "1 (gemessen)");
     }
 
     #[test]
@@ -614,7 +856,7 @@ mod tests {
 
     #[test]
     fn residue_flow_follows_the_declared_order() {
-        // Definition 12.8: RESIDUE -> Quarantine.
+        // Definition 12.8 (Residuenfluss): RESIDUE -> Quarantine.
         assert_eq!(residue_flow_next(Phase::Residual), Some(Phase::Quarantined));
         // Recanonicalization ist eine neue Kapsel, kein Phasenschritt.
         assert_eq!(residue_flow_next(Phase::Quarantined), None);
@@ -623,7 +865,7 @@ mod tests {
 
     #[test]
     fn hardening_outside_the_six_classes_is_rejected() {
-        // Regel 12.11 / Invariante 12.12.
+        // Regel 12.11 (Zulässige Selbstverhärtung) / Invariante 12.15.
         assert_eq!(HardeningClass::ALL.len(), 6);
         assert_eq!(
             check_hardening_permitted(None, true),
@@ -642,7 +884,7 @@ mod tests {
 
     #[test]
     fn a_sealed_capsule_may_not_be_closed() {
-        // Invariante 7.22 (Keine vorzeitige Oeffnung).
+        // Invariante 7.24 (Keine vorzeitige Oeffnung).
         let premature = CandidateCapsule {
             status: Status::Closed,
             ..capsule(&["c1"])
@@ -660,10 +902,88 @@ mod tests {
         assert_eq!(check_closure_state(&done), Ok(()));
     }
 
+    fn base_inputs(offered: Option<OfferedCandidate>) -> CapsuleInputs {
+        CapsuleInputs {
+            surface: SurfaceDescriptor("behauptete Rolle".into()),
+            replay: ReplayDescriptor("replay/1".into()),
+            boundary: ScopeExpr("lokal".into()),
+            trace_ref: TraceRef(Digest::sha256(b"trace")),
+            coupling: vec![],
+            offered,
+        }
+    }
+
     #[test]
     fn capsulation_is_deterministic() {
-        let a = capsulate(&[projection("p1")], inputs(&["c1"])).unwrap();
-        let b = capsulate(&[projection("p1")], inputs(&["c1"])).unwrap();
+        let reqs = vec![requirement("R1", "artifact-a", "q1")];
+        let offered = Some(OfferedCandidate {
+            id: CapsuleId("c1".into()),
+            artifact: "artifact-a".into(),
+        });
+        let a = capsulate(&[projection("p1")], &reqs, base_inputs(offered.clone())).unwrap();
+        let b = capsulate(&[projection("p1")], &reqs, base_inputs(offered)).unwrap();
         assert_eq!(a.id, b.id);
+    }
+
+    /// Regel 7.29 (Eine Kapsel ist Funktion ihrer Klasse), der Nachweis, den die Regel verlangt:
+    /// nicht dass zwei Klassen im Referenzlauf verschieden ausfallen -
+    /// das ist danach eine Messung -, sondern dass verschiedene
+    /// Klasseninhalte verschiedene Kapseln ergeben KOENNEN. Zwei Klassen
+    /// mit verschiedenen Quellen, dasselbe Angebot: nur die Klasse, deren
+    /// Quelle eine Anforderung zum angebotenen Artefakt traegt, nimmt es
+    /// in `allowed_next` auf.
+    #[test]
+    fn allowed_next_can_differ_when_class_sources_differ() {
+        let reqs = vec![requirement("R1", "artifact-a", "source-a")];
+        let offered = Some(OfferedCandidate {
+            id: CapsuleId("candidate-1".into()),
+            artifact: "artifact-a".into(),
+        });
+        let class_a = [projection_with_source("p1", "source-a")];
+        let class_b = [projection_with_source("p2", "source-b")];
+
+        let capsule_a = capsulate(&class_a, &reqs, base_inputs(offered.clone())).unwrap();
+        let capsule_b = capsulate(&class_b, &reqs, base_inputs(offered)).unwrap();
+
+        assert_eq!(
+            capsule_a.allowed_next,
+            vec![CapsuleId("candidate-1".into())],
+            "Klasse A traegt die Quelle des Angebots - es kommt in ihre Nachfolgemenge"
+        );
+        assert!(
+            capsule_b.allowed_next.is_empty(),
+            "Klasse B traegt sie nicht - das Angebot bleibt draussen, kein stiller Ersatz"
+        );
+        assert_ne!(
+            capsule_a.id, capsule_b.id,
+            "verschiedene allowed_next -> verschiedene Kapseln, nicht nur verschiedene witnesses"
+        );
+    }
+
+    /// Die Kehrseite, ausdruecklich getestet: konvergieren zwei Klassen,
+    /// weil BEIDE die Quelle tragen, ist das ein Messwert - konvergieren
+    /// sie, weil `capsulate` die Klasse gar nicht liest, waere ein Defekt.
+    /// Dieser Test unterscheidet die beiden Faelle: source_provenance mit
+    /// ZWEI Quellen traegt beide Anforderungen, also kommt das Angebot
+    /// bei beiden Klassen an, und das ist hier die geprueft e, gewollte
+    /// Konvergenz.
+    #[test]
+    fn convergence_when_both_classes_share_the_offered_source_is_not_a_defect() {
+        let reqs = vec![requirement("R1", "artifact-a", "source-a")];
+        let offered = Some(OfferedCandidate {
+            id: CapsuleId("candidate-1".into()),
+            artifact: "artifact-a".into(),
+        });
+        let class_a = [projection_with_source("p1", "source-a")];
+        let class_b = [projection_with_source("p2", "source-a")];
+
+        let capsule_a = capsulate(&class_a, &reqs, base_inputs(offered.clone())).unwrap();
+        let capsule_b = capsulate(&class_b, &reqs, base_inputs(offered)).unwrap();
+
+        assert_eq!(capsule_a.allowed_next, capsule_b.allowed_next);
+        assert_eq!(
+            capsule_a.allowed_next,
+            vec![CapsuleId("candidate-1".into())]
+        );
     }
 }

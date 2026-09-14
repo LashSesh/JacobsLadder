@@ -66,7 +66,7 @@ impl GainPerCost {
     /// `scale > TARGET_SCALE` schneidet Nachkommastellen ab (nicht
     /// runden) - dieselbe Behandlung, die zuvor `parse_decimal_string` auf
     /// Zeichenketten mit mehr als neun Nachkommastellen anwandte.
-    /// `scale < 0` ist ein Formatverstoss (Struktur 7.25: "scale >= 0").
+    /// `scale < 0` ist ein Formatverstoss (Struktur 7.27: "scale >= 0").
     fn normalize_scaled(value: &Scaled) -> Option<i128> {
         if value.scale < 0 {
             return None;

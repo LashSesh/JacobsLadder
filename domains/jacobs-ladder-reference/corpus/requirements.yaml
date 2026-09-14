@@ -1,0 +1,78 @@
+# Das Anforderungskorpus der Referenzdomaene - seit v1.0.45 ein MANIFEST
+# ueber mehrere Quellen statt einer einzelnen Anforderungsliste.
+#
+# ## Warum die Datei ihre Form gewechselt hat
+#
+# Regel 32.6 (Referenzauftrag) verlangt "eine versiegelte Menge von
+# Spezifikations- und Quelltextdateien" und laesst die Maschine
+# "widersprueckliche Anforderungen identifizieren" und "gemeinsame
+# Quellen quotientieren". Solange alle Anforderungen in EINER Datei
+# standen, war das Quotientieren gegenstandslos: sechs Sichten auf ein
+# Dokument sind eine Quelle, und der Abhaengigkeitsquotient rechnete
+# korrekt Rang eins. Gerechnet, nicht gefallen - aber eben ueber einem
+# Gegenstand ohne Uneinigkeit.
+#
+# Jetzt stehen drei Dokumente VERSCHIEDENER HERKUNFT nebeneinander. Das
+# ist der Unterschied zwischen mehreren Sichten auf eine Quelle und
+# mehreren Quellen: erst hier kann RankEff ueberhaupt ueber eins
+# steigen, und erst hier hat der Falsifikator etwas zu suchen.
+#
+# ## Praezedenz ist QUELLENRELATIV
+#
+# Innerhalb eines Dokuments ist `precedence` die erklaerte Rangfolge
+# seines Autors und entscheidet. ZWISCHEN unabhaengigen Dokumenten
+# entscheidet sie nichts: die Zahl 2 in der Spezifikation und die Zahl 2
+# in der Betriebsaufzeichnung stammen von verschiedenen Verfassern und
+# sind nicht vergleichbar. Sie doch zu vergleichen waere derselbe Fehler
+# wie korrelierte Sichten als unabhaengig zu zaehlen, nur eine Ebene
+# hoeher - eine erfundene Ordnung ueber Dingen, die keine gemeinsame
+# haben.
+#
+# Deshalb kennt `Geltung` seit v1.0.45 drei Faelle statt zwei, und der
+# dritte ist der quellenuebergreifende.
+schema: psk.domain-requirements/2.0
+domain: jacobs-ladder-reference
+
+precedence_rule: >-
+  Innerhalb EINER Quelle: hoehere precedence schlaegt niedrigere; bei
+  Gleichstand entscheidet die Rangfolge nicht. ZWISCHEN Quellen ist
+  precedence nicht vergleichbar und entscheidet nie - dort ist ein
+  Aussenrecord die einzige Aufloesung.
+
+# Die Quellen, je mit ihrer Herkunft. `id` ist der SourceRef, unter dem
+# der Abhaengigkeitsquotient sie fuehrt.
+sources:
+  - id: spec
+    origin: Spezifikationsdokument
+    path: sources/spec.yaml
+  - id: inline-contract
+    origin: Quelltextbaum
+    path: sources/inline-contract.yaml
+  - id: release-note
+    origin: Betriebsaufzeichnung
+    path: sources/release-note.yaml
+
+# Welcher Archetyp der Feldfamilie (Regel 32.7) aus welcher Quelle liest.
+#
+# Die Schluessel sind die REGISTERWERTE aus architecture/sort_registry.yaml
+# (ArchetypeId), nicht die deutschen Rollennamen: die Menge ist dort
+# geschlossen, und ein Schluessel daneben faellt auf, statt still ins
+# Leere zu greifen.
+#
+# DOMAENENGELIEFERT, wie LensSpec und GateSet: welche Rolle welches
+# Dokument befragt, ist eine Aussage ueber diese Domaene und keine ueber
+# die Architektur. Der Kern liest die Zuordnung, er waehlt sie nicht.
+#
+# Die Zuordnung ist nicht gleichverteilt, und das ist Absicht: der
+# Auditor prueft den Vertrag, also liest er den Quelltextbaum UND die
+# Spezifikation - er ist die Rolle, die den Widerspruch sieht. Ein
+# Archetyp, der zwei Quellen liest, faellt im Quotienten mit beiden
+# zusammen; genau daran zeigt sich, dass der Quotient TRANSITIV arbeitet
+# und nicht bloss verschiedene Etiketten zaehlt.
+archetype_sources:
+  explorer: [spec]
+  historian: [inline-contract]
+  falsifier: [release-note]
+  constructor: [spec]
+  auditor: [spec, inline-contract]
+  integrator: [release-note]

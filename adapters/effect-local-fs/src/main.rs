@@ -26,7 +26,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    let adapter = LocalFsAdapter { sandbox_root };
+    let mut adapter = LocalFsAdapter { sandbox_root };
 
     let mut input = stdin().lock();
     let mut output = stdout().lock();
@@ -41,7 +41,7 @@ fn main() -> ExitCode {
             }
         };
 
-        let response = psk_effect::serve_request(&adapter, &request);
+        let response = psk_effect::serve_request(&mut adapter, &request);
 
         if let Err(e) = psk_ipc::write_frame(&mut output, &response) {
             eprintln!("effect-local-fs: Rahmenfehler beim Schreiben: {e}");

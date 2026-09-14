@@ -1,0 +1,44 @@
+# Quelle: PSK_QPM_NRAII_Referenzarchitektur_v1.0.13.pdf, Listing D.1
+# (Kapitel D "Nahtregister"). Woertlich uebernommen; Inhalt seit v1.0.3
+# unveraendert - gegen v1.0.13 nachgeprueft.
+#
+# Seit v1.0.13 liegt diese Datei in einem EIGENEN Verzeichnis mit einem
+# eigenen Lock (I_SEAM). Vorher lag sie in qpm-nraii-architecture/ und
+# fiel damit unter I_QPM. QPM Regel 0.2 (Zwei eigene Locks, kein gemeinsamer)
+# nennt den Grund: "Laege sie bei einer der beiden Seiten, bewegte eine
+# Aenderung am Kopplungsvertrag deren Identitaet, obwohl sich das
+# gekoppelte System nicht geaendert hat - wer zwei Instanzen vergliche,
+# saehe einen Unterschied, wo keiner ist."
+#
+# Die beiden Nahtports stehen NICHT in architecture/port_registry.yaml:
+# Invariante 4.5 (Portabschluss) schliesst die PSK-RA-Portmenge bei
+# P00-P41 ab, "jede modulueberschreitende Kommunikation, die keinem Port
+# aus dieser Menge entspricht", ist ein Architekturdefekt. P-NQ-1 und
+# P-NQ-2 verbinden aber nicht zwei PSK-RA-Module, sondern zwei
+# eigenstaendige Maschinen (NRAII.L9 und QPM.M19/M27) - sie stehen
+# deshalb in diesem eigenen Register, wie das Werk sie fuehrt.
+#
+# Feldform gegen PSK-RA nachgeschlagen: `kind: request` und `sync: true`
+# gibt es dort woertlich (P28, P33), `readonly: true` ebenfalls (P38).
+# `sync: false` und `direction: read_only` sind QPM-Schreibweisen ohne
+# PSK-RA-Gegenstueck; sie widersprechen nichts, benennen aber explizit,
+# was PSK-RA durch Weglassen ausdrueckt.
+
+schema: psk.qpm-nraii.seam-registry/1.0
+ports:
+  - {id: P-NQ-1, from: "NRAII.L9", to: "QPM.M19", payload: StateEventAppend,
+     kind: request, sync: true, direction: write_to_qpm_trace_only}
+  - {id: P-NQ-2, from: "QPM.M27", to: "NRAII.L9", payload: ObservationAtlas,
+     kind: request, sync: false, direction: read_only, forbidden: [write_to_nraii_state]}
+objects: [NRAIIQPMSeam, C444JointRecord]
+conformance:
+  SEAM-0: "Portbindung typisiert, keine Schreibkante QPM->NRAII"
+  SEAM-1: "NRAIIQPMSeam real konstruierbar, Residuum bei Nichteinrasten"
+  SEAM-2: "kappa_NQ ueber mindestens ein Fenster reproduzierbar"
+  SEAM-3: "C444 real ausgewertet, alle drei Vierfachschloesser einzeln"
+  SEAM-4: "C444JointRecord kanonisch reproduzierbar, PSK-RA Replayklasse R2"
+prerequisite: "SEAM-* setzt QPM>=QPM-8 UND NRAII>=NRAII-7 voraus"
+negative_tests:
+  [seam-witness-without-both-4pi, kappa-from-single-side,
+   joint-record-without-seam-refs, p-nq-2-write-attempt,
+   shared-identity-in-certificate]

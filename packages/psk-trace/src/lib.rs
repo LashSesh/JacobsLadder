@@ -3,10 +3,10 @@
 //! Regel 32.1). Ausimplementierung folgt in der Phase, die das jeweilige
 //! Modul realisiert (Regel 32.2).
 //!
-//! WP04 (I5): `trace` (TraceSegment, Struktur 7.38 - hashverkettetes,
+//! WP04 (I5): `trace` (TraceSegment, Struktur 7.41 (TraceSegment) - hashverkettetes,
 //! ausschliesslich anhaengendes Log, Invariante 4.8), `residue`
-//! (ResidueRecord, Struktur 7.40 - Axiom 7.41 No Silent Loss), `run`
-//! (RunDescriptor Struktur 7.42, ReplayManifest Struktur 22.5 - C11 wird
+//! (ResidueRecord, Struktur 7.44 (ResidueRecord) - Axiom 7.45 (No Silent Loss) No Silent Loss), `run`
+//! (RunDescriptor Struktur 7.46 (RunDescriptor), ReplayManifest Struktur 22.8 (ReplayManifest) - C11 wird
 //! hier real). Pass C11 (TraceReplayEmission, Vertrag 11.18) besteht aus
 //! genau diesen drei Teilen: RunDescriptor, ReplayManifest und der
 //! vollstaendige IRBundle-Digest (letzterer entsteht erst mit einem
@@ -15,7 +15,10 @@
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
 mod trace;
-pub use trace::{verify_chain, SegmentInputs, TraceSegment, TraceStore, GENESIS_DIGEST};
+pub use trace::{
+    verify_chain, verify_chain_detailed, ChainViolation, SegmentInputs, TraceSegment, TraceStore,
+    GENESIS_DIGEST,
+};
 
 mod residue;
 pub use residue::{
@@ -29,3 +32,6 @@ pub use run::{
     DivergenceRecord, ExternalRecordRef, ReplayCheck, ReplayClass, ReplayManifest, RunDescriptor,
     RunInputs,
 };
+
+mod tick;
+pub use tick::{close_tick, open_tick, seal_phase, TickHandle};

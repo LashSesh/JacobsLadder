@@ -8,5 +8,11 @@ publish = false
 [dependencies]
 psk-types = { path = "../../packages/psk-types" }
 psk-canon = { path = "../../packages/psk-canon" }
+# Die Zweitschicht-Dateilisten und Feldnamen stehen dort und werden hier
+# BEZOGEN, nicht abgeschrieben: ein Schreiber, der eine andere Liste
+# fuehrt als der Pruefer, siegelt an der Pruefung vorbei. Bei
+# architecture/* ist genau diese Duplikation noch vorhanden und im
+# Modulkopf als solche vermerkt.
+verify-architecture = { path = "../verify-architecture" }
 serde = { workspace = true }
 serde_json = "1"

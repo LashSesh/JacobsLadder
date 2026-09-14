@@ -3,7 +3,7 @@
 //! Regel 32.1). Ausimplementierung folgt in der Phase, die das jeweilige
 //! Modul realisiert (Regel 32.2).
 //!
-//! WP05: `observe` liest die erste Referenzdomaene (Regel 32.4, lokaler
+//! WP05: `observe` liest die erste Referenzdomaene (Regel 32.5, lokaler
 //! Projektordner, read-only) real vom Dateisystem.
 //!
 //! P24a (Prozesstopologie-Realisierung): `main.rs` macht dieses Crate zu
@@ -15,4 +15,4 @@
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
 
 mod observe;
-pub use observe::{observe, ObserveError, ObserverConfig};
+pub use observe::{observe, observe_history, ObserveError, ObserverConfig};

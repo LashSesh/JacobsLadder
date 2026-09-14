@@ -1,4 +1,4 @@
-//! Regel 24.4 (Pflichtbaselines): der Kern wird gegen mindestens zwei
+//! Regel 24.5 (Pflichtbaselines): der Kern wird gegen mindestens zwei
 //! Baselines verglichen. Regel 32.6 (Referenzauftrag) beschreibt die
 //! Aufgabe fuer alle drei Systeme identisch: eine versiegelte Menge von
 //! Spezifikations-/Quelltextdateien erhalten, widerspruechliche
@@ -8,8 +8,8 @@
 //! Patch anwenden, den tatsaechlichen Dateibaum mit dem Plan vergleichen.
 //!
 //! Der Kern-Lauf dafuer ist bereits `run_golden_run`/
-//! `run_golden_run_with_certificate` (`golden_run.rs`) - Regel 32.6s
-//! Schrittfolge deckt sich mit Regel 24.3s 13 Golden-Run-Schritten
+//! `run_golden_run_with_certificate` (`golden_run.rs`) - Regel 32.6 (Referenzauftrag)s
+//! Schrittfolge deckt sich mit Regel 24.3 (Golden-Run-Ablauf)s 13 Golden-Run-Schritten
 //! (Anker, ThoughtBody, Feldfamilie, Dependency, Glue, Gate, Token,
 //! Effekt, Beobachtung, Reconciliation), und die sechs Feldrollen aus
 //! Regel 32.7 (Explorer/Historiker/Falsifikator/Konstrukteur/Auditor/

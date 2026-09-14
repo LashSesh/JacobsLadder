@@ -6,7 +6,7 @@
 //! ist nicht konform, erzeugt T-SEC-001-Fehlschlag.' API-Form ist damit
 //! nicht ausreichend, kein offener Punkt."
 //!
-//! `GateReport` (Struktur 7.30) hat ausschliesslich `pub`-Felder - wie
+//! `GateReport` (Struktur 7.33 (GateReport)) hat ausschliesslich `pub`-Felder - wie
 //! jedes generierte Kapitel-7-Objekt in diesem Werk. Das heisst: JEDER
 //! Code, der `psk_types::objects::GateReport` importiert, kann per
 //! Struct-Literal einen GateReport mit `decision: PASS` BEHAUPTEN, ohne
@@ -42,7 +42,7 @@ use psk_types::{ObjectId, PskError};
 /// diesen Typ nicht per Struct-Literal fabrizieren. Das MUSS ein
 /// Kompilierfehler sein, keine Laufzeitpruefung:
 ///
-/// ```compile_fail
+/// ```compile_fail,E0639
 /// let forged = psk_gate::GateAuthorization {
 ///     gate_report_id: todo!(),
 ///     gate_id: todo!(),
@@ -68,7 +68,7 @@ use psk_types::{ObjectId, PskError};
 /// `#[derive(Deserialize)]` ergaenzt), schlaegt der naechste Testlauf
 /// fehl, weil DANN kompiliert, was hier NICHT kompilieren soll:
 ///
-/// ```compile_fail
+/// ```compile_fail,E0277
 /// fn require_deserialize<T: serde::de::DeserializeOwned>() {}
 /// require_deserialize::<psk_gate::GateAuthorization>();
 /// ```

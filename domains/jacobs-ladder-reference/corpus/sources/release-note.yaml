@@ -1,0 +1,32 @@
+# Quelle 3 von 3: die Betriebsaufzeichnung.
+#
+# Herkunft: der Freigabebetrieb. Diese Quelle weiss, was ausserhalb der
+# Sandbox steht, und sie fuehrt eine eigene Rangskala mit ganz anderen
+# Zahlen als die Spezifikation - genau deshalb sind die beiden nicht
+# vergleichbar.
+#
+# ## Warum hier ein HOEHERER Rang steht als in der Spezifikation
+#
+# Absichtlich: `precedence: 5` gegen die 2 der Spezifikation. Waere
+# Praezedenz quellenuebergreifend vergleichbar, gewaenne diese Quelle -
+# und das waere falsch, denn ein Betriebsvermerk ist keine Spezifikation.
+# Die Zahl ist der Negativtest fuer die Quellenrelativitaet: sie ist
+# hoeher UND entscheidet trotzdem nichts.
+source: release-note
+origin: Betriebsaufzeichnung
+
+requirements:
+  # Widerspruch gegen SPEC-PATCH-001 und SPEC-PATCH-002, ueber Quellen
+  # hinweg - mit HOEHEREM Rang als die Spezifikation.
+  - id: OPS-PATCH-001
+    severity: MUST
+    artifact: golden-run-patch.txt
+    precedence: 5
+    statement: "Die Sandboxdatei golden-run-patch.txt enthaelt genau 'hello golden run rc1'."
+
+  # Widerspruch gegen CODE-SCOPE-001, ueber Quellen hinweg.
+  - id: OPS-MIRROR-001
+    severity: MUST
+    artifact: golden-run-patch.txt
+    precedence: 1
+    statement: "Der Patch MUSS den ausserhalb der Sandbox gefuehrten Freigabestand spiegeln."

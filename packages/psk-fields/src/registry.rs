@@ -1,10 +1,10 @@
-//! M08 FieldRegistry: konstruiert FieldIdentity-Objekte (Struktur 7.12,
+//! M08 FieldRegistry: konstruiert FieldIdentity-Objekte (Struktur 7.14 (FieldIdentity),
 //! OBJ-FLD) und fuehrt sie durch FSM-FIELD (Automat 13.x,
 //! `psk_types::automata::field`).
 //!
 //! Regel 32.7 (Feldfamilie der Referenzdomaene): "Genau sechs statische
 //! Feldidentitaeten." Das geschlossene `ArchetypeId`-Register (Struktur
-//! 7.12s Kommentar, sechs Werte) haelt diese Menge geschlossen - vor dieser
+//! 7.14s Kommentar, sechs Werte) haelt diese Menge geschlossen - vor dieser
 //! Korrektur generierte object_schemas.yaml `archetype` als freie
 //! Zeichenkette (derselbe Fehlerklasse wie RealityStatus/FactStatus vor
 //! WP06, siehe architecture/sort_registry.yaml#ArchetypeId).
@@ -31,8 +31,13 @@ use psk_types::{Digest, ObjectId, PskError};
 /// Eingaben fuer eine FieldIdentity-Konstruktion. `id`, `lifecycle` und
 /// `marginal_gain` fehlen hier absichtlich: FSM-FIELD legt den
 /// Anfangszustand fest (PROPOSED, `field_fsm::INITIAL`), und Delta-G ist
-/// "zuletzt gemessener Wert" (Struktur 7.12) - vor der ersten Messung gibt
+/// "zuletzt gemessener Wert" (Struktur 7.14 (FieldIdentity)) - vor der ersten Messung gibt
 /// es keinen.
+///
+/// `Clone`/`Serialize`: die deklarierte Feldfamilie eines Laufs (Regel
+/// 32.7) liegt seit der Taktumverdrahtung als Wert im Laufzustand Sigma
+/// (die Project-Phase liest sie von dort) und geht damit in I_t ein.
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct FieldRegistrationInputs {
     pub domain: DomainExpr,
     pub lens: LensSpec,
@@ -46,11 +51,21 @@ pub struct FieldRegistrationInputs {
     pub dependency_profile_ref: ObjectId,
     pub budget: BudgetSpec,
     pub rollback: RollbackSpec,
+    /// Die aktuelle Systemidentitaet (I_t), gegen die I-FIELD-001
+    /// prueft - siehe `register_field`.
+    ///
+    /// Deklarierter Parameter, kein Selbstermitteln: M08 kann die
+    /// Systemidentitaet nicht kennen, sie gehoert M04. Dasselbe Muster
+    /// wie `has_independent_evidence` in M24, nachdem dort die
+    /// Cargo-Abhaengigkeit auf psk-witness entfiel - kein neuer Port,
+    /// keine neue Kante, der Aufrufer entscheidet die Frage, die er
+    /// beantworten kann.
+    pub system_identity: Digest,
 }
 
 /// Baut das JSON-Vorbild ohne die selbstreferenzielle `id` und bildet
-/// daraus Objekt-ID (Definition 6.6, ueber pi_vol) und record_digest
-/// (Definition 6.7). Gleiches Muster wie ThoughtBody (psk-thought) und
+/// daraus Objekt-ID (Definition 6.6 (Objekt-ID), ueber pi_vol) und record_digest
+/// (Definition 6.7 (Recorddigest)). Gleiches Muster wie ThoughtBody (psk-thought) und
 /// AnchorSnapshot (psk-anchor).
 fn compute_identity(draft: &FieldIdentity) -> Result<(ObjectId, Digest), PskError> {
     let mut value = serde_json::to_value(draft).map_err(|_| PskError::CanonicalizationFailed)?;
@@ -70,6 +85,27 @@ fn compute_identity(draft: &FieldIdentity) -> Result<(ObjectId, Digest), PskErro
 /// M08: registriert eine neue FieldIdentity fuer den gegebenen Archetyp.
 /// Lifecycle startet bei `field_fsm::INITIAL` (PROPOSED); `marginal_gain`
 /// startet bei "0" (noch keine Messung).
+/// I-FIELD-001 (`no_field_identity_equals_system_identity`,
+/// severity: blocking) / R-FIELD-001 ("No field identity is treated as
+/// the system identity") - T-FIELD-001s Mutation heisst
+/// `set_system_identity_to_field_id`.
+///
+/// Geprueft wird an BEIDEN Schreibstellen, weil die Zeitachse beide
+/// Richtungen offen laesst: bei `M04.bind()` koennen bereits Felder
+/// existieren, nach `bind()` kommen neue hinzu. Hier die zweite Haelfte -
+/// eine NEUE Feldidentitaet darf nicht gleich der aktuellen
+/// Systemidentitaet sein; die erste liegt in
+/// `psk_contract::identity_binder::bind`.
+///
+/// Bewusst NICHT in Sigma geprueft: das waere Feststellung nach Eintritt.
+/// Die Invariante sagt "ist nicht identisch" - ein Zustand, der gar nicht
+/// entstehen darf, nicht einer, den man hinterher bemerkt.
+///
+/// Verglichen wird der Digestanteil: `FieldIdentity.id` ist eine
+/// `ObjectId` (`psk:S-FLD:<digest>`), die Systemidentitaet ein blosser
+/// `Digest`. Gleichheit heisst hier: derselbe Digest - die Sortenhuelle
+/// wuerde einen Vergleich sonst immer scheitern lassen und die Pruefung
+/// wirkungslos machen.
 pub fn register_field(
     archetype: ArchetypeId,
     inputs: FieldRegistrationInputs,
@@ -99,6 +135,9 @@ pub fn register_field(
     };
 
     let (id, _record) = compute_identity(&draft)?;
+    if id.digest == inputs.system_identity {
+        return Err(PskError::SelfAmendmentWithoutIdentity);
+    }
     Ok(FieldIdentity { id, ..draft })
 }
 
@@ -111,7 +150,7 @@ pub fn register_field(
 ///   v1.0.8 - das Vorzeichen liegt vollstaendig im numerator, da
 ///   10^scale > 0 fuer scale >= 0 immer gilt; keine Gleitkommapruefung
 ///   mehr noetig).
-/// - `scope_declared`: Struktur 7.12 fuehrt kein Feld namens `scope` -
+/// - `scope_declared`: Struktur 7.14 (FieldIdentity) fuehrt kein Feld namens `scope` -
 ///   gelesen als `domain` (D_lambda), das einzige Feld, das den
 ///   Wirkungsbereich eines Feldes beschreibt.
 /// - `dependency_profile`: `dependency_profile_ref` ist nicht optional,
@@ -148,7 +187,7 @@ pub fn check_activation_requirements(
     }
 }
 
-/// Regel 32.7, wortgetreue Rollenbeschreibung je Archetyp - nuetzlich fuer
+/// Regel 32.7 (Feldfamilie der Referenzdomäne), wortgetreue Rollenbeschreibung je Archetyp - nuetzlich fuer
 /// Diagnose/Tooling, nicht Teil einer Struktur.
 pub const fn archetype_role(archetype: ArchetypeId) -> &'static str {
     match archetype {
@@ -189,7 +228,7 @@ fn lifecycle_to_state(l: FieldIdentityLifecycleKind) -> field_fsm::State {
 
 /// Ergebnis eines Lebenszyklusschritts. Da `lifecycle` Teil von Can() ist
 /// (volatile_fields.yaml schliesst es nicht aus), aendert jeder Uebergang
-/// die Objekt-ID (Definition 6.6) - `Allowed` traegt deshalb ein
+/// die Objekt-ID (Definition 6.6 (Objekt-ID)) - `Allowed` traegt deshalb ein
 /// vollstaendig neues Objekt, keine Mutation. Die Verkettung zum
 /// Vorgaenger ist Sache von `lineage` (Lin_lambda), nicht der ID.
 #[derive(Debug, Clone, PartialEq)]
@@ -206,8 +245,7 @@ pub enum LifecycleStep {
 /// (nach bestandenem G-MORPH/G-EXCISION, siehe `morphogenesis`-Modul)
 /// braucht. Oeffentlich fuer M20: M20 wertet das Gate selbst aus
 /// (`psk_gate::evaluate_gate`, Gate-Owner laut gate_registry.yaml), aber
-/// nur M08 (dieses Modul) konstruiert FieldIdentity-Objekte - Vertrag 3.4
-/// (Ownership-Exklusivitaet).
+/// nur M08 (dieses Modul) konstruiert FieldIdentity-Objekte - Vertrag 3.4 (Ownership-Exklusivität).
 pub fn complete_transition(
     field: &FieldIdentity,
     to: FieldIdentityLifecycleKind,
@@ -264,7 +302,34 @@ mod tests {
             dependency_profile_ref: ObjectId::new(SortId::Dependency, Digest::sha256(b"dep")),
             budget: BudgetSpec("10 Einheiten".into()),
             rollback: RollbackSpec("Snapshot vorher".into()),
+            system_identity: Digest::sha256(b"system-identity-not-a-field"),
         }
+    }
+
+    /// I-FIELD-001, zweite Schreibstelle (M08). Der Einzelfall ist
+    /// gepruft; der Mengenfall NICHT - siehe conformance_catalog.rs.
+    #[test]
+    fn t_field_001_a_field_whose_id_equals_the_system_identity_is_refused() {
+        // Die Feld-ID folgt aus dem Inhalt, ist also nicht frei setzbar.
+        // Der Test dreht das um: er registriert einmal regulaer, nimmt die
+        // entstandene ID als Systemidentitaet und registriert DASSELBE
+        // Feld erneut - dann sind beide per Konstruktion gleich.
+        let first = register_field(ArchetypeId::Explorer, sample_inputs()).unwrap();
+
+        let mut colliding = sample_inputs();
+        colliding.system_identity = first.id.digest;
+        assert_eq!(
+            register_field(ArchetypeId::Explorer, colliding),
+            Err(PskError::SelfAmendmentWithoutIdentity),
+            "I-FIELD-001: keine Feldidentitaet DARF gleich der Systemidentitaet sein"
+        );
+    }
+
+    #[test]
+    fn an_ordinary_system_identity_does_not_block_registration() {
+        // Gegenprobe: ohne sie waere der Test oben auch gruen, wenn
+        // register_field grundsaetzlich abwiese.
+        assert!(register_field(ArchetypeId::Explorer, sample_inputs()).is_ok());
     }
 
     #[test]
@@ -278,7 +343,7 @@ mod tests {
 
     #[test]
     fn all_six_archetypes_are_registrable_and_distinct_ids() {
-        // Regel 32.7: "Genau sechs statische Feldidentitaeten."
+        // Regel 32.7 (Feldfamilie der Referenzdomäne): "Genau sechs statische Feldidentitaeten."
         assert_eq!(ArchetypeId::ALL.len(), 6);
         let ids: Vec<_> = ArchetypeId::ALL
             .iter()

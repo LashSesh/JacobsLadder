@@ -1,4 +1,4 @@
-//! Regel 24.4 (Pflichtbaselines), Baseline (ii): "einen Agenten mit
+//! Regel 24.5 (Pflichtbaselines), Baseline (ii): "einen Agenten mit
 //! strukturierter Planung und Event Sourcing, aber ohne Realitaetsleiter,
 //! Abhaengigkeitsquotient und konstitutionelle Gates." Diese drei
 //! Abwesenheiten sind der Witz der Baseline (Auftrag des Nutzers,
@@ -29,7 +29,7 @@
 //! ohne die drei genannten konstitutionellen Eigenschaften".
 //!
 //! Wie bei `monolithic.rs`: "dasselbe Modell" ist ein typisierter
-//! Fixture-Kandidat, kein Live-Aufruf (Regel 27.8) - `plan_perspectives`
+//! Fixture-Kandidat, kein Live-Aufruf (Regel 27.8 (Rolle eines Sprachmodells)) - `plan_perspectives`
 //! liefert feste, deterministische Zeichenketten.
 
 use std::fs;

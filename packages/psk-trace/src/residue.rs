@@ -1,6 +1,6 @@
-//! M19 TraceReplayResidueStore, Residuenteil (Struktur 7.40, OBJ-RES).
+//! M19 TraceReplayResidueStore, Residuenteil (Struktur 7.44 (ResidueRecord), OBJ-RES).
 //!
-//! Axiom 7.41 (No Silent Loss), woertlich: "Jede Nichtclosure erzeugt
+//! Axiom 7.45 (No Silent Loss), woertlich: "Jede Nichtclosure erzeugt
 //! HOLD, FAIL, Quarantaene, Fork, Reanalyseauftrag oder ein sichtbares
 //! Residuum. Stilles Verwerfen ist nicht konform. Ein ResidueRecord DARF
 //! NICHT geloescht werden; er wird ausschliesslich in einen Folgezustand
@@ -71,8 +71,63 @@ fn compute_identity(draft: &ResidueInputs) -> Result<ObjectId, PskError> {
 }
 
 /// Das Residuenledger eines Laufs. Es gibt bewusst keine `remove`-Methode:
-/// Loeschung ist mit dieser API nicht ausdrueckbar (Axiom 7.41).
-#[derive(Debug, Clone, Default)]
+/// Loeschung ist mit dieser API nicht ausdrueckbar (Axiom 7.45 (No Silent Loss)).
+///
+/// T-TRACE-001 (`drop_previous_residue -> FAIL`): die Zusicherung IST die
+/// Abwesenheit der Methode, und die folgenden Doctests machen sie
+/// mechanisch pruefbar statt bloss kommentiert - dasselbe Beweismuster
+/// wie `GateAuthorization`s `compile_fail`-Doctests (psk-gate). Ein
+/// Laufzeittest kann das nicht leisten: man kann nicht aufrufen, was
+/// nicht existiert. Er wuerde nur zeigen, dass ein anderer Weg auch nicht
+/// loescht - nie, dass es KEINEN gibt.
+///
+/// Kein `remove`:
+/// ```compile_fail,E0599
+/// let mut ledger = psk_trace::ResidueLedger::new();
+/// let id = psk_types::ObjectId::new(
+///     psk_types::objects::SortId::Residue,
+///     psk_types::Digest::sha256(b"x"),
+/// );
+/// ledger.remove(id);
+/// ```
+///
+/// Kein `clear`:
+/// ```compile_fail,E0599
+/// let mut ledger = psk_trace::ResidueLedger::new();
+/// ledger.clear();
+/// ```
+///
+/// Und kein Schreibzugriff auf die Sammlung selbst - `residues` ist
+/// privat, `all()` gibt einen unveraenderlichen Ausschnitt:
+/// ```compile_fail,E0599
+/// let mut ledger = psk_trace::ResidueLedger::new();
+/// ledger.all().clear();
+/// ```
+///
+/// Positivkontrolle - ohne sie waeren die drei Doctests oben wertlos: ein
+/// `compile_fail` besteht auch, wenn der Aufbau aus einem GANZ ANDEREN
+/// Grund nicht uebersetzt (Tippfehler im Pfad, fehlender Import). Dieser
+/// Test zeigt, dass genau derselbe Aufbau uebersetzt und laeuft - was
+/// oben scheitert, scheitert also an der fehlenden Methode und an nichts
+/// sonst:
+/// ```
+/// let mut ledger = psk_trace::ResidueLedger::new();
+/// let id = psk_types::ObjectId::new(
+///     psk_types::objects::SortId::Residue,
+///     psk_types::Digest::sha256(b"x"),
+/// );
+/// assert!(ledger.get(id).is_none());
+/// assert!(ledger.all().is_empty());
+/// ```
+///
+/// `Serialize` (nicht `Deserialize`): das Ledger ist Teil von Sigma
+/// (Definition 13.1, Position `Rt`) und geht damit in `I_t =
+/// H(Can(Sigma_t))` ein - siehe `psk_scheduler::sigma_digest`. Die
+/// Gegenrichtung fehlt bewusst: ein Residuum entsteht ueber `open` und
+/// wandert ueber `transition`, nie durch Deserialisierung - sonst liesse
+/// sich Axiom 7.45 (No Silent Loss) durch das Einspielen eines
+/// gekuerzten Ledgers umgehen.
+#[derive(Debug, Clone, Default, serde::Serialize)]
 pub struct ResidueLedger {
     residues: Vec<ResidueRecord>,
 }
@@ -156,8 +211,20 @@ impl ResidueLedger {
     }
 }
 
-/// H(Can(ResidueRecord)) fuer Referenzen von aussen (z.B. `residue_ref` in
-/// ObstructionRecord, `residue_report_digest` in MachineCertificate).
+/// H(Can(ResidueRecord)) als Einzelsatz-Integritaetsdigest, z.B. fuer
+/// `residue_ref` in ObstructionRecord - dieselbe Rolle wie
+/// `segment_record_digest` (Regel 7.42 (Zwei Digests je Segment)): `can()` ohne pi_vol, `opened_at`
+/// samt Wanduhr geht ein.
+///
+/// NICHT fuer Zertifikatsfelder. Invariante 6.8 (Trennung von Inhalt und
+/// Aufzeichnung): "Kein Gate, kein Konsens, kein Konformanzurteil und
+/// keine Verklebung DARF den Recorddigest oder ein volatiles Feld
+/// auswerten." Ein MachineCertificate ist ein Konformanzurteil; sein
+/// `residue_report_digest` entsteht deshalb in
+/// `psk_conformance::aggregate_reports` ueber die projizierte
+/// Berichtsform, nicht hier. Eine unabhaengige Instanz, die denselben
+/// Lauf reproduziert, bekaeme mit DIESER Funktion einen abweichenden
+/// Wert - womit C5 strukturell unerreichbar waere.
 pub fn residue_digest(record: &ResidueRecord) -> Result<psk_types::Digest, PskError> {
     let bytes = serde_json::to_vec(record).map_err(|_| PskError::CanonicalizationFailed)?;
     Ok(can(&bytes, Media::Json)?.digest())
@@ -279,7 +346,7 @@ mod tests {
 
     #[test]
     fn there_is_no_way_to_remove_a_residue() {
-        // Axiom 7.41: strukturelle Abwesenheit einer Loeschmethode ist der
+        // Axiom 7.45 (No Silent Loss): strukturelle Abwesenheit einer Loeschmethode ist der
         // Test hier selbst - er kompiliert nur, weil `remove` nicht existiert.
         let mut ledger = ResidueLedger::new();
         ledger.open(inputs("s1")).unwrap();

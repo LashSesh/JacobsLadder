@@ -1,0 +1,8 @@
+[package]
+name = "verify-compile-fail"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]

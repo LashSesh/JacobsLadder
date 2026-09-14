@@ -1,6 +1,6 @@
 //! M18 ReconciliationEngine (Kapitel 20.2).
 //!
-//! Algorithmus 20.8 (Reconciliation), woertlich:
+//! Algorithmus 20.9 (Reconciliation), woertlich:
 //! ```text
 //! function reconcile(plan, attempt, receipts, anchor_post) -> ReconciliationReport:
 //!     require attempt.token_ref.plan_digest == H(Can(plan)) else FAIL(PSK-E008)
@@ -46,7 +46,7 @@
 //! Berichtskonstruktion, es gibt nichts zu berichten.
 //!
 //! Befund gegen die eigene v1.0.10-Implementierung (gefunden beim
-//! Nachpruefen von Invariante 7.34 auf Anfrage): "Beobachterunabhaengigkeit"
+//! Nachpruefen von Invariante 7.37 (Beobachtertrennung) auf Anfrage): "Beobachterunabhaengigkeit"
 //! ist im Text KEIN einzelner Vergleich, sondern zwei UND-verknuepfte:
 //! "ExternalReceipt.observer_adapter != EffectAttempt.adapter UND
 //! observer_identity != issuer_digest. Verletzung erzeugt PSK-E009." Die
@@ -64,7 +64,7 @@
 use psk_canon::{can, Media};
 use psk_trace::{ResidueInputs, ResidueLedger, ResidueRecordTypeKind};
 use psk_types::objects::{
-    DiffTree, EffectAttempt, ExternalReceipt, ReconciliationReport,
+    DiffTree, EffectAttempt, ExternalReceipt, FactStatus, RealityStatus, ReconciliationReport,
     ReconciliationReportFactPromotionKind as Promotion,
     ReconciliationReportFinalityKind as Finality, ReconciliationReportVerdictKind as Verdict,
     ScopeExpr,
@@ -95,22 +95,33 @@ pub struct ReconcileInputs {
     pub attempt: EffectAttempt,
     pub token_plan_digest: Digest,
     /// `EffectToken.issuer_digest` ("I_M von M15") des Tokens, unter dem
-    /// `attempt` lief - zweite Haelfte von Invariante 7.34, siehe Modulkopf.
+    /// `attempt` lief - zweite Haelfte von Invariante 7.37 (Beobachtertrennung), siehe Modulkopf.
     pub token_issuer_digest: Digest,
     pub receipts: Vec<ExternalReceipt>,
     pub anchor_ref: ObjectId,
     pub diff: DiffOutcome,
-    /// Struktur 7.35 fuehrt `finality` ohne Berechnungsvorschrift - der
+    /// Struktur 7.38 (ReconciliationReport) fuehrt `finality` ohne Berechnungsvorschrift - der
     /// Text setzt es nur als Ergebnisfeld, leitet es nirgends her (anders
-    /// als `promotion`, das Algorithmus 20.8 vollstaendig festlegt).
+    /// als `promotion`, das Algorithmus 20.9 vollstaendig festlegt).
     /// Befund: von aussen entgegengenommen, nicht erfunden.
     pub finality: Finality,
     /// "ActualizationWitness bei ACTUALIZED" - kein Kapitel-7-Objekt
-    /// dieses Namens registriert. Das Feld ist in Struktur 7.35 nicht
+    /// dieses Namens registriert. Das Feld ist in Struktur 7.38 (ReconciliationReport) nicht
     /// optional; ausserhalb von ACTUALIZED bleibt sein Inhalt hier dem
     /// Aufrufer ueberlassen.
     pub witness_ref: ObjectId,
     pub opened_at: DualTime,
+    /// Realitaetsstatus und Faktizitaet des Subjekts, dessen Promotion
+    /// hier entschieden wird (T-UNKNOWN-001, Vertrag 7.13). M18 kennt das
+    /// Subjekt nicht selbst - dieselbe Form wie `diff`/`finality`: vom
+    /// Aufrufer deklariert, nicht hier ermittelt.
+    ///
+    /// Sie sind Pflichtfelder und nicht `Option`: ein Aufrufer, der sie
+    /// nicht kennt, kann auch nicht sagen, ob eine Promotion zulaessig
+    /// waere - ein Vorgabewert waere genau die stille Umgehung, die
+    /// Vertrag 7.13 verbietet.
+    pub subject_reality_status: RealityStatus,
+    pub subject_facticity: FactStatus,
 }
 
 fn reconciliation_sort() -> psk_types::objects::SortId {
@@ -130,8 +141,8 @@ fn compute_identity(draft: &ReconciliationReport) -> Result<ObjectId, PskError> 
         .map_err(|_| PskError::CanonicalizationFailed)
 }
 
-/// M18: Algorithmus 20.8. `residues` ist das laufende Residuenledger
-/// (Regel 8.2 / Axiom 7.41 ueber P28, `from: "*"` - M18 ist keine
+/// M18: Algorithmus 20.9. `residues` ist das laufende Residuenledger
+/// (Regel 8.2 / Axiom 7.45 (No Silent Loss) ueber P28, `from: "*"` - M18 ist keine
 /// Ausnahme); `residualize(diff)` (Explicable/Contradictory) oeffnet dort
 /// ein Residuum des Typs `reconciliation`.
 pub fn reconcile(
@@ -154,7 +165,7 @@ pub fn reconcile(
     {
         return Err(PskError::ActualizationWithoutReconciliation);
     }
-    // Invariante 7.34, zweite Haelfte: observer_identity != issuer_digest.
+    // Invariante 7.37 (Beobachtertrennung), zweite Haelfte: observer_identity != issuer_digest.
     // Wiederverwendet aus WP05 statt neu geschrieben - derselbe Vergleich,
     // dieselbe Fehlerursache (siehe Modulkopf).
     for r in &inputs.receipts {
@@ -178,10 +189,43 @@ pub fn reconcile(
     // OBSERVED : NONE)" - receipts_valid ist hier "eine Klassifikation
     // wurde ueberhaupt erreicht", also alles ausser ReceiptsInsufficient
     // (das den Empfaengen selbst die Zulaenglichkeit abspricht).
-    let fact_promotion = match verdict {
+    let intended = match verdict {
         Verdict::Closed => Promotion::Actualized,
         Verdict::Unknown => Promotion::None,
         Verdict::Open | Verdict::Divergent => Promotion::Observed,
+    };
+
+    // T-UNKNOWN-001 / Vertrag 7.13: die Promotionssperre entscheidet
+    // `psk_thought::check_promotion` - die EINZIGE Wache dafuer. M18
+    // fuehrt bewusst keine eigene Ableitung mehr: zwei getrennte
+    // Entscheidungsstellen driften auseinander (dieselbe Ueberlegung wie
+    // bei `dispatch`/`dispatch_stateless`, die sich eine Match-Tabelle
+    // teilen). Der Aufruf laeuft ueber die Paketkante M18->M06/M07, die
+    // P26 bereits deckt - kein neuer Port.
+    //
+    // Eine gesperrte Promotion senkt auf NONE, statt die Reconciliation
+    // scheitern zu lassen: der Bericht selbst ist erfolgreich zustande
+    // gekommen und traegt das Ergebnis sichtbar (`fact_promotion: NONE`),
+    // wie schon `verdict: DIVERGENT` die Fehlschlagsmeldung traegt statt
+    // den Bericht zu ersetzen (siehe Modulkopf). Still ist das nicht -
+    // es steht im Bericht.
+    let fact_promotion = match intended {
+        Promotion::None => Promotion::None,
+        promoted => {
+            let target = match promoted {
+                Promotion::Actualized => FactStatus::Actualized,
+                Promotion::Observed => FactStatus::Observed,
+                Promotion::None => unreachable!("oben bereits behandelt"),
+            };
+            match psk_thought::check_promotion(
+                inputs.subject_facticity,
+                target,
+                inputs.subject_reality_status,
+            ) {
+                Ok(()) => promoted,
+                Err(_) => Promotion::None,
+            }
+        }
     };
 
     let mut residue_refs = Vec::new();
@@ -290,7 +334,88 @@ mod tests {
             finality: Finality::Final,
             witness_ref: ObjectId::new(SortId::Witness, Digest::sha256(b"witness")),
             opened_at: sample_time(),
+            // Vorgabe fuer die bestehenden Tests: ein Subjekt, dessen
+            // Realitaetsstatus die Promotion NICHT sperrt - sonst
+            // pruefte jeder dieser Tests unbeabsichtigt die Sperre
+            // statt seiner eigenen Aussage.
+            subject_reality_status: RealityStatus::Actualized,
+            subject_facticity: FactStatus::Observed,
         }
+    }
+
+    /// Ist das Feuern der UNKNOWN-Sperre aus dem Bericht ALLEIN
+    /// erkennbar - ohne Quellzugriff, nur aus den Artefakten?
+    ///
+    /// Die Frage entscheidet, ob FC3 ueberhaupt messbar ist. Ein Beleg
+    /// dafuer, dass "die Promotionssperre je griff", ist wertlos, wenn ein
+    /// Beobachter den gesperrten Fall nicht vom Fall "es war nichts zu
+    /// promovieren" unterscheiden kann - beide schreiben `NONE` in
+    /// dasselbe Feld.
+    ///
+    /// Der Test zaehlt die Faelle vollstaendig auf, statt die Antwort aus
+    /// dem Code zu lesen: `intended` ist genau bei `Verdict::Unknown`
+    /// gleich NONE. Also gilt
+    ///
+    ///     verdict != UNKNOWN  UND  fact_promotion == NONE   <=>   die Sperre griff
+    ///
+    /// und das Paar (verdict, fact_promotion) traegt die Unterscheidung.
+    #[test]
+    fn a_barred_promotion_is_distinguishable_from_nothing_to_promote() {
+        let diffs = || {
+            vec![
+                ("Empty", DiffOutcome::Empty),
+                (
+                    "WithinTolerance",
+                    DiffOutcome::WithinDeclaredTolerance(DiffTree("d".into())),
+                ),
+                ("Explicable", DiffOutcome::Explicable(DiffTree("d".into()))),
+                (
+                    "Contradictory",
+                    DiffOutcome::Contradictory(DiffTree("d".into())),
+                ),
+                ("ReceiptsInsufficient", DiffOutcome::ReceiptsInsufficient),
+            ]
+        };
+
+        // Ohne Sperre: fact_promotion == NONE genau dann, wenn der
+        // Verdict UNKNOWN ist.
+        for (name, diff) in diffs() {
+            let inputs = base_inputs(diff);
+            let mut ledger = ResidueLedger::new();
+            let r = reconcile(inputs, &mut ledger).expect(name);
+            assert_eq!(
+                r.fact_promotion == Promotion::None,
+                r.verdict == Verdict::Unknown,
+                "ohne Sperre ({name}): NONE MUSS genau UNKNOWN entsprechen"
+            );
+        }
+
+        // Mit Sperre: fact_promotion == NONE fuer JEDEN Verdict - und
+        // damit auch fuer solche, die ohne Sperre nie NONE ergaeben.
+        let mut barred_with_non_unknown_verdict = 0;
+        for (name, diff) in diffs() {
+            let mut inputs = base_inputs(diff);
+            inputs.subject_reality_status = RealityStatus::Unknown;
+            let mut ledger = ResidueLedger::new();
+            let r = reconcile(inputs, &mut ledger).expect(name);
+            assert_eq!(
+                r.fact_promotion,
+                Promotion::None,
+                "mit Sperre ({name}) MUSS jede Promotion auf NONE fallen"
+            );
+            if r.verdict != Verdict::Unknown {
+                barred_with_non_unknown_verdict += 1;
+            }
+        }
+
+        // Der eigentliche Punkt: es gibt Faelle, in denen das Paar
+        // (verdict, fact_promotion) NUR durch die Sperre zustande kommt.
+        // Ohne diese Zusicherung koennte der Test bestehen, obwohl die
+        // Sperre unsichtbar bliebe.
+        assert!(
+            barred_with_non_unknown_verdict >= 4,
+            "die Sperre MUSS in Faellen sichtbar werden, die ohne sie nie NONE ergaeben              (gefunden: {barred_with_non_unknown_verdict})"
+        );
     }
 
     #[test]
@@ -317,7 +442,7 @@ mod tests {
 
     #[test]
     fn a_receipt_from_the_effect_adapter_itself_fails() {
-        // Beobachterunabhaengigkeit, erste Haelfte von Invariante 7.34:
+        // Beobachterunabhaengigkeit, erste Haelfte von Invariante 7.37 (Beobachtertrennung):
         // derselbe Adapterbezeichner darf nicht sein eigener Zeuge sein.
         let mut inputs = base_inputs(DiffOutcome::Empty);
         inputs.receipts = vec![sample_receipt("r1", "effect-local-fs")];
@@ -330,7 +455,7 @@ mod tests {
 
     #[test]
     fn a_receipt_sharing_the_issuers_identity_digest_fails() {
-        // Beobachterunabhaengigkeit, zweite Haelfte von Invariante 7.34:
+        // Beobachterunabhaengigkeit, zweite Haelfte von Invariante 7.37 (Beobachtertrennung):
         // "observer_identity != issuer_digest" - unabhaengig vom
         // Adapterbezeichner. Das ist die staerkere Schranke: zwei
         // verschiedene AdapterId-Bezeichner koennten sich denselben
@@ -418,6 +543,48 @@ mod tests {
         assert_eq!(report.verdict, Verdict::Unknown);
         assert_eq!(report.fact_promotion, Promotion::None);
         assert!(report.residue_refs.is_empty());
+    }
+
+    #[test]
+    fn t_unknown_001_an_unknown_subject_is_not_promoted_even_on_a_closed_verdict() {
+        // Vertrag 7.13 an der zweiten Aufrufstelle: derselbe Lauf, der
+        // sonst ACTUALIZED ergaebe, promoviert bei UNKNOWN nicht.
+        let mut inputs = base_inputs(DiffOutcome::Empty);
+        inputs.subject_reality_status = RealityStatus::Unknown;
+        let mut ledger = ResidueLedger::new();
+        let report = reconcile(inputs, &mut ledger).unwrap();
+
+        assert_eq!(
+            report.verdict,
+            Verdict::Closed,
+            "die Reconciliation selbst gelingt weiterhin"
+        );
+        assert_eq!(
+            report.fact_promotion,
+            Promotion::None,
+            "UNKNOWN sperrt die Promotion (Vertrag 7.13), auch bei CLOSED"
+        );
+    }
+
+    #[test]
+    fn the_same_run_without_unknown_does_promote() {
+        // Gegenprobe: ohne sie waere der Test oben auch gruen, wenn
+        // ueberhaupt nie promoviert wuerde.
+        let mut ledger = ResidueLedger::new();
+        let report = reconcile(base_inputs(DiffOutcome::Empty), &mut ledger).unwrap();
+        assert_eq!(report.fact_promotion, Promotion::Actualized);
+    }
+
+    #[test]
+    fn an_unknown_subject_is_not_promoted_to_observed_either() {
+        // Die Sperre gilt fuer JEDE Promotion, nicht nur die zu
+        // ACTUALIZED - ein Explicable-Diff ergaebe sonst OBSERVED.
+        let mut inputs = base_inputs(DiffOutcome::Explicable(DiffTree("late".into())));
+        inputs.subject_reality_status = RealityStatus::Unknown;
+        let mut ledger = ResidueLedger::new();
+        let report = reconcile(inputs, &mut ledger).unwrap();
+        assert_eq!(report.verdict, Verdict::Open);
+        assert_eq!(report.fact_promotion, Promotion::None);
     }
 
     #[test]

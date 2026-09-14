@@ -316,6 +316,58 @@ fn run_and_report(
     Ok(result)
 }
 
+/// Der isolierte Kandidatenlauf (Algorithmus Revisionsvorschlag:
+/// build_in_isolation, getrennter Prozess). Der Kandidat unterscheidet
+/// sich vom aktiven System um EIN Delta der Klasse Tests-und-
+/// Falsifikatoren: das im Elternlauf entdeckte Gegenmodell als stehender
+/// Falsifikator. Dieser Prozess fuehrt beides aus:
+///
+/// 1. den Delta-Falsifikator des Kandidaten - Korpus laden, Widersprueche
+///    bestimmen, pruefen, dass der erwartete Gegenbeleg gefunden wird -
+///    und meldet `falsifier=PASS|FAIL`;
+/// 2. den vollen Golden Run im eigenen Prozess und meldet
+///    `digest=<trace_head>` - der Elternprozess vergleicht ihn mit seinem
+///    eigenen Kopf (unabhaengiger Replay des Kandidaten).
+///
+/// BEWUSST `run_golden_run` (ein Lauf), nicht die Zertifizierung: die
+/// enthaelt seit dem CRA-Bau selbst den Self-Compile-Schritt, und ein
+/// Kind, das sie riefe, spawnte sein eigenes Enkelkind - Rekursion statt
+/// Isolation.
+fn cmd_candidate_check(sandbox: &str, expected_countermodel: &str) -> ExitCode {
+    let root = workspace_root();
+    let sandbox_path = PathBuf::from(sandbox);
+
+    // Identische Startzustaende wie der Elternlauf: reset, dann laufen.
+    let _ = std::fs::remove_dir_all(&sandbox_path);
+
+    let corpus_root = root.join("domains/jacobs-ladder-reference/corpus");
+    let falsifier_pass = (|| -> Result<bool, psk_types::PskError> {
+        let reqs = psk_conformance::load_requirements(&corpus_root)?;
+        let contradictions = psk_conformance::identify_contradictions(&reqs)?;
+        let countermodels = psk_conformance::falsifier_countermodels(&contradictions);
+        Ok(countermodels.iter().any(|c| c.0 == expected_countermodel))
+    })();
+    match falsifier_pass {
+        Ok(true) => println!("falsifier=PASS"),
+        Ok(false) => println!("falsifier=FAIL"),
+        Err(e) => {
+            eprintln!("psk candidate-check: Falsifikator nicht auswertbar - {e:?}");
+            println!("falsifier=FAIL");
+        }
+    }
+
+    match psk_conformance::run_golden_run(&root, &sandbox_path) {
+        Ok(report) => {
+            println!("digest={}", report.trace_head);
+            ExitCode::SUCCESS
+        }
+        Err(e) => {
+            eprintln!("psk candidate-check: Kandidatenlauf FAIL - {e:?}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
 fn cmd_golden_run(sandbox: Option<&str>) -> ExitCode {
     let root = workspace_root();
     let sandbox_path = sandbox
@@ -323,7 +375,7 @@ fn cmd_golden_run(sandbox: Option<&str>) -> ExitCode {
         .unwrap_or_else(default_sandbox_path);
 
     match run_and_report(&root, &sandbox_path) {
-        // Struktur 22.5: `final_canonical_digest` ist der repraesentative
+        // Struktur 22.8 (ReplayManifest): `final_canonical_digest` ist der repraesentative
         // kanonische Zustandsdigest ueber Schritte 2-13 - genau das, was
         // I8 unabhaengig reproduziert sehen will. Allein auf stdout (die
         // eprintln-Meldungen oben bleiben auf stderr), damit ein Elternprozess
@@ -449,6 +501,9 @@ fn main() -> ExitCode {
         ["golden-run", "--independent", sandbox] => cmd_golden_run_independent(Some(sandbox)),
         ["golden-run", sandbox, "--independent"] => cmd_golden_run_independent(Some(sandbox)),
         ["golden-run", sandbox] => cmd_golden_run(Some(sandbox)),
+        ["candidate-check", sandbox, expected_countermodel] => {
+            cmd_candidate_check(sandbox, expected_countermodel)
+        }
         ["conformance", "run"] => cmd_conformance_run(),
         ["conformance", "run", "--class", _class] => cmd_conformance_run(),
         ["run", ..] => not_yet_implemented("run"),

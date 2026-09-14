@@ -1,11 +1,11 @@
 # Quelle: CPSK_Konstitutioneller_Maschinenvertrag.md, Teil IV
 # ("ADAMANT-gebundene Integritaet"), Kapitel 23 "Bootstrappbare Meta-Instanz"
 # (Zeilen 570-583): Abschnitt 23.1 Bootfolge (Zeilen 572-580, 8 nummerierte
-# Schritte) und Invariante 23.1 "Keine undokumentierten Defaults"
+# Schritte) und CPSK Invariante 23.1 "Keine undokumentierten Defaults"
 # (Zeilen 581-583).
 #
 # Kapitel 23 nennt genau diese 8 Bootfolge-Schritte in dieser Reihenfolge
-# und genau diese 5 fuer Invariante 23.1 relevanten Bereiche. Diese Datei
+# und genau diese 5 fuer CPSK Invariante 23.1 relevanten Bereiche. Diese Datei
 # fuegt keinen neunten Schritt und keinen sechsten Bereich hinzu.
 schema: psk.meta-instance/1.0
 boot_sequence:  # 23.1: Reihenfolge ist ordnungssemantisch (Bootfolge als Sequenz) - NICHT sortieren
@@ -18,7 +18,7 @@ boot_sequence:  # 23.1: Reihenfolge ist ordnungssemantisch (Bootfolge als Sequen
   - {step: 7, action: "Berechne den initialen Release- und Betriebsstatus."}      # Zeile 579
   - {step: 8, action: "Aktiviere den Kognitionskern nur bei gültigem Bootgate."}  # Zeile 580
 no_undocumented_defaults:
-  ref: "Invariante 23.1"
+  ref: "CPSK Invariante 23.1"
   statement: >-
     Eine Meta-Instanz ist nur bootstrappbar, wenn alle für Identität, Replay,
     Sicherheit, Governance und Emission relevanten Werte aus auflösbaren

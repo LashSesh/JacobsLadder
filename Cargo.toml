@@ -23,6 +23,7 @@ members = [
     "packages/psk-observe",
     "packages/psk-certify",
     "packages/psk-conformance",
+    "packages/psk-nraii",
     "packages/psk-cli",
     "adapters/effect-local-fs",
     "adapters/observer-local-fs",
@@ -37,6 +38,11 @@ members = [
     "tools/refinement-gen",
     "tools/verify-modtree",
     "tools/verify-dependencies",
+    "tools/verify-test-ratchet",
+    "tools/verify-catalog",
+    "tools/verify-citations",
+    "tools/migrate-citations",
+    "tools/verify-compile-fail",
 ]
 
 # Regel 26.7: SemVer. Vor C0 (Anhang gate_registry/release_gate,

@@ -1,13 +1,13 @@
 //! M07 RealityTyper: klassifiziert einen ThoughtBody und emittiert das
 //! Ergebnis als eigenstaendiges Objekt `RealityClassification` (Struktur
-//! 7.9, OBJ-RCL) ueber P09 an M23.
+//! 7.11, OBJ-RCL) ueber P09 an M23.
 //!
-//! Regel 7.10 (Klassifikation ist ein eigenes Objekt): "M07 DARF NICHT in
+//! Regel 7.12 (Klassifikation ist ein eigenes Objekt): "M07 DARF NICHT in
 //! den ThoughtBody schreiben. Die Klassifikation verlaesst M07
 //! ausschliesslich als RealityClassification ueber P09." Deshalb nimmt
 //! `classify` den Koerper nur als unveraenderliche Referenz.
 //!
-//! Das Feld `reachability` traegt die von Definition 5.11 verlangte
+//! Das Feld `reachability` traegt die von Definition 5.12 verlangte
 //! Dreiteilung: `refuted` setzt bezeugte Nichterreichbarkeit voraus und ist
 //! die einzige Auspraegung, unter der `imaginary` gelten kann; `unexamined`
 //! fuehrt zu UNKNOWN und DARF NICHT zu IMAGINARY.
@@ -42,9 +42,9 @@ pub struct RealityEvidence {
     pub constructible: bool,
     /// Tatsaechlich aktualisiert (R_act).
     pub actualized: bool,
-    /// R_rea, dreiwertig statt zweiwertig: Struktur 7.9 fuehrt genau diese
+    /// R_rea, dreiwertig statt zweiwertig: Struktur 7.11 fuehrt genau diese
     /// Unterscheidung als eigenes Feld, weil `unexamined` und `refuted`
-    /// verschiedene Folgen haben (Regel 7.10).
+    /// verschiedene Folgen haben (Regel 7.12).
     pub reachability: RealityClassificationReachabilityKind,
 }
 
@@ -74,7 +74,7 @@ impl RealityEvidence {
 
 /// Definition 5.7: klassifiziert nach der hoechsten erreichten Sprosse der
 /// Realitaetsleiter. UNKNOWN ist dabei ein wirksamer Status mit
-/// Promotionssperre, kein fehlender Wert (Vertrag 7.11) - er entsteht,
+/// Promotionssperre, kein fehlender Wert (Vertrag 7.13) - er entsteht,
 /// sobald nicht einmal Kohaerenz festgestellt ist.
 ///
 /// Kein Default-Zweig auf einen positiven Status: OBL-002 ("Ein Verfahren,
@@ -97,10 +97,10 @@ pub fn classify_reality(evidence: &RealityEvidence) -> RealityStatus {
     }
 }
 
-/// Definition 5.11 (Ankerrelativ imaginaer):
+/// Definition 5.12 (Ankerrelativ imaginaer):
 /// `imaginary(x,a) :<=> reality_status(x) in {COHERENT, LAWFUL} and not reachable(x,a)`.
 ///
-/// Regel 7.10 praezisiert die Nichterreichbarkeit: nur `refuted` traegt sie
+/// Regel 7.12 praezisiert die Nichterreichbarkeit: nur `refuted` traegt sie
 /// bezeugt. `unexamined` "fuehrt zu UNKNOWN und DARF NICHT zu IMAGINARY".
 /// IMAGINARY ist KEIN Wert von RealityStatus oder FactStatus, sondern ein
 /// daraus abgeleitetes Praedikat - deshalb ein bool und kein Statuswert.
@@ -114,10 +114,10 @@ pub fn is_imaginary(
 
 /// Was M07 zur Klassifikation braucht und nicht selbst feststellen kann.
 pub struct ClassificationInputs {
-    /// Anker, relativ zu dem klassifiziert wird (Struktur 7.9).
+    /// Anker, relativ zu dem klassifiziert wird (Struktur 7.11).
     pub anchor_ref: ObjectId,
     pub evidence: RealityEvidence,
-    /// Belege; "leer nur bei UNKNOWN" (Struktur 7.9).
+    /// Belege; "leer nur bei UNKNOWN" (Struktur 7.11).
     pub evidence_refs: Vec<ObjectId>,
     /// Das MethodPlugin, das die Evidenz geliefert hat (Vertrag 27.2).
     /// None bedeutet: kein Plug-in beteiligt - dann MUSS die Klassifikation
@@ -151,12 +151,12 @@ fn compute_identity(draft: &RealityClassification) -> Result<ObjectId, PskError>
 const CLASSIFICATION_SORT: SortId = SortId::Horizon;
 
 /// M07: klassifiziert einen ThoughtBody und gibt das Ergebnis als
-/// eigenstaendiges Objekt zurueck (Regel 7.10). Der Koerper wird nur
+/// eigenstaendiges Objekt zurueck (Regel 7.12). Der Koerper wird nur
 /// gelesen.
 ///
 /// `facticity` bleibt auf dem Anfangswert des Koerpers: jede
 /// Faktizitaetspromotion ueber SPECIFIED hinaus verlangt ein Gate
-/// (Invariante 5.9: "Jede Promotion MUSS einen benannten Konstruktor, einen
+/// (Invariante 5.10: "Jede Promotion MUSS einen benannten Konstruktor, einen
 /// GateReport und einen TraceSegment besitzen"), und Gates entstehen erst
 /// mit M14 in WP11 (Phase I6).
 ///
@@ -173,7 +173,7 @@ pub fn classify(
         return Err(PskError::UnboundNondeterminismOrDivergence);
     }
     if reality_status != RealityStatus::Unknown && inputs.evidence_refs.is_empty() {
-        // Struktur 7.9: "Grundlage; leer nur bei UNKNOWN".
+        // Struktur 7.11: "Grundlage; leer nur bei UNKNOWN".
         return Err(PskError::UnsupportedReachability);
     }
 
@@ -196,7 +196,7 @@ pub fn classify(
     Ok(RealityClassification { id, ..draft })
 }
 
-/// Invariante 5.9 (Keine implizite Promotion), woertlich:
+/// Invariante 5.10 (Keine implizite Promotion), woertlich:
 /// SIMULATED !=> ACTUALIZED, SELECTED !=> OBSERVED, ATTEMPTED !=> ACTUALIZED,
 /// POSSIBLE !=> ACTUALIZED. Diese vier Kanten sind auch die `forbidden`-Liste
 /// von FSM-THOUGHT.
@@ -210,9 +210,38 @@ pub fn is_implicit_promotion(from: FactStatus, to: FactStatus) -> bool {
     )
 }
 
-/// Fail-closed-Wache fuer jede Faktizitaetsaenderung: eine implizite
-/// Promotion wird abgelehnt (PSK-E003, surface_invariant_collapse).
-pub fn check_promotion(from: FactStatus, to: FactStatus) -> Result<(), PskError> {
+/// Die EINZIGE Stelle, die ueber eine Faktpromotion entscheidet -
+/// T-UNKNOWN-001 / Vertrag 7.13.
+///
+/// Zwei Sperren, eine Wache:
+///
+/// 1. **UNKNOWN sperrt jede Promotion, unabhaengig vom FactStatus.**
+///    Vertrag 7.13 woertlich: UNKNOWN ist "ein wirksamer Status mit
+///    Promotionssperre, kein fehlender Wert". Genau das macht diese Zeile
+///    wirksam statt beschreibend - zuvor produzierte `classify_reality`
+///    UNKNOWN korrekt, aber nichts hinderte einen spaeteren Schritt
+///    daran, DAVON WEG zu promovieren.
+/// 2. Invariante 5.10s vier implizite Promotionen (siehe
+///    `is_implicit_promotion`), wie bisher.
+///
+/// **Warum eine Wache und nicht zwei:** M18 (`psk_reconciliation::
+/// reconcile`) leitete seine `fact_promotion` frueher selbst ab. Zwei
+/// getrennte Entscheidungsstellen driften auseinander - dieselbe
+/// Ueberlegung, aus der `dispatch`/`dispatch_stateless` sich EINE
+/// Match-Tabelle teilen (psk-scheduler). M18 ruft deshalb seit
+/// T-UNKNOWN-001 diese Funktion auf, statt eine eigene Ableitung zu
+/// fuehren; die dafuer noetige Signaturerweiterung ist der Preis dafuer,
+/// dass eine blockierende Invariante nicht nur halb durchgesetzt ist.
+pub fn check_promotion(
+    from: FactStatus,
+    to: FactStatus,
+    reality_status: RealityStatus,
+) -> Result<(), PskError> {
+    if reality_status == RealityStatus::Unknown {
+        // Die Sperre gilt fuer JEDE Promotion - auch fuer eine, die
+        // Invariante 5.10 fuer sich genommen erlauben wuerde.
+        return Err(PskError::SurfaceInvariantCollapse);
+    }
     if is_implicit_promotion(from, to) {
         Err(PskError::SurfaceInvariantCollapse)
     } else {
@@ -275,7 +304,7 @@ mod tests {
 
     #[test]
     fn unknown_when_not_even_coherent() {
-        // Vertrag 7.11: UNKNOWN ist ein wirksamer Status, kein fehlender Wert.
+        // Vertrag 7.13: UNKNOWN ist ein wirksamer Status, kein fehlender Wert.
         assert_eq!(
             classify_reality(&RealityEvidence::default()),
             RealityStatus::Unknown
@@ -284,7 +313,7 @@ mod tests {
 
     #[test]
     fn unexamined_reachability_does_not_reach() {
-        // Regel 7.10: unexamined ist keine Erreichbarkeitsaussage.
+        // Regel 7.12: unexamined ist keine Erreichbarkeitsaussage.
         let e = RealityEvidence {
             coherent: true,
             lawful: true,
@@ -314,7 +343,7 @@ mod tests {
 
     #[test]
     fn imaginary_requires_refuted_not_merely_unexamined() {
-        // Regel 7.10: "refuted setzt bezeugte Nichterreichbarkeit voraus,
+        // Regel 7.12: "refuted setzt bezeugte Nichterreichbarkeit voraus,
         // unexamined fuehrt zu UNKNOWN und DARF NICHT zu IMAGINARY."
         assert!(is_imaginary(RealityStatus::Coherent, Reach::Refuted));
         assert!(
@@ -334,7 +363,7 @@ mod tests {
 
     #[test]
     fn imaginary_is_not_a_status_value() {
-        // Definition 5.11: IMAGINARY DARF NICHT ein Wert von RealityStatus
+        // Definition 5.12: IMAGINARY DARF NICHT ein Wert von RealityStatus
         // oder FactStatus sein. Die geschlossenen Mengen bleiben bei 6 bzw. 9.
         assert_eq!(RealityStatus::ALL.len(), 6);
         assert_eq!(FactStatus::ALL.len(), 9);
@@ -344,7 +373,7 @@ mod tests {
 
     #[test]
     fn classification_is_a_separate_object_referencing_the_body() {
-        // Regel 7.10: M07 schreibt nicht in den ThoughtBody.
+        // Regel 7.12: M07 schreibt nicht in den ThoughtBody.
         let body = sample_body();
         let before = body.clone();
         let cls = classify(&body, sample_inputs(evidence_up_to_lawful())).unwrap();
@@ -379,7 +408,7 @@ mod tests {
 
     #[test]
     fn positive_status_needs_evidence_refs() {
-        // Struktur 7.9: "Grundlage; leer nur bei UNKNOWN".
+        // Struktur 7.11: "Grundlage; leer nur bei UNKNOWN".
         let body = sample_body();
         let mut inputs = sample_inputs(evidence_up_to_lawful());
         inputs.evidence_refs.clear();
@@ -425,12 +454,56 @@ mod tests {
     #[test]
     fn check_promotion_fails_closed() {
         assert_eq!(
-            check_promotion(FactStatus::Simulated, FactStatus::Actualized),
+            check_promotion(
+                FactStatus::Simulated,
+                FactStatus::Actualized,
+                RealityStatus::Actualized
+            ),
             Err(PskError::SurfaceInvariantCollapse)
         );
         assert_eq!(
-            check_promotion(FactStatus::Observed, FactStatus::Actualized),
+            check_promotion(
+                FactStatus::Observed,
+                FactStatus::Actualized,
+                RealityStatus::Actualized
+            ),
             Ok(())
         );
+    }
+
+    #[test]
+    fn t_unknown_001_unknown_bars_every_promotion_regardless_of_fact_status() {
+        // Vertrag 7.13: "ein wirksamer Status mit Promotionssperre, kein
+        // fehlender Wert". Geprueft ueber ALLE neun FactStatus-Werte als
+        // Ausgang und die beiden realen Promotionsziele - eine Sperre,
+        // die nur fuer manche Ausgangswerte gilt, waere keine.
+        for from in FactStatus::ALL {
+            for to in [FactStatus::Observed, FactStatus::Actualized] {
+                assert_eq!(
+                    check_promotion(from, to, RealityStatus::Unknown),
+                    Err(PskError::SurfaceInvariantCollapse),
+                    "UNKNOWN MUSS {from:?} -> {to:?} sperren"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_non_unknown_status_still_allows_the_permitted_promotion() {
+        // Gegenprobe: ohne sie waere die Wache auch dann gruen, wenn sie
+        // schlicht alles sperrte - dann pruefte der Test oben nichts
+        // ueber UNKNOWN, sondern nur ueber eine kaputte Wache.
+        for status in RealityStatus::ALL {
+            let expected = if status == RealityStatus::Unknown {
+                Err(PskError::SurfaceInvariantCollapse)
+            } else {
+                Ok(())
+            };
+            assert_eq!(
+                check_promotion(FactStatus::Observed, FactStatus::Actualized, status),
+                expected,
+                "nur UNKNOWN sperrt, {status:?} nicht"
+            );
+        }
     }
 }

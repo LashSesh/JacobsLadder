@@ -260,7 +260,7 @@ pub fn generate_sort_id_enum(reg: &SortRegistry) -> String {
     out.push_str("            _ => None,\n");
     out.push_str("        }\n    }\n\n");
     out.push_str(
-        "    /// Zellklasse laut architecture/sort_registry.yaml (Regel 9.10, Platzierungsregel).\n",
+        "    /// Zellklasse laut architecture/sort_registry.yaml (Regel 9.13, Platzierungsregel).\n",
     );
     out.push_str("    pub const fn cell_class(self) -> SortCellClass {\n        match self {\n");
     for s in &reg.sorts {
@@ -293,11 +293,11 @@ pub fn generate_sort_id_enum(reg: &SortRegistry) -> String {
     out.push_str("        SortId::from_id(&s).ok_or_else(|| serde::de::Error::custom(format!(\"unbekannte SortId: {s}\")))\n");
     out.push_str("    }\n}\n\n");
 
-    out.push_str("/// Vier Gruppen aus Regel 9.10 (Platzierungsregel): drei feste Zellklassen\n");
+    out.push_str("/// Vier Gruppen aus Regel 9.14 (Platzierungsregel): drei feste Zellklassen\n");
     out.push_str(
         "/// plus \"zellgebunden\" (die Zelle des bereits geprueften Knotens, nicht frei\n",
     );
-    out.push_str("/// waehlbar - siehe Regel 9.10 Punkt 4).\n");
+    out.push_str("/// waehlbar - siehe Regel 9.13 Punkt 4).\n");
     out.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq)]\n");
     out.push_str(
         "pub enum SortCellClass {\n    Center,\n    Bridge,\n    Boundary,\n    CellBound,\n}\n",
@@ -311,7 +311,7 @@ pub fn generate_sort_id_enum(reg: &SortRegistry) -> String {
 pub struct ObjectSchemas {
     pub objects: Vec<ObjectEntry>,
     /// Strukturen, die von MEHREREN Objekten referenziert werden (z.B.
-    /// Scaled, Matrix - Struktur 7.25). Anders als `nested_structs` (je
+    /// Scaled, Matrix - Struktur 7.27). Anders als `nested_structs` (je
     /// Objekt, dort auch erzeugt) wird jede hier genau einmal erzeugt und
     /// per Name referenziert; zwei Objekte, die dieselbe Struktur je
     /// eigenstaendig als nested_struct fuehren wuerden, kollidierten sonst.
@@ -430,7 +430,10 @@ const KNOWN_SCALARS: &[(&str, &str)] = &[
     ("bool", "bool"),
     ("string", "String"),
     ("uint64", "u64"),
-    // Struktur 7.25 (Scaled/Matrix): "integer" ohne "u"-Praefix, anders als
+    // v1.0.26: RunDescriptor.ratchet_max_rounds (Regel 12.7) ist das
+    // erste und bisher einzige uint32 des Werks.
+    ("uint32", "u32"),
+    // Struktur 7.27 (Matrix und Scaled): "integer" ohne "u"-Praefix, anders als
     // "uint64" andernorts - vorzeichenbehaftet gelesen, da nicht als
     // nichtnegativ bezeichnet (anders als bei `scale`, das laut Kommentar
     // "scale >= 0" ist, aber denselben Bezeichner "integer" traegt; die
@@ -529,7 +532,7 @@ impl TypeGen<'_> {
 
             // Eine Alternative kann selbst ein Typverweis sein statt eines
             // weiteren literalen Tags - z.B. "RollbackSpec |
-            // NO_ROLLBACK_JUSTIFIED" (EffectToken.rollback, Struktur 7.31).
+            // NO_ROLLBACK_JUSTIFIED" (EffectToken.rollback, Struktur 7.34 (EffectToken)).
             // Erkennbar an gemischter Gross-/Kleinschreibung ohne
             // Unterstrich (anders als "PASS" oder "NO_ROLLBACK_JUSTIFIED").
             // Vor dieser Korrektur erzeugte eine solche Alternative nur

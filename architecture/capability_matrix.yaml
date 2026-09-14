@@ -4,7 +4,7 @@ schema: psk.capability-matrix/1.0
 # dort rueckt um eins), Kapitel 19.2. PSK-RA-spezifisch mit eigenen
 # Capability-Bezeichnern - nicht zu verwechseln mit
 # constitution/capability_matrix.yaml (CPSK Kapitel 35, nur die drei
-# Least-Privilege-Teilsaetze aus Axiom 35.1, keine Capability-IDs; jene
+# Least-Privilege-Teilsaetze aus CPSK Axiom 35.1, keine Capability-IDs; jene
 # Datei verweist fuer die "konkreten Rollen-/Capability-Zuweisungen"
 # ausdruecklich hierher, siehe dortiger Kommentar).
 #
@@ -14,7 +14,7 @@ schema: psk.capability-matrix/1.0
 # Erzwingung allein durch Programmkonvention ist nicht konform und
 # erzeugt T-SEC-001-Fehlschlag."). Struktur 19.5 selbst war bis dahin nur
 # im Fliesstext gefuehrt, ohne maschinenlesbares Register - derselbe
-# Fehlerklasse wie Matrix vor v1.0.8 (Struktur 7.25): intern bedeutsam,
+# Fehlerklasse wie Matrix vor v1.0.8 (Struktur 7.27): intern bedeutsam,
 # aber nirgends als Register festgehalten.
 capabilities:
   - {id: fs.read.bundle, holders: [M00], scope: bundle_path}

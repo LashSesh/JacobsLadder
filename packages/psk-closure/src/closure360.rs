@@ -1,24 +1,25 @@
-//! Definition 9.12 (360-Grad-Closure), Definition 9.13 (720-Grad-Closure),
-//! Invariante 9.16 (Keine Halbschliessung).
+//! Definition 9.16 (360-Grad-Closure), Definition 9.17 (720-Grad-Closure),
+//! Invariante 9.23 (Keine Halbschliessung).
 //!
 //! ```text
 //! Close360(x) = 1 <=> pi(Phi(x)) = pi(x)  and  Seam(Phi,x) = 1
 //! Close720(x) = 1 <=> Phi^2(x) ==can x  and  Hol(Phi^2) = I  and  Replay(Phi^2) ==can x
 //! ```
 //!
-//! Phi (Linsenanwendung, M09/SpectralLensRouter), pi (Projektion), Seam
-//! (M10/M11) und Replay (M19/Trace-Replay-Residue-Store) selbst zu
-//! berechnen liegt ausserhalb dieses Moduls und ausserhalb des fuer I2
-//! vereinbarten Umfangs; hier wird ausschliesslich die in Definition
-//! 9.12/9.13 gegebene Verknuepfungsformel ueber bereits vorliegende Evidenz
+//! Phi ist seit v1.0.34 definiert: Definition 9.18 (Chartwechsel) und
+//! Definition 9.19 (Transport und Holonomie) geben Phi als T_gamma der
+//! geschlossenen Route; `psk_topology::holonomy` rechnet den Transport.
+//! pi (Projektion), Seam (M10/M11) und Replay (M19) liegen weiterhin bei
+//! ihren Modulen; hier wird ausschliesslich die in Definition
+//! 9.16/9.17 gegebene Verknuepfungsformel ueber bereits vorliegende Evidenz
 //! ausgewertet - das ist woertliche Umsetzung der Definition, nicht eine
 //! Annaeherung an sie.
 
 use psk_types::Digest;
 
-/// Evidenz fuer Definition 9.12: die bereits andernorts (M09/M10)
+/// Evidenz fuer Definition 9.16 (360-Grad-Closure): die bereits andernorts (M09/M10)
 /// berechneten Groessen pi(Phi(x)), pi(x) und Seam(Phi,x).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct Close360Evidence {
     /// pi(Phi(x)) - Projektion des gelinsten Bildes.
     pub projected_lensed: Digest,
@@ -28,30 +29,30 @@ pub struct Close360Evidence {
     pub seam_ok: bool,
 }
 
-/// Definition 9.12 woertlich: pi(Phi(x)) = pi(x) und Seam(Phi,x) = 1.
+/// Definition 9.16 (360-Grad-Closure) woertlich: pi(Phi(x)) = pi(x) und Seam(Phi,x) = 1.
 pub fn close360(e: &Close360Evidence) -> bool {
     e.projected_lensed == e.projected_source && e.seam_ok
 }
 
-/// Evidenz fuer Definition 9.13: die bereits andernorts (M09/M19)
+/// Evidenz fuer Definition 9.17 (720-Grad-Closure): die bereits andernorts (M09/M19)
 /// berechneten Groessen Phi^2(x) ==can x, Hol(Phi^2) = I und
 /// Replay(Phi^2) ==can x.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct Close720Evidence {
     /// Phi^2(x) ==can x.
     pub double_lensed_canon_eq: bool,
-    /// Hol(Phi^2) == I (Identitaetstransport, Definition 9.14).
+    /// Hol(Phi^2) == I (Identitaetstransport, Definition 9.19 (Transport und Holonomie)).
     pub holonomy_is_identity: bool,
     /// Replay(Phi^2) ==can x.
     pub replay_canon_eq: bool,
 }
 
-/// Definition 9.13 woertlich: alle drei Bedingungen zugleich.
+/// Definition 9.17 (720-Grad-Closure) woertlich: alle drei Bedingungen zugleich.
 pub fn close720(e: &Close720Evidence) -> bool {
     e.double_lensed_canon_eq && e.holonomy_is_identity && e.replay_canon_eq
 }
 
-/// Vertrag 9.15 (Semantische Rueckkehr): eine geschlossene Atlasroute ist
+/// Vertrag 9.22 (Semantische Rueckkehr): eine geschlossene Atlasroute ist
 /// semantisch geschlossen, wenn Can(Hol_gamma(E)) = Can(E) gilt, oder die
 /// Abweichung als zulaessiger Wicklungssektor, deklarierter Nachfolger oder
 /// sichtbares Residuum klassifiziert ist. `UnclassifiedDeviation` ist keine
@@ -67,7 +68,7 @@ pub enum ReturnClassification {
     UnclassifiedDeviation,
 }
 
-/// Vertrag 9.15: semantisch geschlossen, sofern eine der drei benannten
+/// Vertrag 9.22 (Semantische Rückkehr): semantisch geschlossen, sofern eine der drei benannten
 /// Ausweichklassen zutrifft oder der Exaktfall Can(Hol)=Can(E) vorliegt;
 /// eine unklassifizierte Abweichung ist es nicht.
 pub fn semantically_closed(classification: ReturnClassification) -> bool {
@@ -82,11 +83,13 @@ pub fn semantically_closed(classification: ReturnClassification) -> bool {
 
 /// Ergebnis einer Closure-Auswertung (Portnutzlast P18, M11 -> M12:
 /// "ClosureReport", architecture/port_registry.yaml#P18).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+// `Serialize`: Closure-Berichte liegen seit der Taktumverdrahtung als
+// Phasenprodukt im Laufzustand Sigma und gehen damit in I_t ein.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub struct ClosureReport {
     pub close360: bool,
     pub close720: bool,
-    /// Invariante 9.16 (Keine Halbschliessung): Close360(x)=1 impliziert
+    /// Invariante 9.23 (Keine Halbschliessung): Close360(x)=1 impliziert
     /// NICHT Close720(x)=1. Emissionsklasse EXECUTABLE erfordert
     /// Close720=1 - unabhaengig vom Wert von close360. Dieses Feld macht
     /// genau das exekutierbar: es ist buchstaeblich gleich `close720`,
@@ -95,8 +98,35 @@ pub struct ClosureReport {
 }
 
 /// Wertet Close360 und Close720 aus der jeweiligen Evidenz aus (Definition
-/// 9.12/9.13) und bildet daraus den ClosureReport (Invariante 9.16:
+/// 9.16/9.17) und bildet daraus den ClosureReport (Invariante 9.23 (Keine Halbschließung):
 /// `executable_eligible` haengt ausschliesslich von `close720` ab).
+/// Verify-Abschlussbedingung (Definition 14.2 (Phasen-Modul-Bindung)): "ClosureReport UND alle
+/// GateReports vorhanden." `evaluate` unten liefert den ersten Teil allein
+/// aus Close360Evidence/Close720Evidence - `ClosureReport` selbst kennt
+/// gar kein GateReport-Feld (Struktur 7.22 (IRNode / IREdge)), und `psk_gate::GateReport`
+/// entsteht unabhaengig davon in M14. Keine Funktion in psk-closure oder
+/// psk-gate prueft, dass "alle" (im Sinne von: die fuer diesen Takt
+/// erwarteten) GateReports tatsaechlich vorliegen, bevor ein ClosureReport
+/// als vollstaendig gilt.
+///
+/// Blockiert: "alle GateReports" setzt eine Erwartungsmenge voraus (welche
+/// Gates fuer DIESEN Verify-Durchlauf ueberhaupt faellig sind) - diese
+/// Menge ist nirgends registerseitig hergeleitet (weder
+/// `gate_registry.yaml` noch `constitution/gate_policy.yaml` binden Gates
+/// an einen bestimmten Takt oder eine bestimmte Kapsel). Eine hier
+/// erfundene Vollstaendigkeitsregel wuerde eine Erwartung behaupten, die
+/// das Werk nicht stellt.
+pub fn evaluate_with_gate_reports(
+    _c360: &Close360Evidence,
+    _c720: &Close720Evidence,
+    _gate_reports: &[psk_types::objects::GateReport],
+) -> ! {
+    unimplemented!(
+        "Verify 'ClosureReport und alle GateReports vorhanden': keine Erwartungsmenge \
+         fuer 'alle' ist registerseitig hergeleitet (siehe Funktionskommentar)"
+    )
+}
+
 pub fn evaluate(c360: &Close360Evidence, c720: &Close720Evidence) -> ClosureReport {
     let close360 = close360(c360);
     let close720 = close720(c720);
@@ -179,7 +209,7 @@ mod tests {
     fn invariante_9_16_no_half_closure() {
         // Close360 = 1, aber Close720 = 0: executable_eligible MUSS false
         // bleiben - Close360 allein darf niemals Identitaetsschluss
-        // begruenden (Invariante 9.16).
+        // begruenden (Invariante 9.23 (Keine Halbschließung)).
         let d = digest(b"same");
         let c360 = Close360Evidence {
             projected_lensed: d,

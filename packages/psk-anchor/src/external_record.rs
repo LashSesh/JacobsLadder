@@ -42,6 +42,29 @@ pub struct ObservedPermissions {
     pub read_only: bool,
 }
 
+/// Ein einzelner Eintrag einer Folgenbeobachtung (Regel 22.4 (Verschiedene Eingaben bilden kein Replaypaar)s
+/// Gegenstueck auf der Beobachtungsseite: `observe()` liefert EINEN Punkt,
+/// `observe_history()` liefert eine ganze Folge davon - "Historiker
+/// rekonstruiert Versionen" (Regel 32.7 (Feldfamilie der Referenzdomäne)) braucht einen Gegenstand,
+/// keinen Punkt). Wie `ExternalRecord` KEIN Kapitel-7-Objekt: dieselbe
+/// Begruendung (Modulkopf), dieselbe Herkunft (ein ObserverAdapter-Plugin,
+/// hier `observer-local-fs::observe_history`).
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct HistoryPoint {
+    /// Die neue HEAD-Spitze nach dieser Bewegung (volle SHA).
+    pub commit: String,
+    /// Unix-Zeitstempel der Reflog-Zeile, wie im Log verzeichnet - keine
+    /// Wanduhr des LESENDEN Laufs (die waere unter Invariante 6.14 (Replayneutralität der Wanduhr)
+    /// verboten, ginge sie in einen Digest ein; hier ist sie Beobachtungs-
+    /// INHALT, keine Aufzeichnungszeit).
+    pub observed_at_unix: i64,
+    /// Die Reflog-Aktion samt Nachricht, z.B. "commit: ..." oder
+    /// "checkout: moving from ...". Traegt die Unterscheidung, die der
+    /// Historiker braucht, um Versionswechsel von blossen
+    /// HEAD-Bewegungen zu trennen.
+    pub message: String,
+}
+
 /// `Serialize`/`Deserialize` (P24a): ExternalRecord ueberquert bei P06
 /// (M17->M05) dieselbe reale Prozessgrenze wie ExternalReceipt bei P24 -
 /// dieselbe serde_json-Drahtform, kein Sonderfall.

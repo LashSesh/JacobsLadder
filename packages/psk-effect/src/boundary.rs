@@ -9,7 +9,7 @@
 //! Beobachtungsfaehigkeit erhalten KANN - es gibt keine Methode, ueber die
 //! er eine liefern koennte.
 //!
-//! Invariante 20.6 (Adaptertrennung): "Keine Codeeinheit DARF zugleich
+//! Invariante 20.7 (Adaptertrennung): "Keine Codeeinheit DARF zugleich
 //! EffectAdapter und ObserverAdapter implementieren. Die beiden Adapter
 //! MUSS getrennte Prozesse, getrennte Capabilities und getrennte
 //! Identitaeten besitzen." Die getrennten Prozesse sind bereits als
@@ -44,27 +44,115 @@ use psk_types::objects::{
 };
 use psk_types::{Digest, DualTime, PskError};
 
-/// Schnittstelle 20.5, `interface EffectAdapter`. Absichtlich OHNE
+/// Schnittstelle 20.5 (Adapter), `interface EffectAdapter`. Absichtlich OHNE
 /// `observe`/`read_result`/`confirm` - siehe Modulkopf.
 ///
 /// `apply` nimmt `started_at` als Parameter statt es selbst zu bestimmen:
 /// "M16 fuehrt keine eigene Uhr" (`consume::check_not_expired`s
 /// Modulkommentar) gilt fuer Adapter genauso wie fuer die Grenze selbst -
-/// `EffectAttempt.started_at` MUSS gesetzt sein (Struktur 7.33, kein
+/// `EffectAttempt.started_at` MUSS gesetzt sein (Struktur 7.36 (EffectAttempt / ExternalReceipt), kein
 /// optionales Feld), aber woher der Zeitwert stammt, ist Sache des
 /// Aufrufers von `execute_effect`, nicht des Adapters.
+/// ## Warum `prestate` und `apply` `&mut self` nehmen
+///
+/// Regel 20.6 (Vorzustand und Versuch klammern den Effekt): beide
+/// Aufrufe MUESSEN denselben Beobachtungskanal benutzen, und zwischen
+/// ihnen darf am beobachteten Bereich nichts geschehen. Ueber eine
+/// Prozessgrenze heisst das: DERSELBE Kindprozess bedient beide und
+/// wird ueber beide hinweg gehalten.
+///
+/// Die Regel sagt ausdruecklich, dass die Signatur zu aendern ist, wenn
+/// sie das Halten verhindert. Gewaehlt ist `&mut self` und nicht innere
+/// Veraenderlichkeit: `&mut self` DRUECKT die Klammer im Typsystem aus -
+/// wer klammert, haelt den Adapter exklusiv. Ein Mutex haette dieselbe
+/// Leitung geschuetzt, aber zwei Aufrufern erlaubt, sich zwischen
+/// Vorzustand und Versuch zu schieben; genau das Fenster, das die Regel
+/// schliesst.
+///
+/// Die vier lesenden Methoden bleiben `&self` - sie beobachten den
+/// Bereich nicht.
 pub trait EffectAdapter {
     fn id(&self) -> AdapterId;
     fn declared_effect_classes(&self) -> Vec<EffectClassId>;
     fn required_capabilities(&self) -> Vec<CapabilityId>;
-    fn prestate(&self, scope: &ScopeExpr) -> Digest;
-    fn apply(&self, token: &EffectToken, started_at: DualTime) -> EffectAttempt;
+    /// Klammert mit `apply` (Regel 20.6 (Vorzustand und Versuch klammern den Effekt)) - siehe Traitkommentar.
+    fn prestate(&mut self, scope: &ScopeExpr) -> Digest;
+    /// Klammert mit `prestate` (Regel 20.6 (Vorzustand und Versuch klammern den Effekt)) - siehe Traitkommentar.
+    fn apply(&mut self, token: &EffectToken, started_at: DualTime) -> EffectAttempt;
     fn compensate(&self, attempt: &EffectAttempt) -> EffectAttempt;
     fn is_reversible(&self, token: &EffectToken) -> bool;
 }
 
+/// Weiterreichende Instanz fuer den geboxten Adapter: `execute_effect`
+/// unten verlangt `&impl EffectAdapter`, was den impliziten `Sized`-Bund
+/// des generischen Parameters auf `dyn EffectAdapter` (unsized) nicht
+/// zulaesst. Ein zur Laufzeit gewaehlter Adapter (z.B. M25/`dispatch()`,
+/// das Execute-Phase-Elemente typisiert entgegennimmt, ohne selbst
+/// generisch ueber jeden moeglichen Adaptertyp zu sein) braucht deshalb
+/// diese Bruecke - Standardmuster fuer Trait-Objekte, keine Erweiterung
+/// des Traits selbst.
+impl EffectAdapter for Box<dyn EffectAdapter + Send> {
+    fn id(&self) -> AdapterId {
+        self.as_ref().id()
+    }
+    fn declared_effect_classes(&self) -> Vec<EffectClassId> {
+        self.as_ref().declared_effect_classes()
+    }
+    fn required_capabilities(&self) -> Vec<CapabilityId> {
+        self.as_ref().required_capabilities()
+    }
+    fn prestate(&mut self, scope: &ScopeExpr) -> Digest {
+        self.as_mut().prestate(scope)
+    }
+    fn apply(&mut self, token: &EffectToken, started_at: DualTime) -> EffectAttempt {
+        self.as_mut().apply(token, started_at)
+    }
+    fn compensate(&self, attempt: &EffectAttempt) -> EffectAttempt {
+        self.as_ref().compensate(attempt)
+    }
+    fn is_reversible(&self, token: &EffectToken) -> bool {
+        self.as_ref().is_reversible(token)
+    }
+}
+
 /// Invariante 20.4 (Kein Effekt ohne Token): "ExecuteEffect(e) = 1 =>
 /// Gate(e) = PASS UND TokenBound(e) = 1. Ein Adapteraufruf ohne
+/// Die ANGESCHLOSSENEN Leitungen der Effektgrenze (M16), wie der
+/// Taktzyklus sie sieht: je Effektklasse hoechstens eine exklusive,
+/// bereits verbundene Leitung.
+///
+/// Warum ein eigener Typ und kein Wert in Sigma: eine Leitung ist kein
+/// Zustand, sondern die Anwesenheit der Aussenwelt - sie laesst sich
+/// weder kanonisieren noch digesten, und ein Laufzustand, der sie
+/// enthielte, waere nicht mehr H(Can(Sigma_t))-faehig. Die BINDUNG der
+/// Adapter steht als Wert im RuntimeManifest (`adapter_versions`); das
+/// lebende Gegenstueck reicht der Aufrufer der Taktschleife hier herein -
+/// dasselbe Muster wie `ExclusiveLine` fuer den Kindprozess: der Kern
+/// nimmt typisiert entgegen, was andere besitzen (das Spawnen gehoert
+/// M26, `proc.control` liegt laut module_map.yaml nicht bei M25).
+///
+/// `&mut` in `line`: wer die Leitung bekommt, haelt sie exklusiv -
+/// dieselbe Klammer-Begruendung wie bei `prestate`/`apply` oben. Kein
+/// `Send`-Bund: `ExecuteRun` ist nicht nebenlaeufigkeitsfaehig
+/// (gemeinsamer Schreibzustand, Regel 14.8 (Nebenläufigkeitsmodell)), die Leitung wechselt also
+/// nie den Thread - ein Bund ohne Nutzer waere eine Anforderung, die
+/// echte Kindprozess-Handles grundlos ausschloesse.
+pub trait EffectLines {
+    fn line(&mut self, class: &EffectClassId) -> Option<&mut dyn EffectAdapter>;
+}
+
+/// Keine Leitung angeschlossen: fuer Laeufe ohne Aussenwirkung (Shadow/
+/// Readonly-Profile, reine Rechenlaeufe) und fuer Tests, die die
+/// Execute-Phase nicht betreten. Ein ExecuteRun-Element ueber dieser
+/// Grenze scheitert typisiert statt still zu simulieren.
+pub struct NoEffectLines;
+
+impl EffectLines for NoEffectLines {
+    fn line(&mut self, _class: &EffectClassId) -> Option<&mut dyn EffectAdapter> {
+        None
+    }
+}
+
 /// gueltiges, nicht konsumiertes, nicht abgelaufenes Token erzeugt
 /// PSK-E008, fuehrt keinen Effekt aus und schreibt ein ResidueRecord."
 ///
@@ -73,12 +161,12 @@ pub trait EffectAdapter {
 /// Ablaufzeit nicht ueberschritten ist, und markiert das Token danach als
 /// verbraucht (`consume_once`) - der Adapter selbst sieht nie ein Token,
 /// das nicht schon durch diese Pruefung ist.
-pub fn execute_effect(
+pub fn execute_effect<A: EffectAdapter + ?Sized>(
     ledger: &mut TokenLedger,
     token: &EffectToken,
     current_tau_i: u64,
     started_at: DualTime,
-    adapter: &impl EffectAdapter,
+    adapter: &mut A,
 ) -> Result<EffectAttempt, PskError> {
     check_not_expired(token, current_tau_i)?;
     ledger.consume_once(&token.idempotency_key)?;
@@ -106,10 +194,10 @@ mod tests {
         fn required_capabilities(&self) -> Vec<CapabilityId> {
             vec![CapabilityId("fs.write.sandbox".into())]
         }
-        fn prestate(&self, _scope: &ScopeExpr) -> Digest {
+        fn prestate(&mut self, _scope: &ScopeExpr) -> Digest {
             Digest::sha256(b"prestate")
         }
-        fn apply(&self, token: &EffectToken, started_at: psk_types::DualTime) -> EffectAttempt {
+        fn apply(&mut self, token: &EffectToken, started_at: psk_types::DualTime) -> EffectAttempt {
             EffectAttempt {
                 id: ObjectId::new(SortId::Effect, Digest::sha256(b"attempt")),
                 token_ref: token.id,
@@ -170,7 +258,8 @@ mod tests {
         let mut ledger = TokenLedger::new();
         let token = sample_token("k1", 100);
         ledger.register(&token);
-        let attempt = execute_effect(&mut ledger, &token, 10, sample_time(), &NullAdapter).unwrap();
+        let attempt =
+            execute_effect(&mut ledger, &token, 10, sample_time(), &mut NullAdapter).unwrap();
         assert_eq!(attempt.token_ref, token.id);
         assert_eq!(
             ledger.state_of("k1"),
@@ -183,9 +272,9 @@ mod tests {
         let mut ledger = TokenLedger::new();
         let token = sample_token("k1", 100);
         ledger.register(&token);
-        execute_effect(&mut ledger, &token, 10, sample_time(), &NullAdapter).unwrap();
+        execute_effect(&mut ledger, &token, 10, sample_time(), &mut NullAdapter).unwrap();
         assert_eq!(
-            execute_effect(&mut ledger, &token, 10, sample_time(), &NullAdapter),
+            execute_effect(&mut ledger, &token, 10, sample_time(), &mut NullAdapter),
             Err(PskError::EffectWithoutToken)
         );
     }
@@ -196,7 +285,7 @@ mod tests {
         let token = sample_token("k1", 5);
         ledger.register(&token);
         assert_eq!(
-            execute_effect(&mut ledger, &token, 10, sample_time(), &NullAdapter),
+            execute_effect(&mut ledger, &token, 10, sample_time(), &mut NullAdapter),
             Err(PskError::EffectWithoutToken)
         );
         // Nicht konsumiert - ein spaeter noch rechtzeitig eintreffender
@@ -212,7 +301,7 @@ mod tests {
         let mut ledger = TokenLedger::new();
         let token = sample_token("never-registered", 100);
         assert_eq!(
-            execute_effect(&mut ledger, &token, 10, sample_time(), &NullAdapter),
+            execute_effect(&mut ledger, &token, 10, sample_time(), &mut NullAdapter),
             Err(PskError::EffectWithoutToken)
         );
     }

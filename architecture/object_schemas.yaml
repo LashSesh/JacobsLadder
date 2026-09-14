@@ -1,16 +1,19 @@
 schema: psk.object-schemas/1.0
 # Volle Feldstrukturen der kanonischen Objekte aus PSK-RA v1.0.8, Struktur
 # 7.1-7.47 (Kapitel 7) sowie Struktur 21.5 (ValidationPlan, Kapitel 21) und
-# Struktur 22.5 (ReplayManifest, Kapitel 22) - diese zwei liegen ausserhalb
+# Struktur 22.8 (ReplayManifest) - diese zwei liegen ausserhalb
 # Kapitel 7, definieren aber ebenfalls OBJ-VAL/OBJ-RPM aus object_registry.yaml.
 #
-# Von den 28 Eintraegen in object_registry.yaml haben 27 eine explizite
+# Von den 29 Eintraegen in object_registry.yaml haben 28 eine explizite
 # Feldstruktur: die urspruenglichen 25, OBJ-PRJ (FieldProjection,
-# nachgetragen in v1.0.3, Fehlerkorrektur Punkt 4; Struktur 7.13, Regel
-# 7.14/7.15/7.16) und OBJ-RCL (RealityClassification, nachgetragen in
-# v1.0.7, Fehlerkorrektur Punkt 10; Struktur 7.9, Regel 7.10). Beide waren
-# jeweils schon vorher im Objektregister und an einem Port gefuehrt, nur
-# ohne Felder. Nur OBJ-VIW (ViewArtifact) bleibt ohne
+# nachgetragen in v1.0.3, Fehlerkorrektur Punkt 4; Struktur 7.15, Regel
+# 7.16/7.15/7.16), OBJ-RCL (RealityClassification, nachgetragen in
+# v1.0.7, Fehlerkorrektur Punkt 10; Struktur 7.11, Regel 7.12) und OBJ-FCT
+# (Forecast, nachgetragen in v1.0.22; Struktur 20.11, Regel 20.12). Die
+# ersten beiden waren jeweils schon vorher im Objektregister und an einem
+# Port gefuehrt, nur ohne Felder; OBJ-FCT fehlte ganz, obwohl der Vertrag
+# zur Prognosepersistenz seine vier Pflichtfelder seit je benannte.
+# Nur OBJ-VIW (ViewArtifact) bleibt ohne
 # Feldstruktur: es traegt seit v1.0.3 explizit canonical:false in
 # object_registry.yaml und faellt nach I-ARCH-015 aus der Kanonisierung -
 # der Registereintrag dient Ownership und Lebensdauer, nicht der
@@ -21,9 +24,9 @@ schema: psk.object-schemas/1.0
 # Objekt als eigener nested_struct-Verweis). optional=true entspricht
 # einem "?" im Quelltext. Kommentare aus dem Quelltext sind als "note"
 # uebernommen, nicht ergaenzt.
-count: 27
+count: 29
 
-# Struktur 7.25 (Matrix und Scaled), v1.0.8 (Fehlerkorrektur Punkt 12/13):
+# Struktur 7.27 (Matrix und Scaled), v1.0.8 (Fehlerkorrektur Punkt 12/13):
 # "Beide Typen sind intern berechnet, nicht domaenengeliefert, und gehen in
 # einen kanonischen Digest ein. Ihre Kodierung MUSS daher festgelegt sein."
 # Anders als LensSpec/PredicateExpr/RealityEvidence (Vertrag 27.2) sind das
@@ -45,7 +48,7 @@ shared_structs:
     - {name: scale, type: integer, note: "Wert = numerator / 10^scale, scale >= 0. Vertrag 6.3 verbietet Gleitkomma ohne exakte Dezimaldarstellung - Scaled ist der einzige nichtganzzahlige Typ des Werkes."}
   Matrix:
     - {name: schema, type: "psk.matrix/1.0"}
-    - {name: axis, type: "[SourceRef]", note: "Zeilen- UND Spaltenachse, identisch (Regel 7.26)"}
+    - {name: axis, type: "[SourceRef]", note: "Zeilen- UND Spaltenachse, identisch (Regel 7.28)"}
     - {name: scale, type: integer, note: "gemeinsamer Nenner aller Zellen"}
     - {name: values, type: "[[integer]]", note: "quadratisch, |axis| x |axis|; Zelle (i,j) = values[i][j] / 10^scale"}
 
@@ -65,6 +68,11 @@ objects:
       - {name: operator_versions, type: "map<OpId,SemVer>"}
       - {name: adapter_versions, type: "map<AdapterId,SemVer>"}
       - {name: determinism_class, type: "R0 | R1 | R2 | R3"}
+      - {name: max_depth, type: uint32, note: "Skalentiefe; das Topologieregister verweist
+          hierher (Invariante Skalenturm). Nachgetragen in v1.0.32: die Referenz bestand,
+          das Feld nicht - haengende Referenz derselben Klasse wie ratchet_max_rounds. Ohne
+          es ist descend unimplementierbar und die Wohlgeformtheitsbedingung
+          level <= max_depth einer M13Address nicht pruefbar."}
 
   - id: OBJ-IDB
     name: IdentityBinding
@@ -113,7 +121,7 @@ objects:
 
   - id: OBJ-THB
     name: ThoughtBody
-    struktur: "7.7"
+    struktur: "7.9"
     schema_id: psk.thought-body/1.0
     fields:
       - {name: schema, type: "psk.thought-body/1.0"}
@@ -135,19 +143,19 @@ objects:
       - {name: trace_ref, type: TraceRef}
     nested_structs:
       Claim:
-        - {name: text, type: string, note: "nur Projektion, nicht normativ; geht nicht in Can ein (Axiom 7.8)"}
+        - {name: text, type: string, note: "nur Projektion, nicht normativ; geht nicht in Can ein (Axiom 7.10)"}
         - {name: formal, type: ClaimExpr, note: "kanonischer Zustand"}
         - {name: directionality, type: "internal | external"}
 
   - id: OBJ-RCL
     name: RealityClassification
-    struktur: "7.9"
+    struktur: "7.11"
     schema_id: psk.reality-classification/1.0
     note: "Nachgetragen in v1.0.7 (Fehlerkorrektur Punkt 10). Das Objekt war
       schon vorher Exklusivbesitz von M07 und Nutzlast von P09, besass aber
       in keinem Register eine Feldstruktur."
     rules:
-      - {id: "Regel 7.10", title: "Klassifikation ist ein eigenes Objekt",
+      - {id: "Regel 7.12", title: "Klassifikation ist ein eigenes Objekt",
           statement: "M07 DARF NICHT in den ThoughtBody schreiben. Die
             Klassifikation verlaesst M07 ausschliesslich als
             RealityClassification ueber P09. Das Feld reachability traegt die
@@ -171,7 +179,7 @@ objects:
 
   - id: OBJ-FLD
     name: FieldIdentity
-    struktur: "7.12"
+    struktur: "7.14"
     schema_id: psk.field-identity/1.0
     fields:
       - {name: schema, type: "psk.field-identity/1.0"}
@@ -194,29 +202,29 @@ objects:
 
   - id: OBJ-PRJ
     name: FieldProjection
-    struktur: "7.13"
+    struktur: "7.15"
     schema_id: psk.field-projection/1.0
     note: "Nachgetragen in v1.0.3 (Fehlerkorrektur Punkt 4). Kein Randfall:
       Eingang der Kernproduktionen ((ThoughtBody, FieldIdentity) => FieldProjection,
       {FieldProjection}_compat => ScopedCognitionGraph), fliesst ueber P13,
       Eingang von M10 und M11. v1.0.6 (Fehlerkorrektur Punkt 7): Feld
-      undefined_reason ersatzlos entfallen, Regel 7.14 geteilt - der Fall
-      der nicht anwendbaren Linse steht jetzt in Regel 7.15 und erzeugt gar
+      undefined_reason ersatzlos entfallen, Regel 7.16 geteilt - der Fall
+      der nicht anwendbaren Linse steht jetzt in Regel 7.17 und erzeugt gar
       keine Projektion."
     rules:
-      - {id: "Regel 7.14", title: "Projektion promoviert nicht",
+      - {id: "Regel 7.16", title: "Projektion promoviert nicht",
           statement: "Eine FieldProjection ist eine Sicht, kein Fakt. reality_status
             und facticity des Urbildes DARF NICHT durch eine Projektion veraendert
             werden; die Sorten-Port-Matrix verbietet die Relation (S-PRJ, S-RCN)
             vollstaendig."}
-      - {id: "Regel 7.15", title: "Nicht anwendbare Linse erzeugt keine Projektion",
+      - {id: "Regel 7.17", title: "Nicht anwendbare Linse erzeugt keine Projektion",
           statement: "Ist die Spektrallinse auf die Sortenmenge des Urbildes nicht
             anwendbar, so entsteht DARF NICHT eine FieldProjection. Statt dessen
             MUSS M09 einen ResidueRecord des Typs scope erzeugen und PSK-E013
             emittieren; dies ist die in Vertrag C5 verlangte Form. Eine
             FieldProjection mit leerem visible ist unzulaessig: Es gibt keine
             leere Projektion, sondern nur eine ausgebliebene."}
-      - {id: "Regel 7.16", title: "Occlusion ist explizit",
+      - {id: "Regel 7.18", title: "Occlusion ist explizit",
           statement: "occluded MUSS vollstaendig gefuehrt werden. Was eine Linse
             nicht aufloest, ist ein bezeugter Nichtbefund und DARF NICHT als
             Abwesenheit gewertet werden; andernfalls greift PSK-E005."}
@@ -227,7 +235,7 @@ objects:
       - {name: source_refs, type: "[ObjectId]", note: "ThoughtBody bzw. IR-Knoten des Urbildes"}
       - {name: lens_ref, type: LensSpec, note: "Pi_lambda, wie zum Zeitpunkt der Anwendung gebunden"}
       - {name: scope, type: ScopeSpec, note: "Geltungsbereich; erweitert sich nie ohne Gate"}
-      - {name: visible, type: "[IRNodeId]", note: "was die Linse aufloest; nie leer (Regel 7.15)"}
+      - {name: visible, type: "[IRNodeId]", note: "was die Linse aufloest; nie leer (Regel 7.17)"}
       - {name: occluded, type: "[IRNodeId]", note: "was sie nachweislich nicht aufloest"}
       - {name: distinctions, type: "[DistinctionSpec]", note: "intern erzeugte Unterscheidungen"}
       - {name: source_provenance, type: "[SourceRef]", note: "Grundlage des Abhaengigkeitsquotienten (M10); v1.0.8 (Fehlerkorrektur Punkt 14) auf SourceRef vereinheitlicht - SourceId existiert nicht mehr"}
@@ -236,7 +244,7 @@ objects:
 
   - id: OBJ-IRB
     name: IRBundle
-    struktur: "7.19"
+    struktur: "7.21"
     schema_id: psk.ir/1.0
     fields:
       - {name: schema, type: "psk.ir/1.0"}
@@ -261,7 +269,7 @@ objects:
 
   - id: OBJ-IRN
     name: IRNode
-    struktur: "7.20"
+    struktur: "7.22"
     fields:
       - {name: id, type: ObjectId}
       - {name: sort, type: SortId, note: "genau eine Primaersorte"}
@@ -278,7 +286,7 @@ objects:
 
   - id: OBJ-IRE
     name: IREdge
-    struktur: "7.20"
+    struktur: "7.22"
     fields:
       - {name: id, type: ObjectId}
       - {name: source, type: ObjectId}
@@ -293,7 +301,7 @@ objects:
 
   - id: OBJ-CAP
     name: CandidateCapsule
-    struktur: "7.21"
+    struktur: "7.23"
     schema_id: psk.candidate-capsule/1.0
     fields:
       - {name: schema, type: "psk.candidate-capsule/1.0"}
@@ -311,7 +319,7 @@ objects:
 
   - id: OBJ-EVD
     name: EvidenceObject
-    struktur: "7.23"
+    struktur: "7.25"
     schema_id: psk.evidence/1.0
     fields:
       - {name: schema, type: "psk.evidence/1.0"}
@@ -329,7 +337,7 @@ objects:
 
   - id: OBJ-DEP
     name: DependencyProfile
-    struktur: "7.24"
+    struktur: "7.26"
     schema_id: psk.dependency-profile/1.0
     fields:
       - {name: schema, type: "psk.dependency-profile/1.0"}
@@ -344,7 +352,7 @@ objects:
 
   - id: OBJ-SEA
     name: SeamReport
-    struktur: "7.28"
+    struktur: "7.31"
     fields:
       - {name: id, type: ObjectId}
       - {name: overlap, type: "[ObjectId, ObjectId]"}
@@ -356,7 +364,7 @@ objects:
 
   - id: OBJ-OBS
     name: ObstructionRecord
-    struktur: "7.28"
+    struktur: "7.31"
     fields:
       - {name: id, type: ObjectId}
       - {name: kind, type: "seam | order | identity | time | resource | capability | calibration"}
@@ -368,7 +376,7 @@ objects:
 
   - id: OBJ-GAT
     name: GateReport
-    struktur: "7.30"
+    struktur: "7.33"
     schema_id: psk.gate-report/1.0
     fields:
       - {name: schema, type: "psk.gate-report/1.0"}
@@ -387,7 +395,7 @@ objects:
 
   - id: OBJ-TOK
     name: EffectToken
-    struktur: "7.31"
+    struktur: "7.34"
     schema_id: psk.effect-token/1.0
     fields:
       - {name: schema, type: "psk.effect-token/1.0"}
@@ -409,7 +417,7 @@ objects:
 
   - id: OBJ-ATT
     name: EffectAttempt
-    struktur: "7.33"
+    struktur: "7.36"
     fields:
       - {name: id, type: ObjectId}
       - {name: token_ref, type: ObjectId}
@@ -424,7 +432,7 @@ objects:
 
   - id: OBJ-RCP
     name: ExternalReceipt
-    struktur: "7.33"
+    struktur: "7.36"
     fields:
       - {name: id, type: ObjectId}
       - {name: observer_adapter, type: AdapterId, note: "MUSS != EffectAttempt.adapter"}
@@ -437,7 +445,7 @@ objects:
 
   - id: OBJ-RCN
     name: ReconciliationReport
-    struktur: "7.35"
+    struktur: "7.38"
     schema_id: psk.reconciliation/1.0
     fields:
       - {name: schema, type: "psk.reconciliation/1.0"}
@@ -453,10 +461,103 @@ objects:
       - {name: residue_refs, type: "[ObjectId]"}
       - {name: witness_ref, type: ObjectId, note: "ActualizationWitness bei ACTUALIZED"}
 
+  - id: OBJ-RVP
+    name: RevisionProposal
+    struktur: "12.12"
+    schema_id: psk.revision-proposal/1.0
+    note: "Nachgetragen in v1.0.29 (Fehlerkorrektur Punkt 31): war Nutzlast von
+      P36, Ausgabe der ISA-Instruktion PROPOSE_REVISION und Gegenstand von
+      G-SELF-COMPILE, besass aber keine Feldstruktur - dieselbe Lueckenklasse
+      wie zuvor ReanchorRequest und Forecast."
+    rules:
+      - {id: "Regel 12.13", title: "Vorschlag ist kein Vollzug",
+          statement: "Ein RevisionProposal ist ein Vorschlag und DARF NICHT eine
+            Aenderung. Er entsteht ueber P36 als Rueckfluss: neues Objekt, neue
+            Identitaet, Verweis auf den Ursprung. hardening_class MUSS genau
+            eine der sechs in Regel Zulaessige Selbstverhaertung genannten
+            Klassen tragen; ein Vorschlag ausserhalb dieser Klassen ist
+            unzulaessig und erzeugt PSK-E012. cra_inputs_absent MUSS gefuehrt
+            werden: ein CRA ueber weniger als alle sechs Eingaben ist
+            zulaessig, aber der Vorschlag DARF NICHT den Eindruck erwecken,
+            ueber mehr verdichtet zu haben, als vorlag - dieselbe
+            Ehrlichkeitspflicht wie beim abgeleiteten Deckungsvektor."}
+    fields:
+      - {name: schema, type: "psk.revision-proposal/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: candidate_id, type: ObjectId, note: "MUSS != aktive Instanz, sonst PSK-E012"}
+      - {name: hardening_class, type: "tests_and_falsifiers | gate_and_validation_policies |
+          replay_and_residue_patterns | dependency_models | search_and_branch_strategies |
+          calibration_profiles", note: "genau eine der sechs aus Regel Zulaessige Selbstverhaertung"}
+      - {name: source_residues, type: "[ObjectId]", note: "ISA-Eingabe Residues, nichtleer"}
+      - {name: source_evidence, type: "[ObjectId]", note: "ISA-Eingabe Evidence, nichtleer"}
+      - {name: cra_inputs_present, type: "[CRAInputId]", note: "welche der sechs CRA-Eingaben real vorlagen"}
+      - {name: cra_inputs_absent, type: "[CRAInputId]", note: "die uebrigen, benannt statt verschwiegen"}
+      - {name: proposed_delta, type: DeltaSpec, note: "was sich aendert, nie eine In-place-Weisung"}
+      - {name: parent_binding, type: nested_struct, nested_struct: ParentBinding,
+          note: "ParentBound gegen die laufende Instanz"}
+      - {name: isolation_build_ref, type: ObjectId, optional: true, note: "Ergebnis des getrennten Prozessbaus"}
+      - {name: trace_ref, type: TraceRef, note: "KEIN gate_report_ref (v1.0.30, Regel Urteil
+          verweist, Gegenstand nicht): das Urteil verweist auf seinen Gegenstand ueber
+          input_digests, nicht umgekehrt - ein nachtraeglich gesetztes Feld waere eine
+          Mutation gegen Kein In-place-Rueckfluss"}
+    nested_structs:
+      ParentBinding:
+        - {name: constitution, type: Digest}
+        - {name: architecture, type: Digest}
+        - {name: implementation, type: Digest}
+
+  - id: OBJ-FCT
+    name: Forecast
+    struktur: "20.11"
+    schema_id: psk.forecast/1.0
+    note: "Nachgetragen in v1.0.22. Vertrag Prognosepersistenz verlangte
+      seit je Horizont, Erzeugungsbasis, Gueltigkeitsfenster und den
+      damaligen Anker - ohne dass ein Objekt diese Felder getragen haette."
+    rules:
+      - {id: "Regel 20.12", title: "Prognosen werden bewertet, nicht umgeschrieben",
+          statement: "horizon, generation_basis, validity_window und
+            anchor_ref sind nach Erzeugung unveraenderlich. Eine spaetere
+            Beobachtung erzeugt ausschliesslich einen neuen Eintrag in
+            evaluations; sie DARF NICHT ein bestehendes Feld aendern und
+            DARF NICHT einen bestehenden Eintrag ersetzen. Die
+            Durchsetzung erfolgt strukturell: evaluations ist append-only
+            wie der Trace, und die uebrigen Felder besitzen keinen
+            Schreibpfad nach Konstruktion."}
+    fields:
+      - {name: schema, type: "psk.forecast/1.0"}
+      - {name: id, type: ObjectId}
+      - {name: horizon, type: HorizonSpec, note: "bis wohin die Prognose reicht"}
+      - {name: generation_basis, type: "[ObjectId]", note: "Erzeugungsbasis, versiegelt"}
+      - {name: validity_window, type: TimeWindow, note: "Gueltigkeitsfenster, tau_i-gebunden"}
+      - {name: anchor_ref, type: ObjectId, note: "der Anker ZUM ZEITPUNKT der Erzeugung"}
+      - {name: claim_refs, type: "[ObjectId]"}
+      - {name: evaluations, type: "[ForecastEvaluation]", note: "append-only, nie ersetzend"}
+      - {name: trace_ref, type: TraceRef}
+    nested_structs:
+      ForecastEvaluation:
+        - {name: observed_ref, type: ObjectId, note: "spaetere Beobachtung"}
+        - {name: verdict, type: "CONFIRMED | REFUTED | INCONCLUSIVE"}
+        - {name: evaluated_at, type: DualTime}
+
   - id: OBJ-TRC
     name: TraceSegment
-    struktur: "7.38"
+    struktur: "7.41"
     schema_id: psk.trace-segment/1.0
+    rules:
+      - {id: "Regel 7.42 (Zwei Digests je Segment)", title: "Zwei Digests je Segment",
+          statement: "segment_digest ist identitaetsbildend: es bildet die
+            Hashkette, geht ueber L_t in I_t ein und MUSS daher pi_vol
+            anwenden. Andernfalls ginge tau_e entgegen der blockierenden
+            Invariante Replayneutralitaet der Wanduhr in einen Digest ein,
+            und zwei inhaltsgleiche Laeufe erhielten verschiedene
+            Zustandsdigests - R2 waere strukturell unerreichbar und damit
+            kein Referenzrelease moeglich. segment_record_digest deckt
+            dieselben Felder einschliesslich tau_e ab und sichert die
+            Integritaet der gespeicherten Bytes. Es ist DARF NICHT Teil der
+            Kette, DARF NICHT Eingabe von I_t und DARF NICHT Eingabe einer
+            Gate-Entscheidung. verify_chain MUSS beides pruefen: die
+            Kettenfortschreibung ueber segment_digest und je Segment die
+            Aufzeichnungsintegritaet ueber segment_record_digest."}
     fields:
       - {name: schema, type: "psk.trace-segment/1.0"}
       - {name: seq, type: uint64, note: "global monoton je run_id"}
@@ -468,11 +569,12 @@ objects:
       - {name: payload_digest, type: Digest}
       - {name: time, type: DualTime}
       - {name: attestation, type: Signature, optional: true}
-      - {name: segment_digest, type: Digest, note: "H(Can(alle vorstehenden Felder))"}
+      - {name: segment_digest, type: Digest, note: "H(Can(pi_vol(alle vorstehenden Felder)))"}
+      - {name: segment_record_digest, type: Digest, note: "H(Can(alle vorstehenden Felder)), mit tau_e"}
 
   - id: OBJ-RES
     name: ResidueRecord
-    struktur: "7.40"
+    struktur: "7.44"
     schema_id: psk.residue/1.0
     fields:
       - {name: schema, type: "psk.residue/1.0"}
@@ -490,7 +592,7 @@ objects:
 
   - id: OBJ-RUN
     name: RunDescriptor
-    struktur: "7.42"
+    struktur: "7.46"
     schema_id: psk.run-descriptor/1.0
     fields:
       - {name: schema, type: "psk.run-descriptor/1.0"}
@@ -505,12 +607,16 @@ objects:
       - {name: environment, type: EnvironmentProfile, note: "deklarierte, replayrelevante Umgebung"}
       - {name: time_window, type: TimeWindow, note: "gebundene Zeitgrenzen fuer Entscheidungen"}
       - {name: nondeterminism_budget, type: NDBudget, note: "zulaessige, deklarierte Abweichungsquellen"}
+      - {name: ratchet_max_rounds, type: uint32, note: "Regel 12.7 (Selektionsdruck), Ratchet-Terminierung, nachgetragen
+          in v1.0.26: die Regel verortete das Budget woertlich 'im RunDescriptor', das Feld fehlte -
+          haengende Referenz derselben Klasse wie seinerzeit T-M13-001. Deklariert, nicht geraten;
+          eine Ressourcenentscheidung ueber den Lauf, nicht ueber die Domaene."}
       - {name: canon, type: CanonicalizationProfile}
       - {name: digest, type: Digest}
 
   - id: OBJ-EXC
     name: ExcisionCertificate
-    struktur: "7.44"
+    struktur: "7.48"
     schema_id: psk.excision/1.0
     fields:
       - {name: schema, type: "psk.excision/1.0"}
@@ -527,7 +633,7 @@ objects:
 
   - id: OBJ-CRT
     name: MachineCertificate
-    struktur: "7.46"
+    struktur: "7.50"
     schema_id: psk.machine-certificate/1.0
     fields:
       - {name: schema, type: "psk.machine-certificate/1.0"}
@@ -572,7 +678,7 @@ objects:
 
   - id: OBJ-RPM
     name: ReplayManifest
-    struktur: "22.5"
+    struktur: "22.8"
     fields:
       - {name: run_id, type: RunId}
       - {name: run_descriptor_digest, type: Digest}
@@ -581,7 +687,7 @@ objects:
       - {name: trace_head, type: Digest}
       - {name: final_canonical_digest, type: Digest}
       - {name: gate_sequence_digest, type: Digest}
-      - {name: achieved_class, type: "R0 | R1 | R2 | R3"}
+      - {name: achieved_class, type: "R0 | R1 | R2 | R3 | NOT_COMPARABLE"}
       - {name: divergences, type: "[DivergenceRecord]"}
     nested_structs:
       ExternalRecordRef:

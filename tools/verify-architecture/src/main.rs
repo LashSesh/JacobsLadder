@@ -5,7 +5,10 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use verify_architecture::{check_architecture_bundle, ARCHITECTURE_FILES_YAML};
+use verify_architecture::{
+    check_architecture_bundle, check_second_layer_binding, check_second_layer_seals,
+    ARCHITECTURE_FILES_YAML, SECOND_LAYER_REGISTERS,
+};
 
 fn workspace_root() -> PathBuf {
     let mut dir = std::env::current_dir().expect("cwd");
@@ -48,6 +51,55 @@ fn main() -> ExitCode {
         "verify-architecture: alle {} Register strukturell schemakonform.",
         ARCHITECTURE_FILES_YAML.len()
     );
+
+    // Zweitschicht (QPM/NRAII): geprueft, aber NICHT in I_A - eigene
+    // Identitaeten, und `shared-identity-in-certificate` ist dort ein
+    // blockierender Negativtest. Was `binds_to` behauptet, muss halten.
+    match check_second_layer_binding(&root) {
+        Ok(problems) if problems.is_empty() => {
+            eprintln!(
+                "verify-architecture: Zweitschicht — {} Register, alle Bindungen an PSK-RA aufgeloest (nicht in I_A).",
+                SECOND_LAYER_REGISTERS.len()
+            );
+        }
+        Ok(problems) => {
+            eprintln!("verify-architecture: FAIL — Zweitschichtbindung:");
+            for p in &problems {
+                eprintln!("    - {p}");
+            }
+            return ExitCode::FAILURE;
+        }
+        Err(e) => {
+            eprintln!("verify-architecture: FAIL — Zweitschicht nicht pruefbar: {e}");
+            return ExitCode::FAILURE;
+        }
+    }
+
+    // QPM Regel 0.2 (Zwei eigene Locks, kein gemeinsamer): die
+    // Bindungspruefung oben stellt fest, dass eine Behauptung haelt -
+    // nicht, dass niemand sie ausgetauscht hat. Dafuer die Siegel.
+    match check_second_layer_seals(&root) {
+        Ok(seals) => {
+            let mut abweichung = false;
+            for (identity, computed, stored) in &seals {
+                if computed.to_string() == *stored {
+                    eprintln!("verify-architecture: {identity} = {computed} (Siegel stimmt).");
+                } else {
+                    eprintln!(
+                        "verify-architecture: FAIL — {identity} weicht ab. Gespeichert: {stored}, berechnet: {computed}"
+                    );
+                    abweichung = true;
+                }
+            }
+            if abweichung {
+                return ExitCode::FAILURE;
+            }
+        }
+        Err(e) => {
+            eprintln!("verify-architecture: FAIL — Zweitschichtsiegel: {e}");
+            return ExitCode::FAILURE;
+        }
+    }
 
     if !check.missing.is_empty() {
         eprintln!(

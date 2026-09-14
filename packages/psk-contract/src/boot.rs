@@ -34,7 +34,7 @@
 //!
 //! - Schritte 6/11 ("else FAIL(PSK-E103)") speisen `all_of(above)` als
 //!   `ConditionOutcome::False` statt vorzeitig zurueckzukehren. Begruendung:
-//!   Regel 17.2 fuehrt `digest_mismatch: fail` als EINE von vier
+//!   Regel 17.2 (Bootpolitik) fuehrt `digest_mismatch: fail` als EINE von vier
 //!   gate-vermittelten Reaktionen, nicht als gatefreien Sonderpfad, und
 //!   Schritt 20 selbst spricht von `g.decision` als der massgeblichen
 //!   Groesse. Ein direkter frueher Fehler wuerde Schritt 19s eigene
@@ -48,7 +48,7 @@
 //!   `psk_lifecycle::boot_policy::decide(BootSituation::DigestMismatch)`,
 //!   nicht neu erfunden. `Hold` bleibt dagegen ein inspizierbares `Ok`
 //!   (wie im bisherigen `golden_run.rs`s Testmuster) - kein Fehlercode
-//!   benennt "HOLD" als Fehler, Regel 17.2 nennt es eine Reaktion, kein
+//!   benennt "HOLD" als Fehler, Regel 17.2 (Bootpolitik) nennt es eine Reaktion, kein
 //!   FAIL.
 //! - Schritt 9 (`register_state_machines`/`register_invariants`) traegt
 //!   keine eigene Laufzeitbedingung: beides ist Build-Zeit-Codegen
@@ -70,12 +70,13 @@ use std::path::{Path, PathBuf};
 
 use psk_gate::{evaluate_gate, ConditionOutcome, GateInputs};
 use psk_lifecycle::{advance, decide, BootOutcome, BootSituation, RuntimeState};
+use psk_scheduler::{BudgetLedger, Sigma};
 use psk_trace::{ResidueLedger, TraceStore};
 use psk_types::objects::{
     AdapterId, GateId, GateReport, GateReportDecisionKind, IdentityBinding, OpId, ProfileId,
-    ReasonCode, Releaseposture, ReplayDescriptor, RuntimeManifest, SemVer, SortId,
+    ReasonCode, Releaseposture, ReplayDescriptor, RuntimeManifest, Scaled, SemVer, SortId,
 };
-use psk_types::{Digest, DualTime, ObjectId, PskError, TraceRef};
+use psk_types::{Digest, DualTime, ObjectId, PskError, RunId, TraceRef};
 
 use crate::artifact_registry::{self, ArtifactRegistry};
 use crate::identity_binder;
@@ -104,9 +105,20 @@ pub struct BootInputs {
     pub bound_at: DualTime,
     pub trace_ref: TraceRef,
     pub replay_descriptor: ReplayDescriptor,
+    /// Die deklarierten Ressourcengrenzen dieses Laufs (Vertrag 14.12 (Keine implizite Unendlichkeit):
+    /// "Jede Klasse besitzt ein deklariertes Limit"). Vom Aufrufer
+    /// geliefert, nicht hier erfunden - dasselbe Muster wie
+    /// `trace`/`residues`, die ebenfalls von aussen kommen. Sie sind Teil
+    /// des Laufzustands, ueber den Schritt 12 `I_t` bildet.
+    pub budget: BudgetLedger,
+    /// Skalentiefe des M13-Turms (v1.0.32, Struktur 7.1 (RuntimeManifest)). Eine
+    /// DEKLARATION des Laufs - das Topologieregister verweist auf sie
+    /// ("scale: {max_depth: declared_in_runtime_manifest}"), berechnen
+    /// kann sie niemand. Vom Aufrufer geliefert, wie `budget`.
+    pub max_depth: u32,
 }
 
-/// `BootReport` (Algorithmus 17.1s Rueckgabetyp - kein registriertes
+/// `BootReport` (Algorithmus 17.1 (Boot)s Rueckgabetyp - kein registriertes
 /// Kapitel-7-Objekt, siehe object_registry.yaml). `state` nutzt das
 /// bereits reale `psk_lifecycle::runtime::RuntimeState` statt eines neu
 /// erfundenen Enums - siehe Modulkopf.
@@ -120,7 +132,7 @@ pub struct BootReport {
     pub posture: Releaseposture,
 }
 
-/// Die 23 ISA-Operatoren (Definition 12.1, `OpId::ALL`) plus die beiden
+/// Die 23 ISA-Operatoren (Definition 12.1 (Adversarialer Kern), `OpId::ALL`) plus die beiden
 /// real existierenden Adaptercrates dieses Workspace, jeweils Version
 /// 1.0.0 - Schritt 17s reale Eingabe fuer DIESE Referenzimplementierung
 /// (welche Operatoren/Adapter ein Build traegt, ist eine Buildtatsache,
@@ -221,7 +233,7 @@ pub fn boot(
     {
         ConditionOutcome::True
     } else {
-        // Invariante 9.5 verletzt waere ein Programmierfehler im
+        // Invariante 9.5 (Exakte Kardinalität) verletzt waere ein Programmierfehler im
         // generierten Register, kein Laufzeitzustand - echtes False.
         ConditionOutcome::False(ReasonCode("m13-cardinality-violated".into()))
     };
@@ -242,13 +254,15 @@ pub fn boot(
     // Schritt 12: M04.bind(cid, aid, implementation_id(), runtime_state_digest()).
     let i_m = identity_binder::implementation_id(&inputs.bundle_root, cid, aid)?;
     eprintln!("boot: Schritt 12 implementation_id OK.");
-    let i_t = identity_binder::runtime_state_digest(trace);
-    let identity = identity_binder::bind(cid, aid, i_m, i_t, trace.head(), inputs.bound_at.clone());
-    eprintln!("boot: Schritt 12 OK.");
 
     // Schritt 17 zuerst berechnet (RuntimeManifest braucht sein Ergebnis),
     // Bedingung/Reihenfolge im all_of() weiter unten folgt Schritt 17s
-    // Nummer, nicht der Berechnungsreihenfolge hier.
+    // Nummer, nicht der Berechnungsreihenfolge hier. Seit I_t ueber den
+    // realen Laufzustand gebildet wird, gilt dasselbe fuer Schritt 12s
+    // ZWEITE Haelfte: `Sigma` traegt das RuntimeManifest als Position `I`
+    // (Definition 13.1 (Laufzustand)), also MUSS das Manifest vor `bind` stehen. Die
+    // Nummernfolge im Bericht bleibt unveraendert; nur die
+    // Berechnungsreihenfolge folgt der Datenabhaengigkeit.
     let registration = psk_effect::register_only_versioned_operators_and_capabilities(
         &versioned_operators(),
         &versioned_adapters(),
@@ -274,7 +288,40 @@ pub fn boot(
             .as_ref()
             .map(|r| r.adapter_versions.clone())
             .unwrap_or_default(),
+        inputs.max_depth,
     );
+
+    // Schritt 12, zweite Haelfte: der Laufzustand zum Bindezeitpunkt.
+    // `Sigma_t` ist hier real und nicht leer - Trace und Residuen kommen
+    // vom Aufrufer (siehe Modulkopf) und tragen bei einem Recovery-Boot
+    // bereits Inhalt, bei einem frischen Boot nichts. Beides ist ein
+    // gueltiger Zustand; erfunden wird keiner.
+    let mut boot_sigma = Sigma::new(runtime_manifest.clone(), inputs.budget.clone());
+    boot_sigma.trace = trace.clone();
+    boot_sigma.residues = residues.clone();
+    let i_t = identity_binder::runtime_state_digest(&boot_sigma)?;
+
+    // I-FIELD-001 (severity: blocking), erste Haelfte: keine bereits
+    // registrierte Feldidentitaet darf gleich der zu bindenden
+    // Systemidentitaet sein. Die Feldliste kommt aus dem Laufzustand -
+    // bei einem frischen Boot leer, bei einem Recovery-Boot gefuellt.
+    // Als Gatebedingung statt als frueher Err: dieselbe Ordnung wie bei
+    // Schritt 6/11 (siehe Modulkopf) - `all_of(above)` soll die
+    // Bedingung sehen, nicht um sie verkuerzt werden.
+    let registered_field_ids: Vec<ObjectId> = boot_sigma.fields.iter().map(|f| f.id).collect();
+    let field_identity_condition =
+        match identity_binder::check_no_field_identity_equals_system_identity(
+            i_t,
+            &registered_field_ids,
+        ) {
+            Ok(()) => ConditionOutcome::True,
+            Err(_) => {
+                ConditionOutcome::False(ReasonCode("field-identity-equals-system-identity".into()))
+            }
+        };
+
+    let identity = identity_binder::bind(cid, aid, i_m, i_t, trace.head(), inputs.bound_at.clone());
+    eprintln!("boot: Schritt 12 OK.");
 
     // Schritt 13: M04.check_profile_binding(profile).
     let profile_condition =
@@ -296,7 +343,7 @@ pub fn boot(
             architecture_matches: registry.architecture_check.matches(),
             architecture_schema_conformant: registry.architecture_check.schema_conformant(),
             identity_bound: true, // Schritt 12 hat oben unbedingt ein IdentityBinding gebaut
-            full_release_verified: false, // Vertrag 31.4: am Boot nie erfuellt, siehe posture.rs Modulkopf
+            full_release_verified: false, // Vertrag 31.4 (Verified Release): am Boot nie erfuellt, siehe posture.rs Modulkopf
             externally_reproduced: false,
         });
     let posture_condition = match posture {
@@ -323,6 +370,7 @@ pub fn boot(
                 topology_condition,
                 architecture_condition,
                 profile_condition,
+                field_identity_condition,
                 operator_condition,
                 posture_condition,
             ],
@@ -342,11 +390,11 @@ pub fn boot(
 
     // Schritt 20-21: require g.decision == PASS else HOLD or QUARANTINE;
     // activate_cognition_compiler() == FSM BOOTING->BOUND, siehe Modulkopf.
-    let _ = advance(RuntimeState::Booting, "bind_identity"); // Operator-Teil von Invariante 13.3; das Gate selbst ist der zweite Teil
+    let _ = advance(RuntimeState::Booting, "bind_identity"); // Operator-Teil von Invariante 13.3 (Keine Textzustandsübergänge); das Gate selbst ist der zweite Teil
     let state = match gate_report.decision {
         GateReportDecisionKind::Pass => RuntimeState::Bound,
         GateReportDecisionKind::Hold => {
-            let _ = decide(BootSituation::Undecidable); // Regel 17.2: undecidable -> hold, inspizierbar ueber gate_report
+            let _ = decide(BootSituation::Undecidable); // Regel 17.2 (Bootpolitik): undecidable -> hold, inspizierbar ueber gate_report
             RuntimeState::Booting
         }
         GateReportDecisionKind::Fail => {
@@ -385,7 +433,47 @@ pub fn default_inputs(
         bound_at,
         trace_ref,
         replay_descriptor: ReplayDescriptor("boot/1".into()),
+        budget: default_budget(RunId(trace_ref_run_id())),
+        // Skalentiefe 0: der Referenzlauf steigt nicht ab (M13(0)).
+        // Bewusst der niedrigste ehrliche Wert statt eines bequemen
+        // grossen - dieselbe Ueberlegung wie beim Vorgabebudget: ein
+        // Vorgabewert darf bequem sein, aber keine Tiefe behaupten, die
+        // kein Lauf betritt.
+        max_depth: 0,
     }
+}
+
+/// Ein deklariertes, ENDLICHES Vorgabebudget fuer Aufrufer, die kein
+/// eigenes mitbringen. Vertrag 14.12 (Keine implizite Unendlichkeit)
+/// verlangt fuer jede Klasse ein deklariertes Limit - der Wert hier ist
+/// bewusst konkret und endlich, nicht `u64::MAX`: ein Vorgabewert darf
+/// bequem sein, aber nicht die Erschoepfungssemantik aushebeln. Wer reale
+/// Grenzen kennt, uebergibt sie ueber `BootInputs::budget` selbst.
+pub fn default_budget(run_id: RunId) -> BudgetLedger {
+    const DEFAULT_LIMIT: u64 = 1_000_000;
+    BudgetLedger::open(
+        run_id,
+        DEFAULT_LIMIT,
+        DEFAULT_LIMIT,
+        DEFAULT_LIMIT,
+        DEFAULT_LIMIT,
+        DEFAULT_LIMIT,
+        DEFAULT_LIMIT,
+        DEFAULT_LIMIT,
+        Scaled {
+            schema: "psk.scaled/1.0".to_string(),
+            numerator: 100,
+            scale: 2,
+        },
+    )
+}
+
+/// `BudgetLedger::open` verlangt eine `RunId`; `default_inputs` kennt an
+/// dieser Stelle nur den `TraceRef`. Der Lauf selbst wird erst spaeter
+/// (M19 `open_run`) eroeffnet - bis dahin traegt das Vorgabebudget einen
+/// festen, deterministischen Bezeichner statt eines erfundenen Laufnamens.
+fn trace_ref_run_id() -> String {
+    "boot-default".to_string()
 }
 
 #[cfg(test)]

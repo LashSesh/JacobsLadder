@@ -34,7 +34,7 @@ pub enum MessageType {
 #[serde(transparent)]
 pub struct SchemaId(pub String);
 
-/// Laeufer-Kennung, referenziert u.a. in RunDescriptor (Struktur 7.42) und
+/// Laeufer-Kennung, referenziert u.a. in RunDescriptor (Struktur 7.46 (RunDescriptor)) und
 /// jeder Msg (Struktur 4.1). Die Norm legt den Namen fest, nicht die
 /// interne Darstellung; String ist die freizuegigste, unpraejudizierte Wahl.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -62,7 +62,7 @@ pub struct DualTime {
 }
 
 /// Verweis auf ein TraceSegment. TraceSegment ist inhaltsadressiert
-/// (segment_digest: Digest, Struktur 7.38); ein Verweis darauf ist damit
+/// (segment_digest: Digest, Struktur 7.41 (TraceSegment)); ein Verweis darauf ist damit
 /// folgerichtig selbst ein Digest, analog zur Objekt-ID-Bildung aus
 /// Definition 6.6. Diese Abbildung ist eine Implementierungsentscheidung
 /// im verbleibenden Raum, kein woertliches Zitat.

@@ -5,7 +5,7 @@
 //! Realisierungsort getestet (Verweis statt Duplikat - DRY gilt auch fuer
 //! Tests), oder (c) mit einer konkreten Begruendung als derzeit nicht
 //! realisierbar dokumentiert. Kategorie (c) ist ein Befund, kein
-//! uebersprungener Test: Vertrag 24.1 verlangt Artefakt+Test+Owner je
+//! uebersprungener Test: Vertrag 24.1 (Testpflicht je Requirement) verlangt Artefakt+Test+Owner je
 //! Requirement, und ein fehlender Test OHNE Begruendung wuerde genau das
 //! stillschweigend verletzen, was diese Datei verhindern soll.
 //!
@@ -34,7 +34,7 @@
 //!   `pass_decisions_do_not_residualize`,
 //!   `residue_origin_module_is_derived_from_the_gates_registered_owner`).
 //!   `evaluate_gate` ruft seither selbst `M19.append`/`M19.residualize`
-//!   (Algorithmus 18.6) - urspruenglich hier unter (c) als Befund
+//!   (Algorithmus 18.6 (Gate-Auswertung)) - urspruenglich hier unter (c) als Befund
 //!   dokumentiert, dann auf explizite Anweisung behoben statt nur
 //!   geflaggt; dieser Eintrag verschoben, statt die Vorfix-Begruendung
 //!   stehen zu lassen.
@@ -49,80 +49,255 @@
 //!   deklarierten `has_independent_evidence: bool`-Parameter ersetzt (M10/
 //!   M12 entscheiden das bereits frueher in der Pipeline), Cargo-
 //!   Abhaengigkeit vollstaendig entfernt statt eines neuen Ports.
+//! - T-ARCH-002 (zyklische Modulabhaengigkeit -> build_fail): real gruen
+//!   getestet in `tools/verify-dependencies`
+//!   (`the_real_module_graph_is_now_fully_acyclic_all_four_findings_closed`).
+//!   Vier Funde fuehrten hierher, alle vier behoben, keiner durch eine
+//!   erratene Ausnahme: (1) M09-M13 ueber P39 - ein Normfehler (Invariante
+//!   2.3s invertierte Schichtungleichung), an PSK-RA v1.0.14 korrigiert,
+//!   P39 als fuenfter benannter Rueckflusskanal aufgenommen. (2) M11-M22
+//!   ueber P16/P17 - kein Rueckfluss, sondern Zusammenarbeit INNERHALB von
+//!   Pass C9 (ClosureAndGluing, `modules: [M11, M22]`); PSK-RA v1.0.15
+//!   ergaenzte dafuer die Ausnahme "gemeinsame Passtraeger" in Invariante
+//!   2.3, siehe `shares_a_pass`. (3) M08-M20 ueber P31/P32 (M20->M08
+//!   "MorphogenesisDecision", M08->M20 "SpawnRequest") - strukturell
+//!   derselbe Anruf/Ruecksprung-Fall wie `psk_contract::boot()`s P00/P05
+//!   (`psk-fields/src/morphogenesis.rs`s `decide_transition` ruft
+//!   `complete_transition`, M08s eigene Funktion, synchron im selben
+//!   Cargo-Paket auf), an echtem Code verifiziert, dann durch PSK-RA
+//!   v1.0.16 (Fehlerkorrektur-Befund 20) normativ bestaetigt: P31 traegt
+//!   jetzt `kind: request`, "derselbe Aufruf/Ruecksprung-Charakter wie
+//!   P00/P05 ... nur zuvor nicht gekennzeichnet". (4) Ein potenzieller
+//!   VIERTER Fund, der beim Schliessen von (3) beinahe entstanden waere:
+//!   PSK-RA v1.0.16 ergaenzte `kind` fuer alle 42 Ports (zuvor nur neun
+//!   Beispiele) und machte "request" damit zum GEWOEHNLICHEN Fall (33 von
+//!   42) statt einer neunkoepfigen Ausnahme - `tools/verify-dependencies`s
+//!   fruehere Regel "jeder kind:request-Port ist von der Zyklenpruefung
+//!   ausgenommen" haette mechanisch auf alle 42 angewandt 33 von 42 Kanten
+//!   entfernt, darunter die gesamte gewoehnliche Vorwaertspipeline, und
+//!   T-ARCH-002 praktisch wirkungslos gemacht (ein fast leerer Graph ist
+//!   trivial azyklisch). Real beobachtet, nicht nur befuerchtet: das
+//!   Werkzeug meldete PASS, bevor die Ausnahme auf eine kleine, an echtem
+//!   Code verifizierte Aufzaehlung umgestellt wurde (`is_verified_call_
+//!   return_leg`, genau P05 und P31 - siehe dessen Kopfkommentar). Danach
+//!   erneut PASS, diesmal ueber einen Graphen, der die gewoehnliche
+//!   Pipeline nachweislich noch enthaelt (siehe `ordinary_forward_
+//!   pipeline_ports_stay_in_the_cycle_graph_despite_kind_request`).
+//! - T-SEC-001 (Adapter schreibt ausserhalb des Tokenscopes ->
+//!   substratblockiert): real gruen getestet in `psk-lifecycle/tests/
+//!   spawn_and_request.rs::a_path_escape_outside_sandbox_root_is_denied_
+//!   by_the_substrate_not_the_adapter`. Vertrag Capability-Erzwingung
+//!   verlangt echte Substraterzwingung, nicht Programmkonvention;
+//!   `LocalFsAdapter::apply` (`effect-local-fs/src/apply.rs`) bildet nach
+//!   wie vor blind `sandbox_root.join(&token.scope.0)` - KEINE eigene
+//!   Pfadausbruchspruefung, bewusst unveraendert. Die Erzwingung liegt
+//!   jetzt im Substrat: `ChildProcess::spawn` (`psk-lifecycle::process`)
+//!   erzeugt das Kind angehalten (`CREATE_SUSPENDED`), sperrt sein Token
+//!   VOR dem ersten Instruktionsschritt (`AdjustTokenPrivileges
+//!   DisableAllPrivileges` + Absenkung auf Low Integrity Level,
+//!   `psk-lifecycle::sandbox`) und markiert exklusiv `sandbox_root` als
+//!   fuer diese Stufe beschreibbar - kein Zeitfenster mit vollen Rechten.
+//!   Der Test beweist das ueber einen realen Pfadausbruchsversuch
+//!   (`scope: "..\<Datei>"`), den die Adapterlogik anstandslos
+//!   durchreicht: `EffectAttempt.outcome == Failed` UND die Zieldatei
+//!   entsteht nachweislich nicht - das Substrat verweigert, nicht der
+//!   Adapter. Windows-spezifisch deklariert (analog OBL-005), da PSK-RA
+//!   v1.0.16 fuer diese Domaene `CreateProcessWithLogonW oder gleichwertig`
+//!   verlangt und dessen woertliche Form (getrenntes, dauerhaft
+//!   eingerichtetes Benutzerkonto mit verwalteten Zugangsdaten) ausserhalb
+//!   dessen liegt, was Implementierung/Werkzeug ohne Zugriff auf
+//!   Systemkontenverwaltung leisten darf - siehe `architecture/
+//!   obligations.yaml` OBL-010 (`resolution`, `resolution_platform:
+//!   windows`) fuer die vollstaendige Begruendung der gewaehlten
+//!   Gleichwertigkeit (Rechteabbau + Low IL statt Kontowechsel). PSK-RA
+//!   selbst schreibt kein Betriebssystem vor - auf jeder Nicht-Windows-
+//!   Plattform gilt OBL-010 folgerichtig weiter als offen: `psk_lifecycle::
+//!   ChildProcess::spawn` (`process_unsupported.rs`, ueber `#[cfg(windows)]`
+//!   gewaehlt) verweigert sich dort mit einer auf OBL-010 verweisenden
+//!   Fehlermeldung, statt ungeschuetzt zu spawnen - dieser Test schlaegt
+//!   dort folglich LAUT fehl (`.expect(...)` auf dem `Err`), nicht
+//!   stillschweigend gruen. Real geprueft, nicht nur beabsichtigt: `cargo
+//!   check --target x86_64-unknown-linux-gnu --workspace --tests` compiliert
+//!   sauber (die Typoberflaeche ist plattformuebergreifend gleich); vor
+//!   dieser Aufteilung liess ein unbedingtes `mod process` den GESAMTEN
+//!   Workspace dort mit 18 kaskadierenden Fehlern gar nicht erst
+//!   kompilieren - ein frueherer, unabsichtlicher Zustand, kein
+//!   beabsichtigter.
+//!
+//! - T-REPLAY-002 (Replay laeuft effektfrei): real gruen getestet in
+//!   `psk-scheduler/tests/tick_runs_the_twelve_phases.rs::under_shadow_the_
+//!   token_is_invalidated_and_the_adapter_never_runs` (plus derselbe
+//!   Nachweis fuer `readonly`). Die fruehere Einordnung unter (c) - "ein
+//!   Replaymodus ... ist nirgends modelliert" - war korrekt fuer den
+//!   damaligen Stand und wurde an der QUELLE geschlossen, nicht hier
+//!   umgedeutet: PSK-RA v1.0.19 Regel 22.3 ("Replay laeuft unter shadow")
+//!   loeste eine haengende Referenz auf - I-ARCH-012 und R-RA-012 nannten
+//!   ein "Replay-Profil", das `ProfileId` (readonly, shadow, sandbox,
+//!   reference) nie fuehrte. Kein fuenfter Profilwert: `shadow` leistet
+//!   woertlich, was Replay verlangt. Die Durchsetzung laeuft ueber die
+//!   BESTEHENDE Tokeninvalidierung (FSM-TOKEN-Operator `plan_changed`,
+//!   P37), nicht ueber eine zusaetzliche Modusabfrage in `dispatch()` -
+//!   der Adapter wird unter `shadow`/`readonly` nie aufgerufen
+//!   (Invariante 22.7 (Replay ist effektfrei), "Replay ist effektfrei"). Ein Gegentest unter
+//!   `reference` zeigt denselben Aufruf real ausfuehren, damit der
+//!   Negativnachweis nicht auch bei einem kaputten Match-Arm gruen waere.
+//! - T-OBSV-001 (mit/ohne Profiling identischer kanonischer Digest,
+//!   I-ARCH-015): real gruen getestet in `psk-scheduler/tests/
+//!   profiling_does_not_alter_the_canonical_digest.rs`. Der
+//!   Profilingschalter (`psk_scheduler::Profiling`) liegt bewusst
+//!   AUSSERHALB von `Sigma` und wird als eigener `tick()`-Parameter
+//!   gefuehrt; zusaetzlich heisst sein Datenfeld `runtime_metrics`, das
+//!   `architecture/volatile_fields.yaml` bereits als volatil fuehrt, so
+//!   dass `pi_vol` es in jeder Tiefe entfernt, falls es je serialisiert
+//!   eingebettet wird. Beide Schichten sind getrennt geprueft: identischer
+//!   Tracekopf/Objekt-IDs/Segmentzahl mit und ohne Profiling, UND ein
+//!   eingebettetes `runtime_metrics` laesst die Identitaet unveraendert,
+//!   waehrend der `record_digest` abweicht (Definition 6.6 (Objekt-ID)/6.7). Ein
+//!   Gegentest stellt sicher, dass der profilierte Lauf ueberhaupt etwas
+//!   sammelt - sonst verglichen beide Seiten denselben leeren Zustand.
+//!   Nur EIN Codepfad: `record_phase` ist bei ausgeschaltetem Profiling
+//!   ein No-op, wird aber unveraendert aufgerufen, damit der Test die
+//!   reale Implementierung prueft und nicht zwei verschiedene Zweige.
+//!
+//! - T-CONC-001 (nebenlaeufiger Stresstest, kanonischer Digest gleich dem
+//!   sequentiellen): real gruen getestet in `psk-scheduler/tests/
+//!   concurrent_tick_equals_sequential.rs::t_conc_001_a_concurrent_tick_
+//!   yields_the_same_canonical_digest_as_the_sequential_one`.
+//!   `tick_concurrent` (psk-scheduler::concurrent) setzt Regel 14.8 (Nebenläufigkeitsmodell)s drei
+//!   Saetze je einzeln um: Nebenlaeufigkeit nur INNERHALB einer Phase;
+//!   nur fuer Operationen ohne gemeinsamen Schreibzustand
+//!   (`concurrency_eligible` zaehlt die vier Ausnahmen abschliessend auf,
+//!   die freigegebenen laufen ueber `dispatch_stateless`, das `Sigma` gar
+//!   nicht erst bekommt - typseitig erzwungen, nicht bloss dokumentiert);
+//!   und Ruecksortierung in die Prioritaetsordnung vor der Anwendung.
+//!   Vergleichswert ist `sigma_digest` (I_t), nicht der Tracekopf -
+//!   I-ARCH-009 spricht vom kanonischen Zustandsdigest.
+//!   Der Negativnachweis (ohne Ruecksortierung MUSS der Digest abweichen)
+//!   fand beim ersten Lauf einen realen Fehler im Harness selbst: die
+//!   Ergebnisse kamen ueber `join()` in Spawnreihenfolge zurueck, womit
+//!   der Sortierschritt toter Code war und der Positivtest die Ordnung
+//!   gar nicht prueft e. Seither ueber einen Kanal in echter
+//!   Fertigstellungsreihenfolge.
+//!   Befund zu M19s Anhaengereihenfolge: sie kann unter Nebenlaeufigkeit
+//!   nicht divergieren, und nicht aus Glueck - `TraceStore::append` nimmt
+//!   `&mut self`, `Sigma` wird nie geteilt, kein Thread KANN anhaengen.
+//!   Alle Segmente entstehen in der sequentiellen Anwendungsschleife in
+//!   `select()`-Ordnung. Der Grund ist Regel 14.8 (Nebenläufigkeitsmodell)s eigener: der Trace IST
+//!   gemeinsamer Schreibzustand, also ist Anhaengen keine freigegebene
+//!   Operation - es braucht keine Sperre, weil es keinen Wettlauf gibt.
+//!
+//! - T-PASS-001 (reorder_compiler_passes -> divergence_report): real gruen
+//!   getestet in `t_pass_001_reordering_two_passes_alone_already_diverges_i_a`
+//!   (unten). Die fruehere Einordnung ("keine ausfuehrbare Passpipeline
+//!   existiert") uebersah die billigere Lesart: die Passfolge IST im
+//!   versiegelten Register deklariert, also ist ihre Umordnung am I_A
+//!   nachweisbar, ohne dass ein Compilerlauf noetig waere. Der Test
+//!   mutiert AUSSCHLIESSLICH die Reihenfolge - zwei benachbarte Zeilen
+//!   vertauscht, gleiche Menge, gleiche Anzahl, per Sortiervergleich
+//!   zugesichert. Diese Enge ist der Punkt: t_arch_001 zeigt bereits,
+//!   dass IRGENDEINE Inhaltsaenderung I_A bricht; erst die reine
+//!   Permutation zeigt, dass die REIHENFOLGE selbst identitaetsbildend
+//!   ist (Definition 11.1 (Passfolge), geordnete Passfolge; `Can` erhaelt
+//!   Arrayreihenfolgen).
+//! - T-TRACE-001 (drop_previous_residue -> FAIL): real gruen als
+//!   `compile_fail`-Doctests an `psk_trace::ResidueLedger`. Die
+//!   Zusicherung IST die Abwesenheit von `remove`/`clear` und eines
+//!   Schreibzugriffs auf die Sammlung (Axiom 7.45 (No Silent Loss)) - ein Laufzeittest
+//!   kann das nicht leisten, weil man nicht aufrufen kann, was nicht
+//!   existiert. Eine Positivkontrolle daneben zeigt, dass derselbe Aufbau
+//!   uebersetzt: ohne sie bestuende ein `compile_fail` auch bei einem
+//!   blossen Tippfehler im Aufbau.
+//!   Hinweis zur Deckung: `verify-catalog` kann diesen Eintrag NICHT
+//!   pruefen - Doctests tragen keinen Funktionsnamen, an dem die
+//!   ID-Beschriftung haengen koennte. Das ist die dort dokumentierte
+//!   Luecke, hier konkret.
+//! - T-FORECAST-001 (overwrite_forecast_after_observation -> FAIL): real
+//!   gruen in `psk_thought::forecast` - `t_forecast_001_a_later_
+//!   observation_only_appends_and_never_replaces` plus drei
+//!   `compile_fail`-Doctests und eine Positivkontrolle.
+//!   PSK-RA v1.0.22 hat die Voraussetzung an der Quelle geschaffen:
+//!   OBJ-FCT (Struktur 20.11 (Forecast)) fuehrt horizon, generation_basis,
+//!   validity_window, anchor_ref und append-only `evaluations`. Zuvor
+//!   benannte Vertrag 20.13 (Prognosepersistenz) vier Pflichtfelder,
+//!   ohne dass ein Objekt sie trug - es gab nichts zu ueberschreiben.
+//!   Befund bei der Umsetzung: der GENERIERTE Typ allein genuegt
+//!   Regel 20.12 (Prognosen werden bewertet, nicht umgeschrieben) nicht - alle Felder sind `pub` (Codegen-Konvention), also ist
+//!   "besitzen keinen Schreibpfad nach Konstruktion" auf ihm eine blosse
+//!   Konvention, dieselbe Lage wie bei T-OWN-001. `SealedForecast` (M07)
+//!   schliesst das mit dem Muster von `ResidueLedger`/`TraceStore`:
+//!   privates Feld, `&`-Getter, `evaluate()` als einziger veraendernder
+//!   Weg und ausschliesslich anhaengend.
+//!
+//! - T-UNKNOWN-001 (verbal_uncertainty_without_internal_block -> FAIL):
+//!   real gruen in `psk_thought::reality::tests::t_unknown_001_unknown_
+//!   bars_every_promotion_regardless_of_fact_status` plus den beiden
+//!   M18-Tests in `psk_reconciliation::reconcile::tests`.
+//!   Die fruehere Einordnung ("verbale Unsicherheit ist nirgends als Typ
+//!   gefasst") verwechselte die Szenarienrahmung mit dem pruefbaren Kern.
+//!   Vertrag 7.13 (Unknown als wirksamer Status) enumeriert vier Formen, in denen sich Unwissen
+//!   materialisieren MUSS - das ist dieselbe Art Aufzaehlung, die
+//!   T-PERSONA-001 ueber Personas Feldliste traegt, nur ueber Zustaende
+//!   statt ueber Felder. Und `claim.text` ist ohnehin `non_canonical`,
+//!   fuer die Maschine also unsichtbar - genau der Grund fuer die
+//!   Materialisierungspflicht. Pruefbare Form: `reality_status == UNKNOWN`
+//!   sperrt JEDE Promotion.
+//!   Befund vor dem Bau: keine Promotionsstelle prueft e das. Es gab EINE
+//!   Wache (`check_promotion`, M07), die ausschliesslich `FactStatus`-Paare
+//!   gegen Invariante 5.10 (Keine implizite Promotion) pruefte, und eine ZWEITE, unabhaengige Ableitung
+//!   in M18 (`reconcile`s `fact_promotion`), die `reality_status` gar nicht
+//!   sah. Vertrag 7.13 (Unknown als wirksamer Status)s "Promotionssperre" war damit beschreibend, nicht
+//!   wirksam.
+//!   Umsetzung: EINE Wache, ZWEI Aufrufer. `check_promotion` nimmt jetzt
+//!   auch `reality_status` und ist die einzige Stelle, die ueber Promotion
+//!   entscheidet; M18 ruft sie auf, statt selbst abzuleiten (Paketkante
+//!   M18->M06/M07, durch P26 gedeckt - kein neuer Port). Zwei getrennte
+//!   Guards waeren auseinandergedriftet, dieselbe Ueberlegung wie bei
+//!   `dispatch`/`dispatch_stateless`. Eine gesperrte Promotion senkt auf
+//!   NONE, statt die Reconciliation scheitern zu lassen - das Ergebnis
+//!   steht sichtbar im Bericht, ist also nicht still.
+//! - T-FIELD-001 (set_system_identity_to_field_id -> FAIL): real gruen an
+//!   BEIDEN Schreibstellen -
+//!   `psk_fields::registry::tests::t_field_001_a_field_whose_id_equals_the_
+//!   system_identity_is_refused` (M08) und
+//!   `psk_contract::identity_binder::tests::t_field_001_a_registered_field_
+//!   equal_to_the_system_identity_is_refused` (M04).
+//!   Beide, weil die Zeitachse beide Richtungen offen laesst: bei `bind()`
+//!   koennen bereits Felder existieren, nach `bind()` kommen neue hinzu -
+//!   eine Pruefung an nur einer Stelle liesse die andere offen. M08 bekommt
+//!   die Systemidentitaet als deklarierten Parameter (wie
+//!   `has_independent_evidence` in M24), kein neuer Port. In Sigma wird
+//!   ausdruecklich NICHT geprueft: das waere Feststellung nach Eintritt,
+//!   waehrend die Invariante einen Zustand benennt, der nicht entstehen
+//!   darf.
+//!   Die fruehere Einordnung als T-OWN-001-Folge war falsch und ist
+//!   zurueckgenommen: I-FIELD-001 ist ein WERTpraedikat ("welchen Wert darf
+//!   es tragen"), T-OWN-001 ein Konstruktionsverbot ("wer darf
+//!   konstruieren"). Das erste braucht keine Typversiegelung, sondern eine
+//!   Laufzeitpruefung an der Schreibstelle - was `severity: blocking`
+//!   gerade bezeichnet.
+//!   UMFANG: der hier gepruefte Test deckt den EINZELFALL (eine
+//!   Feldidentitaet gegen die Systemidentitaet). Der MENGENFALL ist durch
+//!   die Capability-Matrix und die verbotenen Modulkanten abgedeckt, kein
+//!   eigener Test.
+//!   Begruendung: I-FIELD-001s zweiter Satz operationalisiert den ersten -
+//!   "Ein Feld DARF NICHT den Konstitutionskern, die globale Effektgrenze
+//!   oder die Identitaet eines anderen Feldes aus eigener Autoritaet
+//!   umschreiben." Der Mengenfall ist damit NICHT Digestgleichheit
+//!   irgendeiner Aggregation, sondern das Verbot, dass Felder in Summe
+//!   Kernautoritaet erlangen. Das erzwingen bereits verteilt, an echtem
+//!   Register gegengeprueft: `module_map.yaml` fuehrt M08 und M09 mit
+//!   `caps: []` (gar keine Capability), `capability_matrix.yaml`
+//!   verweigert ausdruecklich `{holder: "M08..M10", capability: "fs.*",
+//!   reason: field_has_no_effect}`, und die `forbidden_edges`
+//!   `[M08, M18]`/`[M09, M18]` ("Feld promoviert keinen Fakt") schneiden
+//!   den Weg zur Faktpromotion ab. Keine Summe von Feldern kann so
+//!   Kernautoritaet erreichen.
+//!   Ein eigener Test haette hier ein Aggregationspraedikat erfinden
+//!   muessen (Vereinigung? Digest ueber die Menge?), das das Werk nicht
+//!   fuehrt - und damit gegen eine selbstgebaute Lesart geprueft statt
+//!   gegen die Norm.
 //!
 //! ## (c) Derzeit nicht realisierbar (Befund, mit Begruendung)
-//! - T-ARCH-002 (zyklische Modulabhaengigkeit -> build_fail): real
-//!   gepruedft in `tools/verify-dependencies`, aber noch nicht gruen -
-//!   die Zyklensuche legte bisher DREI Funde nacheinander frei, jeweils
-//!   erst sichtbar, nachdem der vorherige behoben war (DFS stoppt am
-//!   ersten Fund): (1) M09-M13 ueber P39 - ein Normfehler (Invariante 2.3s
-//!   invertierte Schichtungleichung), an PSK-RA v1.0.14 korrigiert, P39
-//!   als fuenfter benannter Rueckflusskanal aufgenommen. (2) M11-M22 ueber
-//!   P16/P17 - kein Rueckfluss, sondern Zusammenarbeit INNERHALB von Pass
-//!   C9 (ClosureAndGluing, `modules: [M11, M22]`); PSK-RA v1.0.15 ergaenzte
-//!   dafuer die Ausnahme "gemeinsame Passtraeger" in Invariante 2.3, siehe
-//!   `tools/verify-dependencies`s `shares_a_pass`. (3) M08-M20 ueber P31/
-//!   P32 (M20->M08 "MorphogenesisDecision", M08->M20 "SpawnRequest") -
-//!   NEU, noch offen. Anders als bei (2) existiert hier STARKE Evidenz:
-//!   `psk-fields/src/morphogenesis.rs`s Modulkopf sagt woertlich "M20
-//!   wertet das Gate aus, aber nur M08 (`registry::complete_transition`)
-//!   konstruiert das neue FieldIdentity-Objekt. decide_transition ruft
-//!   deshalb in DASSELBE MODUL zurueck" - M08 und M20 sind sogar dasselbe
-//!   Cargo-Paket (psk-fields). Strukturell derselbe Anruf/Ruecksprung-Fall
-//!   wie `psk_contract::boot()`s P00/P05 - aber weder P31 noch P32 tragen
-//!   `kind: request` in der aktuellen Quelle, und keine der vier
-//!   bestehenden Ausnahmeklassen deckt das Paar. Bewusst nicht selbst als
-//!   fuenfte Ausnahme erfunden. Siehe `tools/verify-dependencies/src/
-//!   main.rs::tests::the_real_module_graph_has_exactly_one_open_cycle_
-//!   finding_m08_m20`.
-//! - T-SEC-001 (Adapter schreibt ausserhalb des Tokenscopes ->
-//!   substratblockiert): verlangt echte Substraterzwingung (Vertrag
-//!   Capability-Erzwingung); dokumentierte Luecke seit WP12 (siehe
-//!   psk-effect/src/boundary.rs Modulkopf). Seit P24a praezisiert, nicht
-//!   geschlossen: `effect-local-fs` laeuft jetzt als echter, von M26
-//!   gespawnter Kindprozess, aber `LocalFsAdapter::apply` bildet
-//!   `sandbox_root.join(&token.scope.0)` weiterhin in Anwendungscode -
-//!   kein Chroot, keine ACL, kein Namespace/AppContainer begrenzt, WAS
-//!   dieser Prozess tatsaechlich schreiben darf. P24a loeste
-//!   Kommunikationsisolation (die exklusive Pipe, siehe
-//!   `psk_anchor::ingress_p24_via_exclusive_pipe`), nicht
-//!   Dateisystemisolation - das ist ein anderer Blocker, nicht derselbe
-//!   unter neuem Namen. Identisch mit OBL-010s offener Anforderung
-//!   (`architecture/obligations.yaml`: getrennte Benutzerkontexte/
-//!   Namespaces, blocking ab C4) - dieselbe Substratmassnahme wuerde
-//!   beides zugleich schliessen.
-//! - T-CONC-001 (nebenlaeufiger Stresstest) und T-OBSV-001 (mit/ohne
-//!   Profiling identischer Digest): beide verlangen Infrastruktur, die
-//!   nicht existiert - einen nebenlaeufigen Ausfuehrungsharness bzw. einen
-//!   Profiling-Umschalter. M25/M26 realisieren `select`/`budget`, aber
-//!   keine parallele Taktschleife (siehe psk-scheduler Modulkopf).
-//! - T-REPLAY-002 (Replay loest echten Effekt aus -> FAIL_PSK_E015): ein
-//!   "Replaymodus", der sich von normaler Ausfuehrung unterscheidet und
-//!   dieselbe Idempotenzschluessel-Wiederverwendung ERLAUBT (um sie dann
-//!   zu verbieten), ist nirgends modelliert - `TokenLedger::consume_once`
-//!   verhindert Doppelausfuehrung bereits strukturell, aber mit E008
-//!   (EffectWithoutToken), nicht E015. Eine E015-Szene ohne einen echten
-//!   Replaymodus-Begriff waere erfunden, kein gefundener Fall.
-//! - T-PASS-001 (Compiler-Passreihenfolge vertauschen -> divergence_report):
-//!   `pass_registry.yaml` ist deklaratives Metadatenregister, keine
-//!   ausfuehrbare Passpipeline mit vertauschbarer Reihenfolge existiert.
-//! - T-UNKNOWN-001 (verbale Unsicherheit ohne internen Block -> FAIL) und
-//!   T-FIELD-001 (Systemidentitaet auf Feld-ID setzen -> FAIL): beide
-//!   benennen Szenarien, zu denen keine registrierte Funktion eine
-//!   pruefbare Grenze zieht - "verbale Unsicherheit" und "Systemidentitaet"
-//!   sind im Werk an dieser Stelle nicht als konkrete Typen/Felder
-//!   gefasst (anders als z.B. Personas Feldliste bei T-PERSONA-001). Ohne
-//!   eine Konstruktion, die tatsaechlich existiert, waere jeder Test hier
-//!   ein erfundenes Szenario, keine reale Pruefung.
-//! - T-TRACE-001 (vorheriges Residuum loeschen) und T-FORECAST-001 (alte
-//!   Prognose nach Beobachtung ueberschreiben): `TraceStore`/`ResidueLedger`
-//!   besitzen strukturell KEINE `delete`/`overwrite`-Methode (nur
-//!   `append`/`transition`) - die Garantie ist die Abwesenheit einer API,
-//!   nicht das Verhalten einer vorhandenen. Das ist real (dieselbe Klasse
-//!   wie `EffectAdapter`s fehlende `observe()`), aber nicht als Laufzeit-
-//!   `#[test]` ausdrueckbar; siehe stattdessen die `compile_fail`-Doctests
-//!   bei `GateAuthorization` fuer das gleiche Beweismuster an anderer
-//!   Stelle.
 //! - T-OWN-001 (create_owned_object_from_foreign_module -> FAIL_PSK_E014):
 //!   Vertrag 3.4 (siehe psk-types/src/lib.rs Modulkopf) bindet Ownership an
 //!   "welcher MODUL-CODE ein Objekt konstruieren/schreiben darf", nicht an
@@ -282,9 +457,10 @@ mod tests {
     fn t_can_001_canonicalization_is_idempotent() {
         let input = br#"{"b": 2, "a": [3, 1, 2], "c": {"z": 1, "y": 2}}"#;
         let once = psk_canon::can(input, psk_canon::Media::Json).unwrap();
-        let twice = psk_canon::can(&once.0, psk_canon::Media::Json).unwrap();
+        let twice = psk_canon::can(once.as_bytes(), psk_canon::Media::Json).unwrap();
         assert_eq!(
-            once.0, twice.0,
+            once.as_bytes(),
+            twice.as_bytes(),
             "Can(Can(x)) muss byteidentisch zu Can(x) sein"
         );
     }
@@ -466,6 +642,10 @@ mod tests {
                     Digest::sha256(b"w"),
                 ),
                 opened_at: sample_time(),
+                // T-UNKNOWN-001: ein Subjekt, dessen Realitaetsstatus die
+                // Promotion nicht sperrt.
+                subject_reality_status: psk_types::objects::RealityStatus::Actualized,
+                subject_facticity: psk_types::objects::FactStatus::Observed,
             },
             &mut residues,
         );
@@ -520,7 +700,7 @@ mod tests {
         assert_eq!(
             reg["unmapped_is_blocking"].as_bool(),
             Some(true),
-            "eine unabgebildete konkrete Transition MUSS blockieren (Vertrag 23.4) - diese Policy \
+            "eine unabgebildete konkrete Transition MUSS blockieren (Vertrag 23.5 (Maschinencheckbare Verfeinerung)) - diese Policy \
              darf nicht versehentlich auf 'nicht blockierend' stehen"
         );
         // Aktueller, tatsaechlicher Stand: vollstaendig (kein Mangel im Bundle
@@ -588,6 +768,9 @@ mod tests {
                 ),
                 budget: psk_types::objects::BudgetSpec("0".into()),
                 rollback: psk_types::objects::RollbackSpec("none".into()),
+                // I-FIELD-001: eine Systemidentitaet, die von jeder
+                // real erzeugbaren Feld-ID verschieden ist.
+                system_identity: Digest::sha256(b"system-identity-not-a-field"),
             },
         )
         .unwrap()
@@ -596,7 +779,7 @@ mod tests {
     // ---- T-RECEIPT-001: replace_external_record_by_internal_simulation -> FAIL ----
     #[test]
     fn t_receipt_001_an_observer_sharing_the_effect_issuers_identity_is_rejected() {
-        // Invariante 7.34 (Beobachtertrennung): der Beobachter, der ein
+        // Invariante 7.37 (Beobachtertrennung): der Beobachter, der ein
         // ExternalReceipt liefert, darf nicht dieselbe Identitaet wie der
         // Token-Aussteller tragen - sonst koennte eine interne Simulation
         // sich selbst als unabhaengige Beobachtung ausgeben.
@@ -716,5 +899,82 @@ mod tests {
         );
         // T-RES-001: die HOLD-Entscheidung muss residualisiert sein.
         assert_eq!(residues.all().len(), 1);
+    }
+
+    // ---- T-PASS-001: reorder_compiler_passes -> divergence_report ----
+
+    /// Die Mutation heisst `reorder_compiler_passes`, und genau das tut
+    /// dieser Test: er vertauscht ZWEI benachbarte Passzeilen in
+    /// `pass_registry.yaml` und laesst alles andere unberuehrt - dieselben
+    /// Paesse, dieselbe Anzahl, derselbe Inhalt je Zeile.
+    ///
+    /// Warum diese Enge zaehlt: `t_arch_001_...` oben zeigt bereits, dass
+    /// IRGENDEINE Inhaltsaenderung an einem Register I_A bricht. Ein
+    /// T-PASS-001, das ebenfalls Inhalt aendert, bewiese nur dasselbe ein
+    /// zweites Mal. Erst die reine Umordnung zeigt die Aussage, die
+    /// T-PASS-001 eigen ist: die REIHENFOLGE der Passfolge ist selbst
+    /// identitaetsbildend, nicht bloss ihre Menge. Definition 11.1 (Passfolge) fuehrt
+    /// C1..C11 als geschlossene, geordnete Folge; `Can` erhaelt
+    /// Arraysreihenfolgen ausdruecklich ("erhaelt Arrayreihenfolgen",
+    /// Kapitel 6), weshalb eine Permutation einen anderen Digest ergibt.
+    ///
+    /// Damit braucht T-PASS-001 keine ausfuehrbare Passpipeline: die
+    /// Divergenz ist am versiegelten Register nachweisbar, nicht erst an
+    /// einem Compilerlauf.
+    #[test]
+    fn t_pass_001_reordering_two_passes_alone_already_diverges_i_a() {
+        let root = workspace_root();
+        let scratch = std::env::temp_dir().join(format!("psk-t-pass-001-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&scratch);
+        copy_dir(&root.join("architecture"), &scratch.join("architecture")).unwrap();
+
+        let before = verify_architecture::check_architecture_bundle(&scratch).unwrap();
+        assert!(before.matches(), "unveraenderte Kopie sollte I_A treffen");
+
+        let target = scratch.join("architecture/pass_registry.yaml");
+        let content = fs::read_to_string(&target).unwrap();
+        let lines: Vec<&str> = content.lines().collect();
+        let c6 = lines
+            .iter()
+            .position(|l| l.trim_start().starts_with("- {id: C6,"))
+            .expect("C6 steht im realen Register");
+        let c7 = lines
+            .iter()
+            .position(|l| l.trim_start().starts_with("- {id: C7,"))
+            .expect("C7 steht im realen Register");
+        assert_eq!(c7, c6 + 1, "C6 und C7 muessen benachbart sein");
+
+        let mut swapped = lines.clone();
+        swapped.swap(c6, c7);
+        let mutated = swapped.join("\n") + "\n";
+
+        // Die Mutation ist NUR eine Permutation: Zeilenmenge und Zahl
+        // bleiben gleich. Ohne diese Zusicherung koennte der Test
+        // unbemerkt zu einer gewoehnlichen Inhaltsaenderung werden und
+        // damit wieder nur T-ARCH-001 nachspielen.
+        let mut original_sorted = lines.clone();
+        let mut mutated_sorted: Vec<&str> = mutated.lines().collect();
+        original_sorted.sort_unstable();
+        mutated_sorted.sort_unstable();
+        assert_eq!(
+            original_sorted, mutated_sorted,
+            "die Mutation DARF ausschliesslich umordnen, nichts hinzufuegen oder aendern"
+        );
+        assert_ne!(
+            content.lines().collect::<Vec<_>>(),
+            mutated.lines().collect::<Vec<_>>(),
+            "sie muss die Reihenfolge aber tatsaechlich aendern"
+        );
+
+        fs::write(&target, mutated).unwrap();
+
+        let after = verify_architecture::check_architecture_bundle(&scratch).unwrap();
+        assert!(
+            !after.matches(),
+            "eine reine Umordnung der Passfolge MUSS I_A brechen - die Reihenfolge \
+             ist identitaetsbildend, nicht nur die Menge (Definition 11.1 (Passfolge))"
+        );
+
+        fs::remove_dir_all(&scratch).ok();
     }
 }

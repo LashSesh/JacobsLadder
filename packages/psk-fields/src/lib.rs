@@ -6,7 +6,7 @@
 //! WP07 (I3): `registry` (M08, Regel 32.7 - sechs statische Archetypen,
 //! FieldIdentity-Konstruktion, Lebenszyklus ueber FSM-FIELD), `lens_router`
 //! (M09, FieldProjection bzw. ResidueRecord(scope)+PSK-E013 bei nicht
-//! anwendbarer Linse, Regel 7.15/7.16).
+//! anwendbarer Linse, Regel 7.17/7.16).
 //!
 //! WP15 (I7): `morphogenesis` (M20 - G-MORPH/G-EXCISION-Auswertung ueber
 //! `psk_gate::evaluate_gate`, ExcisionCertificate). Erst jetzt aktiviert:
@@ -24,6 +24,19 @@ pub use registry::{
 
 mod lens_router;
 pub use lens_router::{route_lens, LensOutcome, ProjectionInputs};
+
+mod qpm_scope;
+pub use qpm_scope::{
+    Aperture, ApertureBank, ApertureId, BudgetSpec, CatalogRef, ChannelId, CoverageSpec,
+    DomainContractRef, HorizonSpec, PanopticScope, QuestionSpec, ScopeCeiling, ScopePolicies,
+    UndeclaredChannel,
+};
+
+mod aperture;
+pub use aperture::{
+    account_apertures, account_from_pairs, account_mass, as_psk_error, incoming_mass,
+    visible_bodies, AccountingFailure, ApertureAccount, MassClass, MassProducers, ShadowRecord,
+};
 
 mod morphogenesis;
 pub use morphogenesis::{

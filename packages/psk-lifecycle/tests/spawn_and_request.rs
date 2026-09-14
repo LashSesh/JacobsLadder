@@ -77,8 +77,12 @@ fn p22_and_p37_round_trip_through_a_real_child_process() {
     let _ = fs::remove_dir_all(&sandbox);
     fs::create_dir_all(&sandbox).unwrap();
 
-    let mut child = ChildProcess::spawn(&effect_local_fs_exe(), &[sandbox.to_str().unwrap()])
-        .expect("effect-local-fs muss spawnbar sein");
+    let mut child = ChildProcess::spawn(
+        &effect_local_fs_exe(),
+        &[sandbox.to_str().unwrap()],
+        Some(&sandbox),
+    )
+    .expect("effect-local-fs muss spawnbar sein");
 
     let token = EffectToken {
         schema: "psk.effect-token/1.0".into(),
@@ -137,6 +141,90 @@ fn p22_and_p37_round_trip_through_a_real_child_process() {
     fs::remove_dir_all(&sandbox).ok();
 }
 
+/// OBL-010 / Vertrag Capability-Erzwingung, real bewiesen statt strukturell
+/// angenommen: `LocalFsAdapter::apply` (`effect-local-fs/src/apply.rs`)
+/// validiert `token.scope.0` selbst NICHT gegen Pfadausbrueche - es bildet
+/// blind `sandbox_root.join(&token.scope.0)`. Ein `scope` wie `"..\..\
+/// escape.txt"` wuerde in reinem Anwendungscode also klaglos AUSSERHALB
+/// des Sandbox-Verzeichnisses schreiben. Dieser Test faengt genau das ab,
+/// ohne die Adapterlogik selbst zu aendern: die Substraterzwingung
+/// (`ChildProcess::spawn`s Low-IL-Absenkung + `sandbox_root`s exklusive
+/// Freigabe, siehe psk-lifecycle::sandbox) muss den Schreibversuch auf
+/// Betriebssystemebene verweigern, obwohl der Anwendungscode ihn anstandslos
+/// durchreicht - Vertrag Capability-Erzwingung wortgetreu: "Eine Erzwingung
+/// allein durch Programmkonvention ist nicht konform."
+#[test]
+fn a_path_escape_outside_sandbox_root_is_denied_by_the_substrate_not_the_adapter() {
+    let sandbox = std::env::temp_dir().join(format!("psk-p24a-escape-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&sandbox);
+    fs::create_dir_all(&sandbox).unwrap();
+    // Liegt EINE Ebene ueber `sandbox` - ausserhalb der Low-IL-Freigabe,
+    // die `ChildProcess::spawn` ausschliesslich auf `sandbox` selbst legt.
+    let escape_target =
+        std::env::temp_dir().join(format!("psk-p24a-escape-target-{}.txt", std::process::id()));
+    let _ = fs::remove_file(&escape_target);
+
+    let mut child = ChildProcess::spawn(
+        &effect_local_fs_exe(),
+        &[sandbox.to_str().unwrap()],
+        Some(&sandbox),
+    )
+    .expect("effect-local-fs muss spawnbar sein");
+
+    let escape_scope = format!(
+        "..\\{}",
+        escape_target.file_name().unwrap().to_str().unwrap()
+    );
+    let token = EffectToken {
+        schema: "psk.effect-token/1.0".into(),
+        id: ObjectId::new(SortId::Capability, Digest::sha256(b"tok-escape")),
+        subject: ModuleId::EffectBoundary,
+        effect_class: EffectClassId("fs.write.sandbox".into()),
+        plan_digest: Digest::sha256(b"plan"),
+        scope: ScopeExpr(escape_scope),
+        capabilities: vec![CapabilityId("fs.write.sandbox".into())],
+        preconditions: vec![PredicateExpr("this must never reach disk".into())],
+        budget: BudgetSpec("1 Datei".into()),
+        expires_at_tau_i: 1000,
+        idempotency_key: "spawn-and-request-test/P22/escape".into(),
+        nonce: [1u8; 32],
+        issuer_digest: Digest::sha256(b"issuer"),
+        expected_receipt: ReceiptSpec("receipt/1".into()),
+        rollback: EffectTokenRollbackKind::Rollbackspec(RollbackSpec("restore prior bytes".into())),
+        gate_report_ref: ObjectId::new(SortId::Gate, Digest::sha256(b"g")),
+    };
+
+    let apply_payload = serde_json::to_vec(&EffectApplyRequest {
+        token,
+        started_at: sample_time(),
+    })
+    .unwrap();
+    let apply_response = child
+        .request(&request_msg(
+            PortId::P22,
+            SCHEMA_APPLY_REQUEST,
+            apply_payload,
+        ))
+        .expect("P22-Request muss trotz Ausbruchsversuch beantwortet werden - kein Absturz");
+
+    let attempt: EffectAttempt = serde_json::from_slice(&apply_response.payload).unwrap();
+    assert_eq!(
+        attempt.outcome,
+        EffectAttemptOutcomeKind::Failed,
+        "das Substrat (nicht der Adapter) muss den Schreibversuch ausserhalb von sandbox_root verweigern"
+    );
+    assert!(
+        !escape_target.exists(),
+        "die Ausbruchsdatei darf unter keinen Umstaenden entstanden sein: {escape_target:?}"
+    );
+
+    child
+        .shutdown()
+        .expect("Kindprozess muss trotz verweigertem Schreibversuch sauber beenden");
+    fs::remove_dir_all(&sandbox).ok();
+    let _ = fs::remove_file(&escape_target);
+}
+
 #[test]
 fn p06_and_p24_round_trip_through_a_real_child_process() {
     let root = std::env::temp_dir().join(format!("psk-p24a-observer-{}", std::process::id()));
@@ -144,7 +232,7 @@ fn p06_and_p24_round_trip_through_a_real_child_process() {
     fs::create_dir_all(&root).unwrap();
     fs::write(root.join("known-file.txt"), b"observed content").unwrap();
 
-    let mut child = ChildProcess::spawn(&observer_local_fs_exe(), &[root.to_str().unwrap()])
+    let mut child = ChildProcess::spawn(&observer_local_fs_exe(), &[root.to_str().unwrap()], None)
         .expect("observer-local-fs muss spawnbar sein");
 
     let record_payload = serde_json::to_vec(&ObserveRecordRequest {

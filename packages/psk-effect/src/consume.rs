@@ -27,6 +27,31 @@ pub struct TokenLedger {
     states: BTreeMap<String, TokenState>,
 }
 
+/// Von Hand geschrieben statt abgeleitet, aus einem inhaltlichen Grund:
+/// das Ledger ist Teil von Sigma (Definition 13.1, Position `Qt`) und geht
+/// damit in `I_t = H(Can(Sigma_t))` ein (siehe
+/// `psk_scheduler::sigma_digest`). Der kanonische Zustandsname MUSS der im
+/// Register deklarierte sein (`constitution/state_machines.yaml`: ISSUED,
+/// CONSUMED, EXPIRED, INVALIDATED, REVOKED) - also `State::id()`, nicht
+/// serdes aus dem Rust-Variantennamen abgeleitete Schreibweise. Ein
+/// `#[derive(Serialize)]` haette "Issued" geschrieben und damit einen
+/// Bezeichner in die Laufzeitidentitaet getragen, den kein Register fuehrt;
+/// eine spaetere Umbenennung der Rust-Variante haette I_t still veraendert.
+///
+/// Kein `Deserialize`: ein Tokenzustand entsteht ueber `register`/`advance`
+/// (FSM-TOKEN), nie durch Einspielen eines fremden Werts - sonst waere die
+/// Einmaligkeitsgarantie umgehbar.
+impl serde::Serialize for TokenLedger {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeMap;
+        let mut map = serializer.serialize_map(Some(self.states.len()))?;
+        for (key, state) in &self.states {
+            map.serialize_entry(key, state.id())?;
+        }
+        map.end()
+    }
+}
+
 impl TokenLedger {
     pub fn new() -> Self {
         TokenLedger {

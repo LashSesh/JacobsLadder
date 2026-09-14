@@ -28,5 +28,23 @@ pub use recovery::{classify_open_effect, plan_recovery, EffectRecoveryState, Rec
 mod boot_policy;
 pub use boot_policy::{decide, BootOutcome, BootSituation};
 
+mod process_common;
+pub use process_common::sibling_binary_path;
+
+// `ChildProcess` selbst ist plattformabhaengig (OBL-010, architecture/
+// obligations.yaml, deklariert die reale Substraterzwingung bislang nur
+// fuer Windows) - `#[path]` waehlt die Implementierung, die oeffentliche
+// Oberflaeche (spawn/request/id/shutdown) bleibt auf beiden Zweigen
+// identisch, siehe process_windows.rs bzw. process_unsupported.rs.
+#[cfg(windows)]
+#[path = "process_windows.rs"]
 mod process;
-pub use process::{sibling_binary_path, ChildProcess};
+#[cfg(not(windows))]
+#[path = "process_unsupported.rs"]
+mod process;
+pub use process::ChildProcess;
+
+#[cfg(windows)]
+mod sandbox;
+#[cfg(windows)]
+pub use sandbox::{lock_down_token, set_directory_low_integrity};

@@ -1,7 +1,7 @@
 //! Liest den tatsaechlichen Dateisystemzustand einer lokalen Projektwurzel
-//! (Regel 32.4, Erste Domaene: "isolierter, versionierter lokaler
+//! (Regel 32.5, Erste Domaene: "isolierter, versionierter lokaler
 //! Projektordner. Der Kern arbeitet zunaechst read-only") und baut daraus
-//! einen ExternalRecord (Regel 32.7: "Der AnchorSnapshot bindet
+//! einen ExternalRecord (Regel 32.8 (Anker der Referenzdomäne): "Der AnchorSnapshot bindet
 //! Dateihashes, Git-Commit, Zeitstempel, Rechte, Konfiguration und
 //! erlaubten Scope. Der Aussenrecord entsteht nach Ausfuehrung durch einen
 //! unabhaengigen Adapter, der den tatsaechlichen Dateisystemzustand
@@ -15,11 +15,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use psk_anchor::{ExternalRecord, FileObservation, ObservedPermissions};
+use psk_anchor::{ExternalRecord, FileObservation, HistoryPoint, ObservedPermissions};
 use psk_types::{Digest, DualTime};
 
 /// Konfiguration eines Beobachtungslaufs. Ihr Digest geht als
-/// "Konfiguration" (Regel 32.7) in den ExternalRecord ein, damit zwei
+/// "Konfiguration" (Regel 32.8 (Anker der Referenzdomäne)) in den ExternalRecord ein, damit zwei
 /// Laeufe mit unterschiedlicher Ausschlussliste nicht denselben Record
 /// vortaeuschen.
 #[derive(Debug, Clone)]
@@ -68,8 +68,8 @@ impl std::fmt::Display for ObserveError {
 
 impl std::error::Error for ObserveError {}
 
-/// Regel 32.7: liest den tatsaechlichen Dateisystemzustand unter
-/// `config.root` read-only (Regel 32.4) und baut daraus einen
+/// Regel 32.8 (Anker der Referenzdomäne): liest den tatsaechlichen Dateisystemzustand unter
+/// `config.root` read-only (Regel 32.5) und baut daraus einen
 /// ExternalRecord. `observed_at` wird vom Aufrufer gestellt, nicht hier
 /// erzeugt - dieser Adapter macht die Wanduhr nicht selbst verbindlich
 /// (Invariante 6.14, Replayneutralitaet der Wanduhr).
@@ -164,6 +164,48 @@ fn read_git_commit(root: &Path) -> Option<String> {
         // Detached HEAD: zeigt direkt auf einen Commit.
         None => Some(head.to_string()),
     }
+}
+
+/// Folgenbeobachtung statt Punktbeobachtung (Regel 32.7 (Feldfamilie der Referenzdomäne): "Historiker
+/// rekonstruiert Versionen" braucht einen Gegenstand, `read_git_commit`
+/// liefert nur die aktuelle Spitze). Liest `.git/logs/HEAD` vollstaendig -
+/// dieselbe Disziplin wie `read_git_commit`: reine Dateizugriffe, kein
+/// Git-Prozessaufruf. `None`, wenn die Wurzel kein Git-Repository ist oder
+/// keine Reflog-Datei fuehrt (z.B. ein Shallow-Klon ohne Historie) - beides
+/// ist kein Fehler, sondern derselbe zulaessige Zustand wie bei
+/// `read_git_commit`. Aeltester Eintrag zuerst (Dateireihenfolge des Logs).
+fn read_git_history(root: &Path) -> Option<Vec<HistoryPoint>> {
+    let text = fs::read_to_string(root.join(".git").join("logs").join("HEAD")).ok()?;
+    Some(text.lines().filter_map(parse_reflog_line).collect())
+}
+
+/// Eine Reflog-Zeile: `<alte-sha> <neue-sha> <name> <email> <ts> <tz>\t<nachricht>`.
+/// Name und E-Mail koennen intern Leerzeichen tragen (Namen jedenfalls);
+/// deshalb wird NICHT von vorn positionsweise gelesen, sondern die letzten
+/// zwei wortweisen Felder vor dem Tabulator (Zeitzone, dann Zeitstempel)
+/// bestimmen die Grenze - robust gegen die Wortzahl von Name/E-Mail.
+fn parse_reflog_line(line: &str) -> Option<HistoryPoint> {
+    let (header, message) = line.split_once('\t')?;
+    let mut fields = header.split_whitespace();
+    let _old_sha = fields.next()?;
+    let new_sha = fields.next()?;
+    let rest: Vec<&str> = fields.collect();
+    if rest.len() < 2 {
+        return None;
+    }
+    let observed_at_unix: i64 = rest[rest.len() - 2].parse().ok()?;
+    Some(HistoryPoint {
+        commit: new_sha.to_string(),
+        observed_at_unix,
+        message: message.to_string(),
+    })
+}
+
+/// Oeffentlicher Einstieg, Gegenstueck zu `observe()`: EINE Folgenbeobachtung
+/// statt eines ExternalRecord. `config.root` traegt bereits alles Noetige
+/// (dieselbe Wurzel, aus der auch `observe()` liest).
+pub fn observe_history(config: &ObserverConfig) -> Option<Vec<HistoryPoint>> {
+    read_git_history(&config.root)
 }
 
 #[cfg(test)]
@@ -294,6 +336,74 @@ mod tests {
     fn non_git_directory_yields_no_commit() {
         let dir = TempDir::new();
         assert_eq!(read_git_commit(&dir.0), None);
+    }
+
+    #[test]
+    fn a_reflog_line_parses_commit_timestamp_and_message() {
+        let line = "6795144e681247fb4080fec31daf8ea58b8eb1ae 18ab9c285d4b9715621941ab3bf6bdf005253481 LashSesh <sebastianklemm5@gmail.com> 1785768042 +0200\tcommit: Implement phase I2";
+        let point = parse_reflog_line(line).unwrap();
+        assert_eq!(point.commit, "18ab9c285d4b9715621941ab3bf6bdf005253481");
+        assert_eq!(point.observed_at_unix, 1785768042);
+        assert_eq!(point.message, "commit: Implement phase I2");
+    }
+
+    /// Ein Name mit eigenem Leerzeichen ("Jane Doe" statt "LashSesh") darf
+    /// die von-hinten-Grenze nicht verschieben - genau der Fall, den eine
+    /// positionsweise Lesart von vorn brechen wuerde.
+    #[test]
+    fn a_reflog_line_with_a_multi_word_name_still_parses() {
+        let line = "0000000000000000000000000000000000000000 abc123 Jane Doe <jane@example.com> 1700000000 -0500\tclone: from https://example.invalid/repo.git";
+        let point = parse_reflog_line(line).unwrap();
+        assert_eq!(point.commit, "abc123");
+        assert_eq!(point.observed_at_unix, 1700000000);
+        assert_eq!(
+            point.message,
+            "clone: from https://example.invalid/repo.git"
+        );
+    }
+
+    #[test]
+    fn a_line_without_a_tab_separated_message_does_not_parse() {
+        assert_eq!(parse_reflog_line("not a reflog line at all"), None);
+    }
+
+    #[test]
+    fn history_reads_every_reflog_entry_in_file_order() {
+        let dir = TempDir::new();
+        let logs_dir = dir.0.join(".git").join("logs");
+        fs::create_dir_all(&logs_dir).unwrap();
+        fs::write(
+            logs_dir.join("HEAD"),
+            "0000000000000000000000000000000000000000 aaa111 X <x@example.invalid> 100 +0000\tclone: from origin\n\
+             aaa111 bbb222 X <x@example.invalid> 200 +0000\tcommit: first\n\
+             bbb222 ccc333 X <x@example.invalid> 300 +0000\tcommit: second\n",
+        )
+        .unwrap();
+
+        let config = ObserverConfig::new(&dir.0);
+        let history = observe_history(&config).unwrap();
+        assert_eq!(history.len(), 3);
+        assert_eq!(history[0].commit, "aaa111");
+        assert_eq!(history[1].commit, "bbb222");
+        assert_eq!(history[2].commit, "ccc333");
+        assert_eq!(history[2].observed_at_unix, 300);
+    }
+
+    #[test]
+    fn a_repository_without_a_reflog_yields_no_history() {
+        let dir = TempDir::new();
+        fs::create_dir_all(dir.0.join(".git")).unwrap();
+        fs::write(dir.0.join(".git").join("HEAD"), b"cafebabe1234\n").unwrap();
+        // Kein .git/logs/HEAD angelegt - ein Shallow-Klon ohne Reflog.
+        let config = ObserverConfig::new(&dir.0);
+        assert_eq!(observe_history(&config), None);
+    }
+
+    #[test]
+    fn a_non_git_directory_yields_no_history_either() {
+        let dir = TempDir::new();
+        let config = ObserverConfig::new(&dir.0);
+        assert_eq!(observe_history(&config), None);
     }
 
     #[test]

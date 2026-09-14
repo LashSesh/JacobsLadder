@@ -1,6 +1,6 @@
 //! Schreibt architecture/refinement_map.yaml aus constitution/state_machines.yaml.
 //!
-//! Vertrag 23.4 (Maschinencheckbare Verfeinerung) verlangt fuer jeden
+//! Vertrag 23.5 (Maschinencheckbare Verfeinerung) verlangt fuer jeden
 //! konkreten Zustandsautomaten eine explizite, maschinenlesbare Abbildung in
 //! den abstrakten Automaten aus Kapitel 13; unabgebildete Transitionen sind
 //! blocking. Der konkrete Automat in psk-types wird von demselben Generator

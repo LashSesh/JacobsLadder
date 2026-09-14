@@ -99,9 +99,9 @@ closed_vocabularies:
     values: [SPECIFIED, POSSIBLE, SIMULATED, SELECTED, ATTEMPTED, OBSERVED,
              ACTUALIZED, RESIDUE, RETRACTED]
   - id: ArchetypeId
-    source: "Struktur 7.12 (FieldIdentity), Feld archetype; Regel 32.7
+    source: "Struktur 7.14 (FieldIdentity), Feld archetype; Regel 32.7
       (Feldfamilie der Referenzdomaene)"
-    note: "Struktur 7.12 traegt die Werte nur als Kommentar
+    note: "Struktur 7.14 traegt die Werte nur als Kommentar
       ('# explorer|falsifier|constructor|historian|auditor|integrator'),
       keine formale Mengenklammer wie bei RealityStatus/FactStatus - aber
       Regel 32.7 ist ausdruecklich 'genau sechs statische Feldidentitaeten'
@@ -116,10 +116,10 @@ closed_vocabularies:
   # liegt die Menge bereits maschinenlesbar in einem anderen Register; sie
   # wird deshalb per values_from referenziert, nicht abgeschrieben.
   - id: OpId
-    source: "Definition 12.1 (Instruktionsmenge): '|O| = 23. Die Menge ist abgeschlossen.'"
+    source: "Definition 15.1 (Instruktionsmenge): '|O| = 23. Die Menge ist abgeschlossen.'"
     note: "Die 23 ISA-Instruktionen. Bis hierher generierte
       object_schemas.yaml OBJ-FLD.operators als [freie Zeichenkette] - ein
-      Feld, das laut Struktur 7.12 ausdruecklich 'Teilmenge der ISA' ist."
+      Feld, das laut Struktur 7.14 ausdruecklich 'Teilmenge der ISA' ist."
     values_from: {register: isa_registry, path: "instructions[].op"}
   - id: GateId
     source: "Invariante 18.5 (Gateabschluss): 'Die Gatemenge ist abgeschlossen.'"
@@ -133,6 +133,18 @@ closed_vocabularies:
       NICHT dazu: 'produced_by' und 'silently_closes' sind dort gerade als
       unzulaessig gefuehrt."
     values_from: {register: sort_registry, path: "port_matrix[].2"}
+  - id: CRAInputId
+    source: "Definition CRA (Kapitel 12): 'CRA(LR, MR, FE, WS, PG, rho, Can) verdichtet
+      Residuenledger LR, Replaymanifest MR, Fork-Evidenz FE, Shadow-Witnesses WS,
+      Gatepolitik PG und Kanonisierung zu genau einem RevisionProposal.'"
+    note: "Struktur 12.12 fuehrt cra_inputs_present/-absent als [CRAInputId] und
+      spricht von 'den sechs CRA-Eingaben'; die Werte stehen nur in der
+      CRA-Definition selbst, nicht als formale Mengenklammer - dieselbe Lage
+      wie seinerzeit ArchetypeId. Ohne diesen Eintrag wuerde CRAInputId als
+      freie Zeichenkette generiert, fuer eine Menge, die das Werk als
+      abgeschlossen behandelt."
+    values: [residue_ledger, replay_manifest, fork_evidence, shadow_witnesses,
+      gate_policy, canonicalization]
   - id: ProfileId
     source: "Definition 28.1 (Vier Betriebsprofile), Regel 28.2 (Profiluebergang):
       'readonly -> shadow -> sandbox -> reference'"
@@ -143,7 +155,7 @@ closed_vocabularies:
     source: "Regel 23.1 (Eine Konformanzleiter): 'Die Merkmalsstufen der
       Gesamtspezifikation werden als abgeleiteter Deckungsvektor
       FC = (FC0, ..., FC8) gefuehrt.'"
-    note: "Steht in Struktur 7.44 (MachineCertificate) als 'type: [FC0..FC8]'.
+    note: "Steht in Struktur 7.50 (MachineCertificate) als 'type: [FC0..FC8]'.
       Diese Notation ist kein Listentyp ueber einem Bezeichner, sondern ein
       Bereich; der Codegen las sie als Bezeichner 'FC0..FC8' und erzeugte
       Vec<FC0FC8> ueber freien Zeichenketten - einen Vektor beliebiger

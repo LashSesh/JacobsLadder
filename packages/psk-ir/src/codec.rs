@@ -3,7 +3,7 @@
 //! Definition 10.5 (Ordnungssemantische Listen): `normative_files`,
 //! `trajectories`, `allowed_next`, `transitions`, `observations`,
 //! `receipt_refs` DARF NICHT sortiert werden. IRBundle selbst fuehrt
-//! aktuell keines dieser Felder (Struktur 7.19), die Ausschlussliste steht
+//! aktuell keines dieser Felder (Struktur 7.21), die Ausschlussliste steht
 //! dennoch woertlich hier, damit ein spaeter hinzugefuegtes gleichnamiges
 //! Feld automatisch korrekt behandelt wird statt versehentlich sortiert.
 //!
@@ -96,6 +96,14 @@ fn str_field(v: &Value, name: &str) -> String {
         .to_string()
 }
 
+// Der frueher hier stehende `compile_ir_bundle`-Stub ist entfallen: seine
+// Begruendung ("keine Funktion hier oder in psk-dependency baut ein NEUES
+// Kandidatenbundle zusammen") trifft seit v1.0.24 nicht mehr zu. Regel
+// 10.8 hat die letzte offene Frage geschlossen - woher die
+// Kantenbedingungen stammen - und `assembly::assemble_ir_bundle` baut das
+// Bundle jetzt real. `ir_encode`/`ir_decode` runden fertige Bundles ab,
+// wie bisher.
+
 /// `ir_encode(bundle: IRBundle) -> bytes` (Algorithmus 10.3).
 pub fn ir_encode(bundle: &IRBundle) -> Result<Vec<u8>, PskError> {
     let mut value = serde_json::to_value(bundle).map_err(|_| PskError::CanonicalizationFailed)?;
@@ -140,7 +148,7 @@ pub fn ir_encode(bundle: &IRBundle) -> Result<Vec<u8>, PskError> {
 
     let json = serde_json::to_vec(&value).map_err(|_| PskError::CanonicalizationFailed)?;
     let canon = psk_canon::can(&json, psk_canon::Media::Json)?;
-    Ok(canon.0)
+    Ok(canon.into_bytes())
 }
 
 /// `ir_decode(bytes) -> IRBundle` (Algorithmus 10.3). `schema_valid(obj,
@@ -153,6 +161,24 @@ pub fn ir_encode(bundle: &IRBundle) -> Result<Vec<u8>, PskError> {
 pub fn ir_decode(bytes: &[u8]) -> Result<IRBundle, PskError> {
     serde_json::from_slice(bytes).map_err(|_| PskError::UntypedInput)
 }
+
+/// Das Praedikat, mit dem T-IR-001s Fixture seine Kante besetzt.
+///
+/// Es ist stets wahr - und Regel 10.9 nennt genau das einen
+/// Konformitaetsdefekt. Hier ist es dennoch richtig: das Fixture prueft
+/// den CODEC (Sortierung, Kanonisierung, Round-Trip), nicht die
+/// Kantensemantik, und ein Round-Trip-Test braucht irgendeinen
+/// syntaktisch gueltigen Wert.
+///
+/// Damit es nicht als schlechtes Beispiel danebensteht, ist es hier
+/// benannt und wird von `assembly::tests::the_t_ir_001_fixture_predicate_
+/// is_refused_by_the_production_path` als EINGABE verwendet: das Fixture
+/// belegt so die Wache, statt ihr zu widersprechen. Wer diesen Wert
+/// aendert, aendert beide Stellen zugleich - dasselbe Muster wie bei den
+/// compile_fail-Doctests, die ohne Positivkontrolle aus dem falschen
+/// Grund bestehen koennten.
+#[cfg(test)]
+pub(crate) const T_IR_001_FIXTURE_PREDICATE: &str = "true";
 
 #[cfg(test)]
 mod tests {
@@ -191,8 +217,12 @@ mod tests {
             target: n_z.id,
             relation_sort: psk_types::objects::RelationSortId::Forks,
             direction: IREdgeDirectionKind::Forward,
-            preconditions: vec![psk_types::objects::PredicateExpr("true".into())],
-            postconditions: vec![psk_types::objects::PredicateExpr("true".into())],
+            preconditions: vec![psk_types::objects::PredicateExpr(
+                T_IR_001_FIXTURE_PREDICATE.into(),
+            )],
+            postconditions: vec![psk_types::objects::PredicateExpr(
+                T_IR_001_FIXTURE_PREDICATE.into(),
+            )],
             gate_ref: None,
             dependency_refs: vec![],
             trace_ref: TraceRef(Digest::sha256(b"edge-trace")),

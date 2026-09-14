@@ -1,8 +1,8 @@
 //! M09 SpectralLensRouter: wendet die Spektrallinse Pi_lambda einer aktiven
 //! FieldIdentity auf ein Urbild an und erzeugt entweder genau eine
-//! FieldProjection (Struktur 7.13, OBJ-PRJ) oder - wenn die Linse nicht
+//! FieldProjection (Struktur 7.15, OBJ-PRJ) oder - wenn die Linse nicht
 //! anwendbar ist - einen ResidueRecord des Typs `scope` plus PSK-E013
-//! (Regel 7.15, Vertrag C5).
+//! (Regel 7.17, Vertrag C5).
 //!
 //! `LensSpec` hat im Kern keine Grammatik, und das ist seit v1.0.7
 //! ausdruecklich entschieden statt offen: Vertrag 27.2 (Domaenengelieferte
@@ -24,9 +24,9 @@
 //! Vorgabe.
 //!
 //! Was diese Funktion beitraegt, ist der Teil, den das Werk bindend macht:
-//! die Alles-oder-Ausschuss-Entscheidung (Regel 7.15, ein `visible` DARF
+//! die Alles-oder-Ausschuss-Entscheidung (Regel 7.17, ein `visible` DARF
 //! NICHT leer sein) und die vollstaendige, nie-lueckenhafte Fuehrung von
-//! `occluded` (Regel 7.16) - `occluded` wird aus der Kandidatenmenge MINUS
+//! `occluded` (Regel 7.18) - `occluded` wird aus der Kandidatenmenge MINUS
 //! der Aufloesung berechnet, nie vom Aufrufer entgegengenommen, damit ein
 //! stillschweigendes Auslassen strukturell unmoeglich ist.
 //!
@@ -34,7 +34,7 @@
 //! (TraceReplayResidueStore), nicht M09 - dieselbe Form wie schon bei
 //! RealityClassification/M07 (psk-thought) und ExternalRecord/M17
 //! (psk-anchor): die Regel, die M09 zum Erzeugen verpflichtet (Regel
-//! 7.15), und die Ownership-Tabelle, die M19 als Sorten-Eigner fuehrt
+//! 7.17), und die Ownership-Tabelle, die M19 als Sorten-Eigner fuehrt
 //! (S-RES), widersprechen sich nicht - M09 konstruiert den Wert als
 //! unmittelbare Antwort auf die nicht anwendbare Linse, M19 ist das
 //! dauerhafte Ledger, in dem er lebt (lifetime L-PERSIST, memory
@@ -68,7 +68,7 @@ pub struct ProjectionInputs {
 }
 
 /// Ergebnis von `route_lens`: entweder die verlangte FieldProjection
-/// (Regel 7.15: nie mit leerem `visible`), oder - wenn die Linse nicht
+/// (Regel 7.17: nie mit leerem `visible`), oder - wenn die Linse nicht
 /// anwendbar ist - der laut Vertrag C5 verlangte ResidueRecord.
 #[derive(Debug, Clone, PartialEq)]
 pub enum LensOutcome {
@@ -99,7 +99,7 @@ fn strip_id(value: &impl serde::Serialize) -> Result<Vec<u8>, PskError> {
 /// M09: klassifiziert `inputs.candidates` anhand von `inputs.resolved` in
 /// `visible`/`occluded` (Reihenfolge = Reihenfolge in `candidates`, damit
 /// deterministisch) und liefert entweder eine FieldProjection oder - falls
-/// `visible` leer bliebe - einen ResidueRecord(scope) (Regel 7.15).
+/// `visible` leer bliebe - einen ResidueRecord(scope) (Regel 7.17).
 ///
 /// `field` MUSS aktiv sein, um ueberhaupt projiziert zu werden (Vertrag
 /// C5: "Fuer jede aktive FieldIdentity"); diese Funktion prueft das nicht
@@ -145,7 +145,7 @@ pub fn route_lens(
     Ok(LensOutcome::Projected(FieldProjection { id, ..draft }))
 }
 
-/// Regel 7.15 / Vertrag C5: der ResidueRecord, der an die Stelle einer
+/// Regel 7.17 / Vertrag C5: der ResidueRecord, der an die Stelle einer
 /// nicht entstehenden FieldProjection tritt. `occluded` ist zu diesem
 /// Zeitpunkt bereits die volle Kandidatenmenge (kein Element wurde
 /// aufgeloest) - sie fliesst nicht in ResidueRecord ein (dessen Struktur
@@ -210,6 +210,7 @@ mod tests {
                 dependency_profile_ref: ObjectId::new(SortId::Dependency, Digest::sha256(b"dep")),
                 budget: BudgetSpec("10 Einheiten".into()),
                 rollback: RollbackSpec("Snapshot vorher".into()),
+                system_identity: Digest::sha256(b"system-identity-not-a-field"),
             },
         )
         .unwrap()
@@ -258,7 +259,7 @@ mod tests {
 
     #[test]
     fn empty_resolution_yields_scope_residue_not_empty_projection() {
-        // Regel 7.15: "Eine FieldProjection mit leerem visible ist
+        // Regel 7.17: "Eine FieldProjection mit leerem visible ist
         // unzulaessig: Es gibt keine leere Projektion, sondern nur eine
         // ausgebliebene."
         let field = sample_field();
@@ -288,7 +289,7 @@ mod tests {
 
     #[test]
     fn occluded_is_never_silently_dropped() {
-        // Regel 7.16: "occluded MUSS vollstaendig gefuehrt werden." occluded
+        // Regel 7.18: "occluded MUSS vollstaendig gefuehrt werden." occluded
         // wird hier aus candidates \ resolved berechnet, nicht vom
         // Aufrufer uebernommen - ein zu klein geratenes occluded ist
         // strukturell unmoeglich.
@@ -308,7 +309,7 @@ mod tests {
 
     #[test]
     fn reality_view_is_a_copy_never_a_promotion() {
-        // Regel 7.14: reality_status/facticity des Urbildes DARF NICHT
+        // Regel 7.16: reality_status/facticity des Urbildes DARF NICHT
         // durch eine Projektion veraendert werden - reality_view ist eine
         // vom Aufrufer bereitgestellte Sicht, keine hier berechnete.
         let field = sample_field();

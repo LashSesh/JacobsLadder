@@ -4,7 +4,7 @@
 //!
 //! "Unvermischt": diese Funktion aendert `record` nicht und mischt ihn mit
 //! keinem anderen Record - sie fuegt ausschliesslich die Herkunftsangaben
-//! hinzu, die Struktur 7.4 (Provenance) verlangt.
+//! hinzu, die Struktur 7.4 (AnchorSnapshot), ProvenanceBlock, verlangt.
 
 use psk_types::objects::{AdapterId, Provenance};
 use psk_types::{Digest, PskError};
@@ -35,7 +35,7 @@ pub fn bind_provenance(
 }
 
 /// Struktur 7.4, Provenance.observer_identity: "MUSS != Effekt-
-/// Adapteridentitaet" (dieselbe Beobachtertrennung, die Invariante 7.34 fuer
+/// Adapteridentitaet" (dieselbe Beobachtertrennung, die Invariante 7.37 (Beobachtertrennung) fuer
 /// ExternalReceipt.observer_identity vs. EffectAttempt.adapter verlangt).
 /// `effect_adapter_identity` ist `None`, solange M16 (WP12, Phase I6) keine
 /// Effektversuche erzeugt - dann ist die Bedingung vakuos erfuellt, nicht

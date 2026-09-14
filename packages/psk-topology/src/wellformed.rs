@@ -1,6 +1,6 @@
-//! Regel 9.9 (Wohlgeformtheit einer M13Address), neu in PSK-RA v1.0.4.
+//! Regel 9.13 (Wohlgeformtheit einer M13Address), neu in PSK-RA v1.0.4.
 //!
-//! Die Grammatik aus Definition 9.8 allein traegt diese drei Bedingungen
+//! Die Grammatik aus Definition 9.12 allein traegt diese drei Bedingungen
 //! nicht; sie werden hier zusaetzlich geprueft:
 //!
 //! 1. `level` ist gleich der Anzahl der Abstiegspaare
@@ -20,25 +20,26 @@
 //! (dieses Paket, generiert aus architecture/m13_topology.yaml); psk-types
 //! kennt nur die Grammatik.
 //!
-//! ## Dokumentbefund zu Punkt 3 (gemeldet, nicht selbst aufgeloest)
+//! ## Dokumentbefund zu Punkt 3: gemeldet, inzwischen an der Quelle geschlossen
 //!
-//! Regel 9.9 Punkt 3 und Invariante 9.18 verlangen beide `max_depth` bzw.
-//! `N` "des RuntimeManifest". Struktur 7.1 (OBJ-RTM) fuehrt jedoch genau
-//! zehn Felder - schema, constitution_id, architecture_id,
-//! implementation_id, profile, capability_matrix, build_digest,
-//! operator_versions, adapter_versions, determinism_class - und keines
-//! davon ist `max_depth` oder `N`. Auch das Register selbst notiert nur
-//! `scale: {max_depth: declared_in_runtime_manifest}`, also einen Verweis
-//! auf ein Feld, das die Struktur nicht definiert. `max_depth` wird daher
-//! hier als expliziter Parameter uebergeben, statt ein Feld zu erfinden,
-//! das die Objektstruktur nicht kennt.
+//! Regel 9.13 Punkt 3 und Invariante 9.25 verlangen beide `max_depth` bzw.
+//! `N` "des RuntimeManifest". Struktur 7.1 (RuntimeManifest), OBJ-RTM
+//! fuehrte jedoch zehn Felder, von denen keines `max_depth` hiess - eine
+//! haengende Referenz, hier gemeldet statt durch ein erfundenes Feld
+//! ueberspielt. v1.0.32 ergaenzt das Feld (Fehlerkorrektur Punkt 34,
+//! dieselbe Klasse wie zuvor `ratchet_max_rounds`).
+//!
+//! Die Signatur bleibt dennoch parametrisch: `check_address` prueft eine
+//! Adresse gegen EINE Tiefenschranke und braucht dafuer kein ganzes
+//! Manifest - der Aufrufer reicht `manifest.max_depth` herein. Das ist
+//! jetzt eine Uebergabe statt eines Ersatzes.
 
 use psk_types::objects::M13Address;
 use psk_types::{CellId, CellKind, M13NodeId, ParsedM13Address, PskError};
 
 use crate::{Cell, NodeId, CELLS};
 
-/// Welche der drei Bedingungen aus Regel 9.9 verletzt ist. Alle Varianten
+/// Welche der drei Bedingungen aus Regel 9.13 verletzt ist. Alle Varianten
 /// erzeugen normativ denselben Fehlercode (PSK-E011); die Unterscheidung
 /// dient dem CellReport und der Fehlersuche, nicht einer abweichenden
 /// Reaktion.
@@ -57,7 +58,7 @@ pub enum WellformednessViolation {
 }
 
 impl WellformednessViolation {
-    /// Regel 9.9 letzter Satz: "erzeugt PSK-E011".
+    /// Regel 9.13 letzter Satz: "erzeugt PSK-E011".
     pub const fn error_code(&self) -> PskError {
         PskError::NonclosingM13Seam
     }
@@ -71,22 +72,22 @@ impl std::fmt::Display for WellformednessViolation {
                 descent_pairs,
             } => write!(
                 f,
-                "Regel 9.9.1: level={level}, aber {descent_pairs} Abstiegspaare im scale_path"
+                "Regel 9.13.1: level={level}, aber {descent_pairs} Abstiegspaare im scale_path"
             ),
             WellformednessViolation::ParentNodeNotInParentCell { cell, node } => write!(
                 f,
-                "Regel 9.9.2: parent_node_id {node} ist kein Knoten von parent_cell_id {cell}"
+                "Regel 9.13.2: parent_node_id {node} ist kein Knoten von parent_cell_id {cell}"
             ),
             WellformednessViolation::NodeNotInCell { cell, node } => write!(
                 f,
-                "Regel 9.9.2: node_id {node} ist kein Knoten von cell_id {cell}"
+                "Regel 9.13.2: node_id {node} ist kein Knoten von cell_id {cell}"
             ),
             WellformednessViolation::UnknownCell { cell } => {
-                write!(f, "Regel 9.9.2: Zelle {cell} steht nicht im Zellregister")
+                write!(f, "Regel 9.13.2: Zelle {cell} steht nicht im Zellregister")
             }
             WellformednessViolation::DepthExceedsMaxDepth { level, max_depth } => write!(
                 f,
-                "Regel 9.9.3: level={level} ueberschreitet max_depth={max_depth}"
+                "Regel 9.13.3: level={level} ueberschreitet max_depth={max_depth}"
             ),
         }
     }
@@ -118,7 +119,7 @@ fn lookup_cell(c: &CellId) -> Option<&'static Cell> {
     CELLS.iter().find(|cell| cell.id == key)
 }
 
-/// Regel 9.9 Punkt 2: Zugehoerigkeit gegen das Zellregister, nicht gegen
+/// Regel 9.13 Punkt 2: Zugehoerigkeit gegen das Zellregister, nicht gegen
 /// die Schreibweise. `NodeId::from_id` uebersetzt die Adressschreibweise in
 /// den Registerknoten; steht sie dort nicht, ist sie kein Knoten.
 fn cell_contains(cell: &'static Cell, node: &M13NodeId) -> bool {
@@ -128,7 +129,7 @@ fn cell_contains(cell: &'static Cell, node: &M13NodeId) -> bool {
     }
 }
 
-/// Prueft Regel 9.9 vollstaendig. `max_depth` stammt normativ aus dem
+/// Prueft Regel 9.13 vollstaendig. `max_depth` stammt normativ aus dem
 /// RuntimeManifest (siehe Dokumentbefund im Modulkopf) und wird deshalb
 /// explizit uebergeben.
 pub fn check_wellformed(
@@ -197,7 +198,7 @@ mod tests {
 
     #[test]
     fn definition_9_8_examples_are_wellformed() {
-        // Alle drei Beispiele aus Definition 9.8 (v1.0.4). Beispiel 3 ist
+        // Alle drei Beispiele aus Definition 9.12 (v1.0.4). Beispiel 3 ist
         // die in v1.0.4 korrigierte Fassung; sie ist genau deshalb
         // wohlgeformt, weil i2 in c2 und o5 in b5 liegt.
         for (addr, max_depth) in [
@@ -316,8 +317,8 @@ mod tests {
 
     #[test]
     fn placement_output_is_always_wellformed() {
-        // Regel 9.10 erzeugt Adressen auf Skala 0 ohne Ahnenkette und ohne
-        // node_id; sie muessen Regel 9.9 immer erfuellen, sonst koennte der
+        // Regel 9.13 erzeugt Adressen auf Skala 0 ohne Ahnenkette und ohne
+        // node_id; sie muessen Regel 9.13 immer erfuellen, sonst koennte der
         // Compiler eine Adresse erzeugen, die nicht in ihre Zelle darf.
         use crate::{place, EdgeContext};
         use psk_types::objects::SortId;

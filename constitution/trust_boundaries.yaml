@@ -25,9 +25,9 @@ transition_requirement:
   # module_map.yaml). Diese Datei erfindet daher keine edges-Liste; die Pflicht
   # gilt laut Kapitel 35 uniform fuer jeden Uebergang, unabhaengig von Quelle/Ziel.
 least_privilege_axiom:
-  # Zeilen 739-741: "Axiom 35.1 (Least Privilege). Eine Rolle erhält nur die
+  # Zeilen 739-741: "CPSK Axiom 35.1 (Least Privilege). Eine Rolle erhält nur die
   # minimal erforderlichen Fähigkeiten. [...]"
-  ref: "Axiom 35.1"
+  ref: "CPSK Axiom 35.1"
   statement: Eine Rolle erhält nur die minimal erforderlichen Fähigkeiten.
   # Konkrete Rollen-/Capability-Zuweisungen (inkl. der im Quelltext genannten
   # Beispiele wie Feldidentitaet/Effektgrenze/Reconciliation Engine) werden

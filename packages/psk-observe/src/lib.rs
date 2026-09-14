@@ -3,7 +3,7 @@
 //! Regel 32.1). Ausimplementierung folgt in der Phase, die das jeweilige
 //! Modul realisiert (Regel 32.2).
 //!
-//! WP15 (I7): `observe` - Persona (Axiom 7.16), ViewArtifact (Struktur
+//! WP15 (I7): `observe` - Persona (Axiom 7.20), ViewArtifact (Struktur
 //! 7.1, Speicherklasse none), read-only Inspect ueber psk-trace.
 
 include!(concat!(env!("OUT_DIR"), "/port_stubs.rs"));
